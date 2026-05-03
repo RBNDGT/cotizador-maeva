@@ -93,6 +93,21 @@ textarea{resize:vertical;min-height:70px}
 .modal-btns{display:flex;gap:10px;justify-content:flex-end;margin-top:4px}
 .div-sep{height:1px;background:var(--azul-light);margin:14px 0}
 .info-reglas{background:var(--azul-light);border-radius:8px;padding:9px 12px;font-size:11px;color:var(--azul-dark);line-height:1.7;margin-top:10px;border:1px solid var(--azul-mid)}
+
+.modal-cap{border-top:4px solid var(--dorado)}
+.config-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--azul-light)}
+.config-row:last-child{border-bottom:none}
+.config-row label{margin-bottom:0;flex:0 0 160px}
+.config-row input{max-width:280px}
+.btn-wa{background:#25D366;color:#fff;border-color:#25D366}
+.btn-wa:hover{background:#1ebe57}
+.btn-email{background:#EA4335;color:#fff;border-color:#EA4335}
+.btn-email:hover{background:#c5342a}
+.desc-auto-badge{background:var(--dorado-light);border:1.5px solid var(--dorado);border-radius:8px;padding:8px 12px;font-size:12px;color:var(--dorado-dark);margin-top:8px;display:none}
+.desc-tabla{width:100%;border-collapse:collapse;font-size:12px;margin-top:6px}
+.desc-tabla th{background:var(--azul-light);color:var(--azul-dark);padding:5px 8px;text-align:left;font-weight:600}
+.desc-tabla td{padding:5px 8px;border-bottom:1px solid var(--azul-light)}
+.desc-tabla tr.activa td{background:var(--dorado-light);font-weight:700;color:var(--dorado-dark)}
 </style>
 </head>
 <body>
@@ -105,6 +120,22 @@ textarea{resize:vertical;min-height:70px}
   </div>
 </div>
 <div class="container">
+
+<!-- MODAL CAPACIDAD -->
+<div class="modal-overlay" id="modal-cap-overlay">
+  <div class="modal modal-cap">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:.5rem">
+      <span style="font-size:26px">⚠️</span>
+      <h2 style="color:var(--dorado-dark)">Capacidad excedida</h2>
+    </div>
+    <p id="modal-cap-msg" style="font-size:13px;color:#444;line-height:1.6;margin-bottom:1rem"></p>
+    <div class="div-sep"></div>
+    <div class="modal-btns">
+      <button class="btn" onclick="cerrarModalCap()">Entendido</button>
+      <button class="btn btn-primary" onclick="cerrarModalCap();switchTab('comparar')">Ver opciones alternativas</button>
+    </div>
+  </div>
+</div>
 
 <!-- MODAL RECORDATORIO -->
 <div class="modal-overlay" id="modal-overlay">
@@ -128,6 +159,7 @@ textarea{resize:vertical;min-height:70px}
   <div class="tab" onclick="switchTab('comparar')">Comparar opciones</div>
   <div class="tab" onclick="switchTab('cliente')">Datos del cliente</div>
   <div class="tab" onclick="switchTab('resumen')">Resumen para cliente</div>
+  <div class="tab" onclick="switchTab('config')">⚙ Configuración</div>
 </div>
 
 <!-- ═══════════════ COTIZAR ═══════════════ -->
@@ -183,16 +215,16 @@ textarea{resize:vertical;min-height:70px}
 
 <!-- DESCUENTOS Y TARIFAS EXTRAORDINARIAS -->
 <div class="card">
-  <div class="sec">Descuentos y tarifas extraordinarias</div>
-  <div class="grid2" style="margin-bottom:12px">
+  <div class="sec">Ajustes de tarifa extraordinarios</div>
+  <div class="grid2" style="margin-bottom:10px">
     <div>
-      <label>Tipo de ajuste</label>
+      <label>Tipo de ajuste manual</label>
       <select id="desc-tipo" onchange="toggleDescuento()">
-        <option value="ninguno">Sin ajuste</option>
-        <option value="pct_desc">% de descuento</option>
-        <option value="monto_desc">Monto fijo de descuento (por noche)</option>
+        <option value="ninguno">Sin ajuste manual</option>
         <option value="pct_inc">% de incremento (alta demanda)</option>
         <option value="monto_inc">Monto fijo de incremento (por noche)</option>
+        <option value="pct_desc">% de descuento adicional</option>
+        <option value="monto_desc">Monto fijo de descuento (por noche)</option>
       </select>
     </div>
     <div id="desc-valor-wrapper" style="display:none">
@@ -200,7 +232,8 @@ textarea{resize:vertical;min-height:70px}
       <input type="number" id="desc-valor" min="0" value="0" onchange="calcular()" placeholder="0">
     </div>
   </div>
-  <div id="desc-nota" style="font-size:11px;color:#4A7A92">El descuento/incremento se aplica sobre la tarifa base (sin upgrades de habitación).</div>
+  <div id="desc-auto-info" class="desc-auto-badge" style="display:block"></div>
+  <div style="font-size:11px;color:var(--texto-suave);margin-top:6px">Los descuentos automáticos AI aplican sobre la tarifa base. Ajustes manuales se suman.</div>
 </div>
 
 <div id="resultado" style="display:none">
@@ -270,12 +303,61 @@ textarea{resize:vertical;min-height:70px}
 <div class="card">
   <div class="sec">Resumen para enviar al cliente</div>
   <div id="resumen-output">Complete la cotización y haga clic en "Generar resumen para cliente" desde la pestaña Cotizar.</div>
-  <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
-    <button class="btn btn-primary" onclick="abrirModal()">Regenerar resumen ↗</button>
-    <button class="btn" id="btn-copiar" onclick="copiarResumen()">Copiar texto</button>
-    <button class="btn btn-dorado" id="btn-pdf" onclick="exportarPDF()">⬇ Exportar PDF</button>
+  <div style="margin-bottom:10px">
+    <label style="font-size:11px;color:var(--texto-suave);margin-bottom:6px;display:block">TONO DEL MENSAJE</label>
+    <div style="display:flex;gap:6px">
+      <button class="btn btn-sm" id="tono-formal" onclick="setTono('formal')" style="border-color:var(--azul);color:var(--azul)">Formal</button>
+      <button class="btn btn-sm" id="tono-amigable" onclick="setTono('amigable')">Amigable</button>
+      <button class="btn btn-sm" id="tono-whatsapp" onclick="setTono('whatsapp')">WhatsApp corto</button>
+    </div>
+  </div>
+  <div id="resumen-desc-auto" class="desc-auto-badge"></div>
+  <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+    <button class="btn btn-primary" onclick="abrirModal()">Regenerar ↗</button>
+    <button class="btn" id="btn-copiar" onclick="copiarResumen()">📋 Copiar</button>
+    <button class="btn btn-wa" onclick="enviarWhatsApp()">💬 WhatsApp</button>
+    <button class="btn btn-email" onclick="enviarEmail()">✉️ Correo</button>
+    <button class="btn btn-dorado" id="btn-pdf" onclick="exportarPDF()">⬇ PDF</button>
   </div>
 </div>
+</div>
+
+
+<!-- ═══════════════ CONFIG ═══════════════ -->
+<div id="panel-config" class="panel">
+<div class="card">
+  <div class="sec">Información del hotel</div>
+  <div class="config-row"><label>Nombre del hotel</label><input type="text" id="cfg-hotel" value="Club Maeva Miramar" oninput="guardarConfig()"></div>
+  <div class="config-row"><label>Ciudad / Ubicación</label><input type="text" id="cfg-ciudad" value="Tampico, Tamaulipas, México" oninput="guardarConfig()"></div>
+  <div class="config-row"><label>Teléfono de reservas</label><input type="text" id="cfg-tel" value="833 205 4100" oninput="guardarConfig()"></div>
+  <div class="config-row"><label>WhatsApp (con código)</label><input type="text" id="cfg-wa" value="528332054100" placeholder="52XXXXXXXXXX" oninput="guardarConfig()"></div>
+  <div class="config-row"><label>Correo de reservas</label><input type="text" id="cfg-email" value="" placeholder="reservas@maeva.com" oninput="guardarConfig()"></div>
+</div>
+<div class="card">
+  <div class="sec">Textos del resumen</div>
+  <div class="config-row"><label>Saludo inicial</label><input type="text" id="cfg-saludo" value="Con gusto le comparto la cotización de su estancia:" oninput="guardarConfig()"></div>
+  <div class="config-row"><label>Mensaje de cierre</label><input type="text" id="cfg-cierre" value="Tarifas sujetas a disponibilidad. Cotización válida al momento de emisión." oninput="guardarConfig()"></div>
+</div>
+<div class="card">
+  <div class="sec">Descuentos automáticos AI (todo el año)</div>
+  <p style="font-size:12px;color:var(--texto-suave);margin-bottom:10px">Aplican automáticamente solo en Plan Todo Incluido. Los descuentos manuales se suman a estos.</p>
+  <table class="desc-tabla">
+    <tr><th>Noches</th><th>Descuento automático</th></tr>
+    <tr><td>1 noche</td><td>10%</td></tr>
+    <tr><td>2 noches</td><td>15%</td></tr>
+    <tr><td>3 noches</td><td>20%</td></tr>
+    <tr><td>4+ noches</td><td>Noche de menor valor gratis</td></tr>
+  </table>
+  <div style="margin-top:10px;display:flex;gap:8px;align-items:center">
+    <label style="margin-bottom:0;font-size:13px">Activar descuentos automáticos AI</label>
+    <input type="checkbox" id="cfg-desc-auto" checked onchange="guardarConfig();calcular()" style="width:auto;width:18px;height:18px;cursor:pointer">
+  </div>
+</div>
+<div class="card">
+  <div class="sec">Agente predeterminado</div>
+  <div class="config-row"><label>Nombre del agente</label><input type="text" id="cfg-agente" value="" placeholder="Nombre que aparece en el resumen" oninput="guardarConfig()"></div>
+</div>
+<div style="margin-top:4px"><button class="btn btn-primary" onclick="resetConfig()">Restablecer valores predeterminados</button></div>
 </div>
 
 </div><!-- /container -->
@@ -374,7 +456,7 @@ function clasifMenores(arr,hab,adultos){
 }
 
 // Calcula costo de una noche para UNA habitación
-function calcNoche(fecha,plan,adultos,adolescentes,menoresC,descTipo,descVal){
+function calcNoche(fecha,plan,adultos,adolescentes,menoresC,descTipo,descVal,descAutoPct){
   let t=getTarifa(fecha);if(!t)return null;
   let we=isWE(new Date(fecha+'T12:00:00'));
   let tb=getTBase(t,plan,we);if(!tb)return null;
@@ -411,14 +493,20 @@ function calcNoche(fecha,plan,adultos,adolescentes,menoresC,descTipo,descVal){
     }
   }
 
-  // Aplicar descuento/incremento sobre base (sin upgrade)
-  let ajuste=0;
-  if(descTipo==='pct_desc'){ajuste=-(base*(descVal/100));}
-  else if(descTipo==='monto_desc'){ajuste=-descVal;}
-  else if(descTipo==='pct_inc'){ajuste=base*(descVal/100);}
-  else if(descTipo==='monto_inc'){ajuste=descVal;}
+  // Aplicar descuento automático AI (solo plan AI)
+  let ajusteAuto=0;
+  if(plan==='AI'&&descAutoPct&&descAutoPct>0){
+    ajusteAuto=-(base*(descAutoPct/100));
+  }
+  // Aplicar ajuste manual
+  let ajusteManual=0;
+  if(descTipo==='pct_desc'){ajusteManual=-(base*(descVal/100));}
+  else if(descTipo==='monto_desc'){ajusteManual=-descVal;}
+  else if(descTipo==='pct_inc'){ajusteManual=base*(descVal/100);}
+  else if(descTipo==='monto_inc'){ajusteManual=descVal;}
+  let ajuste=ajusteAuto+ajusteManual;
 
-  return{base,ajuste,total:base+ajuste,items,temporada:t,we};
+  return{base,ajuste,ajusteAuto,ajusteManual,total:base+ajuste,items,temporada:t,we};
 }
 
 // ─── CÁLCULO PRINCIPAL ───────────────────────────────────────────────────────
@@ -433,6 +521,27 @@ function calcular(){
   let descTipo=document.getElementById('desc-tipo').value;
   let descVal=parseFloat(document.getElementById('desc-valor').value)||0;
   let upg=HAB_UPGRADE[hab]||0;
+
+  // ── Descuento automático AI ──
+  let descAutoActivo=document.getElementById('cfg-desc-auto')?.checked!==false;
+  let descAutoPct=0;
+  let descAutoLabel='';
+  let nTemp=(!fi||!fo)?0:noches(fi,fo);
+  if(plan==='AI'&&descAutoActivo&&nTemp>0){
+    if(nTemp===1){descAutoPct=10;descAutoLabel='10% descuento (1 noche)';}
+    else if(nTemp===2){descAutoPct=15;descAutoLabel='15% descuento (2 noches)';}
+    else if(nTemp===3){descAutoPct=20;descAutoLabel='20% descuento (3 noches)';}
+    // 4+ noches: noche gratis se maneja después del cálculo
+  }
+  // Mostrar badge info
+  let autoInfoEl=document.getElementById('desc-auto-info');
+  if(autoInfoEl){
+    if(plan==='AI'&&descAutoActivo&&nTemp>0){
+      let labelAuto=nTemp===1?'10% (1 noche)':nTemp===2?'15% (2 noches)':nTemp===3?'20% (3 noches)':nTemp>=4?'🎁 Noche de menor valor gratis (4+ noches)':'';
+      autoInfoEl.style.display='block';
+      autoInfoEl.innerHTML=`🏷️ <strong>Descuento automático AI activo:</strong> ${labelAuto}`;
+    }else{autoInfoEl.style.display='none';}
+  }
 
   document.getElementById('advertencias').innerHTML='';
   document.getElementById('info-temporada').innerHTML='';
@@ -464,7 +573,7 @@ function calcular(){
 
   for(let i=0;i<n;i++){
     let fecha=addDays(fi,i);
-    let res=calcNoche(fecha,plan,adultos,adoles,mc,descTipo,descVal);
+    let res=calcNoche(fecha,plan,adultos,adoles,mc,descTipo,descVal,descAutoPct);
     if(!res)continue;
     let key=res.temporada.nombre+(res.we?'_we':'_wd');
     if(!grupos[key])grupos[key]={noches:0,base:0,ajuste:0,items:res.items,tmp:res.temporada.nombre,we:res.we};
@@ -528,20 +637,63 @@ function calcular(){
   document.getElementById('total-sub-txt').textContent=`${n} noche${n>1?'s':''} · ${numHabs} habitación${numHabs>1?'es':''} · ${adultos+adoles+menores.length} persona${(adultos+adoles+menores.length)>1?'s':''}`;
   document.getElementById('resultado').style.display='block';
 
+  // ── Noche gratis para 4+ noches AI ──
+  let nocheGratisValor=0;
+  let nocheGratisLabel='';
+  if(plan==='AI'&&descAutoActivo&&n>=4){
+    // Encontrar la noche de menor valor base
+    let valoresNoche=[];
+    for(let i=0;i<n;i++){
+      let fecha=addDays(fi,i);
+      let t2=getTarifa(fecha);
+      if(t2){let we2=isWE(new Date(fecha+'T12:00:00'));let tb2=getTBase(t2,plan,we2);if(tb2){
+        // Calcular valor total de esa noche para los huéspedes
+        let valNoche=0;
+        if(adultos===1)valNoche=tb2.s;
+        else valNoche=tb2.d;
+        for(let k=3;k<=adultos;k++)valNoche+=tb2.pe;
+        for(let k=0;k<adoles;k++)valNoche+=tb2.ad;
+        for(let m of mc){
+          if(m.tipo==='612')valNoche+=tb2.n612;
+          else if(m.tipo==='extra')valNoche+=tb2.ne;
+        }
+        valoresNoche.push(valNoche);
+      }}
+    }
+    nocheGratisValor=Math.min(...valoresNoche)*numHabs;
+    totalFinal-=nocheGratisValor;
+    nocheGratisLabel=`🎁 Noche gratis (menor valor): -${fmt(nocheGratisValor)}`;
+  }
+
   // Advertencias
   let adv='';
   if(t0&&t0.minAI&&plan==='AI'&&n<t0.minAI)
     adv+=`<div class="alerta alerta-red">⚠ Estancia mínima requerida: ${t0.minAI} noches (AI) para esta temporada.</div>`;
   let cap=HAB_CAP[hab]||4;
   let total_p=adultos+adoles+menores.filter(m=>parseInt(m.edad||0)>=2).length;
-  if(total_p>cap)
-    adv+=`<div class="alerta alerta-red">⚠ Capacidad de ${HAB_NOM[hab]}: ${cap} personas. Total cotizado: ${total_p}.</div>`;
-  if(hab==='MASTER_SUITE'&&menores.length>0)
-    adv+=`<div class="alerta alerta-red">⚠ Master Suite es exclusiva para 2 adultos. No se permiten menores.</div>`;
+  if(total_p>cap){
+    // Mostrar modal de capacidad en lugar de solo texto
+    let msg=`La habitación <strong>${HAB_NOM[hab]}</strong> tiene capacidad para <strong>${cap} personas</strong>.<br><br>Estás cotizando para <strong>${total_p} personas</strong>. Te recomendamos revisar las opciones de habitación disponibles para este grupo.`;
+    document.getElementById('modal-cap-msg').innerHTML=msg;
+    document.getElementById('modal-cap-overlay').classList.add('active');
+  }
+  if(hab==='MASTER_SUITE'&&menores.length>0){
+    document.getElementById('modal-cap-msg').innerHTML='La <strong>Master Suite</strong> es exclusiva para 2 adultos. <strong>No se permiten menores</strong> en esta habitación.';
+    document.getElementById('modal-cap-overlay').classList.add('active');
+  }
   document.getElementById('advertencias').innerHTML=adv;
 
+  // Mostrar noche gratis en desglose si aplica
+  if(nocheGratisValor>0){
+    let ngEl=document.getElementById('desglose');
+    ngEl.innerHTML+=`<div class="desglose-row" style="color:#1A7A3F;font-weight:600;padding:6px 0">
+      <span>${nocheGratisLabel}</span><span>-${fmt(nocheGratisValor)}</span>
+    </div>`;
+    document.getElementById('total-valor').textContent=fmt(totalFinal);
+  }
+
   // Guardar para otras pestañas
-  window._cot={fi,fo,n,plan,hab,adultos,adoles,menores:mc,numHabs,upg,descTipo,descVal,totalFinal,totalBase,totalAjuste:totalAjuste*numHabs,totalUpg,grupos,temporada:t0?t0.nombre:''};
+  window._cot={fi,fo,n,plan,hab,adultos,adoles,menores:mc,numHabs,upg,descTipo,descVal,descAutoPct,nocheGratisValor,nocheGratisLabel,totalFinal,totalBase,totalAjuste:totalAjuste*numHabs,totalUpg,grupos,temporada:t0?t0.nombre:''};
   calcularComparativa();
 }
 
@@ -557,7 +709,7 @@ function calcularComparativa(){
     let tot=0;
     for(let i=0;i<c.n;i++){
       let fecha=addDays(c.fi,i);
-      let res=calcNoche(fecha,c.plan,c.adultos,c.adoles,mc2,c.descTipo,c.descVal);
+      let res=calcNoche(fecha,c.plan,c.adultos,c.adoles,mc2,c.descTipo,c.descVal,c.descAutoPct||0);
       if(res)tot+=res.total;
     }
     return tot*nHabs+upg2*c.n*nHabs;
@@ -677,11 +829,18 @@ function abrirModal(){
   checks.push(`✅ Número de habitaciones: <strong>${numHabs}</strong>`);
   checks.push(`✅ Plan: <strong>${plan==='AI'?'Todo Incluido':'Plan Europeo'}</strong>`);
 
+  // Descuento automático AI
+  let autoActivo=document.getElementById('cfg-desc-auto')?.checked!==false;
+  let nochesCount=c?c.n:0;
+  if(c&&c.plan==='AI'&&autoActivo){
+    if(nochesCount===1)checks.push(`🏷️ Descuento automático AI: <strong>10% (1 noche)</strong>`);
+    else if(nochesCount===2)checks.push(`🏷️ Descuento automático AI: <strong>15% (2 noches)</strong>`);
+    else if(nochesCount===3)checks.push(`🏷️ Descuento automático AI: <strong>20% (3 noches)</strong>`);
+    else if(nochesCount>=4)checks.push(`🎁 Descuento automático AI: <strong>Noche gratis incluida (4+ noches)</strong>`);
+  }
   if(desc!=='ninguno'&&parseFloat(descVal)>0){
-    let descLabel={pct_desc:'Descuento de '+descVal+'%',monto_desc:'Descuento de '+fmt(descVal)+'/noche',pct_inc:'Incremento de '+descVal+'%',monto_inc:'Incremento de '+fmt(descVal)+'/noche'}[desc];
-    checks.push(`🏷️ Ajuste aplicado: <strong>${descLabel}</strong> — ¿confirmado con el cliente?`);
-  }else{
-    checks.push(`🏷️ Promociones/descuentos: <strong>ninguno aplicado</strong> — ¿verificaste si aplica alguno?`);
+    let descLabel={pct_desc:'Descuento adicional '+descVal+'%',monto_desc:'Descuento adicional '+fmt(descVal)+'/noche',pct_inc:'Incremento '+descVal+'%',monto_inc:'Incremento '+fmt(descVal)+'/noche'}[desc];
+    checks.push(`🏷️ Ajuste manual: <strong>${descLabel}</strong> — ¿confirmado?`);
   }
 
   let t0=getTarifa(fi);
@@ -695,6 +854,18 @@ function cerrarModal(){document.getElementById('modal-overlay').classList.remove
 function confirmarYGenerar(){cerrarModal();generarResumen();switchTab('resumen');}
 
 // ─── GENERAR RESUMEN ─────────────────────────────────────────────────────────
+let _tono='formal';
+function setTono(t){
+  _tono=t;
+  ['formal','amigable','whatsapp'].forEach(id=>{
+    let btn=document.getElementById('tono-'+id);
+    if(btn){btn.style.borderColor=id===t?'var(--azul)':'var(--gris-borde)';btn.style.background=id===t?'var(--azul-light)':'';btn.style.color=id===t?'var(--azul-dark)':'';}
+  });
+  generarResumen();
+}
+
+function getCfg(id,def){return document.getElementById(id)?.value||def;}
+
 function generarResumen(){
   let c=window._cot;
   if(!c){document.getElementById('resumen-output').textContent='Completa la cotización primero.';return;}
@@ -702,10 +873,15 @@ function generarResumen(){
   let nombre=document.getElementById('cli-nombre').value||'[Cliente]';
   let tel=document.getElementById('cli-tel').value;
   let notas=document.getElementById('cli-notas').value;
-  let agente=document.getElementById('cli-agente').value;
+  let agente=document.getElementById('cli-agente').value||getCfg('cfg-agente','');
   let canal=document.getElementById('cli-canal').value;
   let planLabel=c.plan==='AI'?'Todo Incluido (AI)':'Plan Europeo (EP)';
   let habLabel=HAB_NOM[c.hab]||c.hab;
+  let cfgTel=getCfg('cfg-tel','833 205 4100');
+  let cfgHotel=getCfg('cfg-hotel','Club Maeva Miramar');
+  let cfgCiudad=getCfg('cfg-ciudad','Tampico, Tamaulipas');
+  let cfgSaludo=getCfg('cfg-saludo','Con gusto le comparto la cotización de su estancia:');
+  let cfgCierre=getCfg('cfg-cierre','Tarifas sujetas a disponibilidad. Cotización válida al momento de emisión.');
 
   let menoresTexto='';
   if(c.menores&&c.menores.length>0){
@@ -744,12 +920,45 @@ function generarResumen(){
    • Alberca Solarium (mayores de 21 años)
    • Club de playa`:'';
 
-  let texto=`🏖️ COTIZACIÓN — CLUB MAEVA MIRAMAR, TAMPICO
+  let nocheGratisLinea=c.nocheGratisValor>0?`\n   ${c.nocheGratisLabel}`:'';
+  let descTotalLinea=(c.totalAjuste!==0||c.nocheGratisValor>0)?`\n   Ahorro total: -${fmt(Math.abs(c.totalAjuste)+(c.nocheGratisValor||0))}`:'';
+
+  // ── TEXTO SEGÚN TONO ──
+  let texto='';
+
+  if(_tono==='whatsapp'){
+    // Versión corta para WhatsApp
+    texto=`🏖️ *${cfgHotel}* — Cotización\n`;
+    texto+=`━━━━━━━━━━━━━━\n`;
+    texto+=`👤 ${nombre}\n`;
+    texto+=`📅 ${fmtD(c.fi)} → ${fmtD(c.fo)} (${c.n} noche${c.n>1?'s':''})\n`;
+    texto+=`🛏️ ${habLabel}${c.upg>0?' +upgrade':''} · ${planLabel}\n`;
+    texto+=`👥 ${c.adultos} adulto${c.adultos>1?'s':''}${c.adoles>0?', '+c.adoles+' adol.':''}${c.menores&&c.menores.length>0?', '+c.menores.length+' menor(es)':''}\n`;
+    if(c.nocheGratisValor>0)texto+=`🎁 ¡Noche gratis incluida!\n`;
+    texto+=`\n💵 *Total: ${fmt(c.totalFinal)} MXN*\n`;
+    texto+=`\n📞 ${cfgTel}${agente?' · '+agente:''}`;
+  } else if(_tono==='amigable'){
+    texto=`¡Hola ${nombre}! 😊\n\n`;
+    texto+=`Te comparto tu cotización en *${cfgHotel}*, ${cfgCiudad}:\n\n`;
+    texto+=`📅 *Fechas:* ${fmtD(c.fi)} al ${fmtD(c.fo)} (${c.n} noche${c.n>1?'s':''})\n`;
+    texto+=`🛏️ *Habitación:* ${habLabel} × ${c.numHabs}${c.upg>0?' (con upgrade)':''}\n`;
+    texto+=`📋 *Plan:* ${planLabel}\n`;
+    texto+=`👥 *Huéspedes:* ${c.adultos} adulto${c.adultos>1?'s':''}${c.adoles>0?', '+c.adoles+' adolescente(s)':''}${menoresTexto?'\n   Menores: '+menoresTexto.trim():''}\n`;
+    if(c.nocheGratisValor>0)texto+=`\n🎁 ¡Tienes una noche gratis! Ahorro de ${fmt(c.nocheGratisValor)}\n`;
+    if(c.plan==='AI')texto+=`\n✅ *Incluye:* hospedaje, alimentos buffet, bebidas, actividades y club de playa\n`;
+    texto+=`\n💵 *Total estimado: ${fmt(c.totalFinal)} MXN*\n`;
+    texto+=`   (${c.n} noches · ${c.numHabs} hab. · con impuestos)\n`;
+    if(notas)texto+=`\n📝 Nota: ${notas}\n`;
+    texto+=`\n¡Quedamos a tus órdenes para confirmar tu reserva! 🌴\n`;
+    texto+=`📞 ${cfgTel}${agente?' · '+agente:''}`;
+  } else {
+    // Formal (default)
+    texto=`🏖️ COTIZACIÓN — ${cfgHotel.toUpperCase()}, TAMPICO
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Estimado/a ${nombre},
 
-Con gusto le comparto la cotización de su estancia:
+${cfgSaludo}
 
 📅 FECHAS
    Llegada:  ${fmtD(c.fi)}
@@ -764,7 +973,7 @@ Con gusto le comparto la cotización de su estancia:
 👥 HUÉSPEDES
    Adultos: ${c.adultos}${c.adoles>0?'\n   Adolescentes (13-17): '+c.adoles:''}${menoresTexto}
 
-💰 DESGLOSE POR NOCHES${desgloseLineas}${c.totalAjuste!==0?'\n   '+( c.totalAjuste<0?'Descuento':' Incremento')+' total: '+(c.totalAjuste<0?'-':'+')+fmt(Math.abs(c.totalAjuste)):''}${c.totalUpg>0?'\n   Upgrade total: '+fmt(c.totalUpg):''}
+💰 DESGLOSE${desgloseLineas}${nocheGratisLinea}${descTotalLinea}${c.totalUpg>0?'\n   Upgrade: +'+fmt(c.totalUpg):''}
 
 💵 TOTAL ESTIMADO
    ${fmt(c.totalFinal)} MXN
@@ -773,11 +982,17 @@ ${incluyeAI}
 ${notasCliente}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Para confirmar su reservación:
-📞 833 205 4100${agente?'\n👤 Atendido por: '+agente:''}
+📞 ${cfgTel}${agente?'\n👤 Atendido por: '+agente:''}
 
-*Tarifas sujetas a disponibilidad. Cotización válida al momento de emisión.*`;
+*${cfgCierre}*`;
+  }
 
   document.getElementById('resumen-output').textContent=texto;
+  // Mostrar badge descuento en panel resumen
+  let bdg=document.getElementById('resumen-desc-auto');
+  if(bdg&&c.nocheGratisValor>0){bdg.style.display='block';bdg.innerHTML=`🎁 Noche gratis aplicada: ahorro de <strong>${fmt(c.nocheGratisValor)}</strong>`;}
+  else if(bdg&&c.descAutoPct>0){bdg.style.display='block';bdg.innerHTML=`🏷️ Descuento AI ${c.descAutoPct}% aplicado`;}
+  else if(bdg){bdg.style.display='none';}
 }
 
 function copiarResumen(){
@@ -788,7 +1003,7 @@ function copiarResumen(){
 }
 
 function switchTab(id){
-  document.querySelectorAll('.tab').forEach((t,i)=>{let ids=['cotizar','comparar','cliente','resumen'];t.classList.toggle('active',ids[i]===id);});
+  document.querySelectorAll('.tab').forEach((t,i)=>{let ids=['cotizar','comparar','cliente','resumen','config'];t.classList.toggle('active',ids[i]===id);});
   document.querySelectorAll('.panel').forEach(p=>{p.classList.toggle('active',p.id==='panel-'+id);});
   if(id==='comparar')calcularComparativa();
 }
@@ -802,8 +1017,12 @@ function exportarPDF(){
   let tel=document.getElementById('cli-tel').value||'—';
   let email=document.getElementById('cli-email').value||'—';
   let notas=document.getElementById('cli-notas').value||'';
-  let agente=document.getElementById('cli-agente').value||'—';
+  let agente=document.getElementById('cli-agente').value||document.getElementById('cfg-agente')?.value||'—';
   let canal=document.getElementById('cli-canal').value||'—';
+  let cfgTel=document.getElementById('cfg-tel')?.value||'833 205 4100';
+  let cfgHotel=document.getElementById('cfg-hotel')?.value||'Club Maeva Miramar';
+  let cfgCiudad=document.getElementById('cfg-ciudad')?.value||'Tampico, Tamaulipas, México';
+  let cfgCierre=document.getElementById('cfg-cierre')?.value||'Tarifas sujetas a disponibilidad. Cotización válida al momento de emisión.';
   let planLabel=c.plan==='AI'?'Todo Incluido (AI)':'Plan Europeo (EP)';
   let habLabel=HAB_NOM[c.hab]||c.hab;
 
@@ -917,8 +1136,8 @@ function exportarPDF(){
 
   <div class="header">
     <div>
-      <div class="hotel-nombre">Club Maeva Miramar</div>
-      <div class="hotel-sub">Tampico, Tamaulipas, México &nbsp;·&nbsp; 📞 833 205 4100</div>
+      <div class="hotel-nombre">${cfgHotel}</div>
+      <div class="hotel-sub">${cfgCiudad} &nbsp;·&nbsp; 📞 ${cfgTel}</div>
     </div>
     <div class="folio">
       <span>Cotización</span>
@@ -968,9 +1187,10 @@ function exportarPDF(){
   ${incluyeAI}
   ${notasHTML}
 
+  ${c.nocheGratisValor>0?`<div style="background:#E6F7EE;border:1px solid #5CB85C;border-radius:6px;padding:8px 12px;margin-bottom:12px;font-size:12px;color:#1A7A3F">🎁 <strong>${c.nocheGratisLabel}</strong> — ¡Beneficio por 4+ noches!</div>`:''}
   <div class="footer">
-    <span>Atendido por: ${agente} &nbsp;·&nbsp; Club Maeva Miramar, Tampico</span>
-    <span>Tarifas sujetas a disponibilidad · Cotización válida al momento de emisión</span>
+    <span>Atendido por: ${agente} &nbsp;·&nbsp; ${cfgHotel}</span>
+    <span>${cfgCierre}</span>
   </div>
 
 </div></body></html>`;
@@ -983,6 +1203,67 @@ function exportarPDF(){
     win.focus();
     win.print();
   };
+}
+
+// ─── MODAL CAPACIDAD ─────────────────────────────────────────────────────────
+function cerrarModalCap(){document.getElementById('modal-cap-overlay').classList.remove('active');}
+
+// ─── WHATSAPP / EMAIL ─────────────────────────────────────────────────────────
+function enviarWhatsApp(){
+  let txt=document.getElementById('resumen-output').textContent;
+  if(!txt||txt.startsWith('Complete')){alert('Genera el resumen primero.');return;}
+  let wa=document.getElementById('cfg-wa')?.value||'528332054100';
+  let encoded=encodeURIComponent(txt);
+  window.open(`https://wa.me/${wa}?text=${encoded}`,'_blank');
+}
+
+function enviarEmail(){
+  let c=window._cot;
+  let txt=document.getElementById('resumen-output').textContent;
+  if(!txt||txt.startsWith('Complete')){alert('Genera el resumen primero.');return;}
+  let nombre=document.getElementById('cli-nombre').value||'Cliente';
+  let emailDest=document.getElementById('cli-email').value||'';
+  let cfgEmail=document.getElementById('cfg-email')?.value||'';
+  let cfgHotel=document.getElementById('cfg-hotel')?.value||'Club Maeva Miramar';
+  let asunto=encodeURIComponent(`Cotización ${cfgHotel} — ${nombre} · ${c?c.n+' noche'+(c.n>1?'s':''):''}`);
+  let cuerpo=encodeURIComponent(txt);
+  let mailto=`mailto:${emailDest}?cc=${cfgEmail}&subject=${asunto}&body=${cuerpo}`;
+  window.location.href=mailto;
+}
+
+// ─── CONFIGURACIÓN ────────────────────────────────────────────────────────────
+function guardarConfig(){
+  // Actualizar topbar con nuevos valores
+  let hotel=document.getElementById('cfg-hotel')?.value||'Club Maeva Miramar';
+  let ciudad=document.getElementById('cfg-ciudad')?.value||'Tampico, Tamaulipas, México';
+  let tel=document.getElementById('cfg-tel')?.value||'833 205 4100';
+  let topSub=document.querySelector('.topbar-sub');
+  if(topSub)topSub.textContent=`${ciudad} · 📞 ${tel}`;
+  // Pre-fill agente if config has default
+  let cfgAgente=document.getElementById('cfg-agente')?.value||'';
+  let agenteInput=document.getElementById('cli-agente');
+  if(agenteInput&&!agenteInput.value&&cfgAgente)agenteInput.value=cfgAgente;
+  calcular();
+}
+
+function resetConfig(){
+  let defs={
+    'cfg-hotel':'Club Maeva Miramar',
+    'cfg-ciudad':'Tampico, Tamaulipas, México',
+    'cfg-tel':'833 205 4100',
+    'cfg-wa':'528332054100',
+    'cfg-email':'',
+    'cfg-saludo':'Con gusto le comparto la cotización de su estancia:',
+    'cfg-cierre':'Tarifas sujetas a disponibilidad. Cotización válida al momento de emisión.',
+    'cfg-agente':''
+  };
+  for(let[id,val]of Object.entries(defs)){
+    let el=document.getElementById(id);
+    if(el)el.value=val;
+  }
+  let chk=document.getElementById('cfg-desc-auto');
+  if(chk)chk.checked=true;
+  guardarConfig();
 }
 
 // ─── INIT ────────────────────────────────────────────────────────────────────
