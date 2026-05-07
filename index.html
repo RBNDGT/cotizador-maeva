@@ -202,14 +202,7 @@ textarea{resize:vertical;min-height:70px}
   <button class="btn btn-sm" onclick="agregarHab()" style="margin-top:8px">+ Agregar habitación</button>
 </div>
 
-<div class="card">
-  <div class="sec">Menores (0-12 años)</div>
-  <div id="menores-lista"><div style="font-size:12px;color:#4A7A92;padding:4px 0">Sin menores registrados.</div></div>
-  <button class="btn btn-sm" onclick="agregarMenor()" style="margin-top:8px">+ Agregar menor</button>
-  <div class="info-reglas">
-    <strong>Reglas:</strong> 0-1 año siempre gratis · Hab. Sencilla: 1 niño entra (2-5 gratis, 6-12 con tarifa) · Hab. Doble: 2 niños entran · Excedente = niño extra · Master Suite: sin menores
-  </div>
-</div>
+
 
 <!-- DESCUENTOS Y TARIFAS EXTRAORDINARIAS -->
 <div class="card">
@@ -476,7 +469,6 @@ const HAB_CAP={ESTANDAR:4,JUNIOR_SUITE:5,JUNIOR_SUITE_KING:3,MASTER_SUITE:2,VILL
 const HAB_NOM={ESTANDAR:"Estándar",JUNIOR_SUITE:"Junior Suite",JUNIOR_SUITE_KING:"Jr. Suite King Size",MASTER_SUITE:"Master Suite",VILLA:"Villa",EJECUTIVA:"Ejecutiva",ESTANDAR_DEPTO:"Estándar Dpto.",JUNIOR_DEPTO:"Junior Dpto.",DEPARTAMENTO:"Departamento completo"};
 const HAB_UPGRADE={ESTANDAR:0,JUNIOR_SUITE:650,JUNIOR_SUITE_KING:650,MASTER_SUITE:1600,VILLA:900,EJECUTIVA:0,ESTANDAR_DEPTO:0,JUNIOR_DEPTO:900,DEPARTAMENTO:1600};
 
-let menores=[];
 
 // ─── UTILIDADES ──────────────────────────────────────────────────────────────
 const pad=n=>String(n).padStart(2,'0');
@@ -496,42 +488,49 @@ function getTBase(t,plan,we){
 
 // Clasifica menores según habitación y adultos
 function clasifMenores(edadesArr,habTipo,adultos,adolescentes){
-  // edadesArr: array of numbers/strings (ages), or array of {edad} objects (legacy menores panel)
+  // edadesArr: array of numbers/strings (ages), or array of {edad} objects (legacy)
   // Returns array of {edad, tipo} where tipo = 'gratis' | '612' | 'extra'
   adolescentes=adolescentes||0;
   let cap=HAB_CAP[habTipo]||4;
-  // Personas que ya ocupan cupo antes de los menores
-  let ocupado=adultos+adolescentes;
-  // Master Suite: sin menores en absoluto
+  let ocupado=adultos+adolescentes; // personas que ya ocupan cupo
+  // Master Suite: sin menores
   if(habTipo==='MASTER_SUITE'){
     return edadesArr.map(e=>({edad:typeof e==='object'?e.edad:e,tipo:'extra'}));
   }
-  // Límite de menores que "entran" gratis/tarifa por regla de habitación
-  // (independiente del cupo total)
+  // Regla: cuántos niños de 2-12 "entran" (1 en sencilla, 2 en doble)
   let limRegla=(adultos===1)?1:2;
-  let dentroRegla=0;
+  let dentroRegla=0; // solo cuenta niños 2-12
   let res=[];
   for(let raw of edadesArr){
     let edad=typeof raw==='object'?parseInt(raw.edad||0):parseInt(raw===''?-1:raw);
-    if(edad<0){res.push({edad:'?',tipo:'gratis'});continue;} // sin edad: no cobrar hasta que se ingrese
+    if(edad<0){res.push({edad:'?',tipo:'gratis'});continue;} // sin edad: pendiente
+    // ── 0-1 años: SIEMPRE gratis, NO consume cupo de regla ──
+    // Solo verifica cupo físico
+    if(edad<=1){
+      if(ocupado>=cap){
+        res.push({edad,tipo:'extra'}); // sin cupo físico → extra
+      } else {
+        res.push({edad,tipo:'gratis'});
+      }
+      ocupado++;
+      continue;
+    }
+    // ── 2-12 años: consume cupo de regla ──
     // Primero: ¿hay cupo físico?
     if(ocupado>=cap){
-      // Sin cupo: menor extra sin importar edad
       res.push({edad,tipo:'extra'});
       ocupado++;
       continue;
     }
-    // Hay cupo. ¿Entra dentro de la regla de habitación?
+    // ¿Entra dentro del límite de la regla?
     if(dentroRegla<limRegla){
-      // Dentro de la regla: 0-5 gratis, 6-12 tarifa niño
       res.push({edad,tipo:edad<=5?'gratis':'612'});
       dentroRegla++;
-      ocupado++;
     } else {
-      // Excedió regla de habitación → extra (aunque haya cupo físico)
+      // Excedió límite de regla → extra
       res.push({edad,tipo:'extra'});
-      ocupado++;
     }
+    ocupado++;
   }
   return res;
 }
@@ -648,7 +647,7 @@ function calcular(){
   let n=noches(fi,fo);
   if(n<=0){document.getElementById('advertencias').innerHTML='<div class="alerta alerta-red">La fecha de salida debe ser posterior a la llegada.</div>';return;}
 
-  let mc=clasifMenores(menores,hab,adultos,adoles);
+  let mc=[];
   let t0=getTarifa(fi);
 
   // Info temporada
@@ -872,7 +871,8 @@ function calcular(){
     document.getElementById('modal-cap-msg').innerHTML=msg;
     document.getElementById('modal-cap-overlay').classList.add('active');
   }
-  if(hab==='MASTER_SUITE'&&menores.length>0){
+  let _habMs=habitaciones[0]||{};let _msHasMenores=(_habMs.menoresCount||0)>0;
+if(hab==='MASTER_SUITE'&&_msHasMenores){
     document.getElementById('modal-cap-msg').innerHTML='La <strong>Master Suite</strong> es exclusiva para 2 adultos. <strong>No se permiten menores</strong> en esta habitación.';
     document.getElementById('modal-cap-overlay').classList.add('active');
   }
@@ -888,7 +888,7 @@ function calcular(){
   }
 
   // Guardar para otras pestañas
-  window._cot={fi,fo,n,plan,hab,adultos,adoles,menores:mc,numHabs,upg,descTipo,descVal,descAutoPct,nocheGratisValor,nocheGratisLabel,totalFinal,totalBase,totalAjuste,totalUpg,nochesDet,desgloseHabs,habitaciones:[...habitaciones],temporada:t0?t0.nombre:'',promoActiva,promoNombre,promoTipo,promoValPct,promoValMonto};
+  window._cot={fi,fo,n,plan,hab,adultos,adoles,menores:[],numHabs,upg,descTipo,descVal,descAutoPct,nocheGratisValor,nocheGratisLabel,totalFinal,totalBase,totalAjuste,totalUpg,nochesDet,desgloseHabs,habitaciones:[...habitaciones],temporada:t0?t0.nombre:'',promoActiva,promoNombre,promoTipo,promoValPct,promoValMonto};
   calcularComparativa();
 }
 
@@ -899,7 +899,7 @@ function calcularComparativa(){
 
   // Calcula totales (con y sin descuento) para una combinación dada
   function totalesParaHab(habTipo,nHabs){
-    let mc2=clasifMenores(menores,habTipo,c.adultos,c.adoles);
+    let mc2=clasifMenores(c.habitaciones[0]?.menoresEdades||[],habTipo,c.habitaciones[0]?.adultos||1,c.habitaciones[0]?.adolescentes||0);
     let upg2=HAB_UPGRADE[habTipo]||0;
     let totConDesc=0, totSinDesc=0;
     for(let i=0;i<c.n;i++){
@@ -926,7 +926,8 @@ function calcularComparativa(){
     return{conDesc:totConDesc,sinDesc:totSinDesc,upgrade:upg2,ngValor};
   }
 
-  let totalHuespedes=c.adultos+c.adoles+menores.length;
+  let _allMenores=(c.habitaciones||[]).reduce((s,h)=>s+(h.menoresCount||0),0);
+  let totalHuespedes=c.adultos+c.adoles+_allMenores;
 
   // Opciones candidatas según número de personas
   let candidatos=[];
@@ -1260,26 +1261,7 @@ function renderHabs(){
 }
 
 // ─── MENORES ─────────────────────────────────────────────────────────────────
-function agregarMenor(){menores.push({edad:''});renderMenores();}
-function renderMenores(){
-  let div=document.getElementById('menores-lista');
-  if(menores.length===0){div.innerHTML='<div style="font-size:12px;color:#4A7A92;padding:4px 0">Sin menores registrados.</div>';return;}
-  let h='';
-  menores.forEach((m,i)=>{
-    let e=parseInt(m.edad||'-1');
-    let etq=e<0?'Ingresa la edad':e<=1?'Infante — siempre gratis':e<=5?'2-5 años — gratis (límite hab.)':e<=12?'6-12 años — tarifa niño':'Fuera de rango';
-    h+=`<div class="minor-row">
-      <div style="flex:0 0 110px"><label style="margin-bottom:2px">Edad (años)</label>
-        <input type="number" min="0" max="12" value="${m.edad||''}" placeholder="0-12" onchange="menores[${i}].edad=this.value;renderMenores();calcular()">
-      </div>
-      <div style="flex:1;align-self:center;padding-top:6px"><span style="font-size:11px;color:#4A7A92">${etq}</span></div>
-      <button class="rm-btn" onclick="menores.splice(${i},1);renderMenores();calcular()" title="Eliminar">×</button>
-    </div>`;
-  });
-  div.innerHTML=h;
-}
 
-// ─── DESCUENTOS ──────────────────────────────────────────────────────────────
 function toggleDescuento(){
   let tipo=document.getElementById('desc-tipo').value;
   let w=document.getElementById('desc-valor-wrapper');
@@ -1406,16 +1388,25 @@ function generarResumen(){
   let cfgSaludo=getCfg('cfg-saludo','Con gusto le comparto la cotización de su estancia:');
   let cfgCierre=getCfg('cfg-cierre','Tarifas sujetas a disponibilidad. Cotización válida al momento de emisión.');
 
+  // Menores: consolidar de todas las habitaciones
   let menoresTexto='';
-  if(c.menores&&c.menores.length>0){
-    let grats=c.menores.filter(m=>m.tipo==='gratis').length;
-    let t612=c.menores.filter(m=>m.tipo==='612').length;
-    let ext=c.menores.filter(m=>m.tipo==='extra').length;
-    let p=[];
-    if(grats)p.push(`${grats} sin costo`);
-    if(t612)p.push(`${t612} tarifa 6-12`);
-    if(ext)p.push(`${ext} extra`);
-    menoresTexto='\n   Menores: '+p.join(', ');
+  {
+    let allMc=[];
+    (c.habitaciones||[]).forEach((h,hi)=>{
+      let edades=h.menoresEdades||[];
+      let mc=clasifMenores(edades,h.tipo,h.adultos||1,h.adolescentes||0);
+      mc.forEach(m=>allMc.push(m));
+    });
+    if(allMc.length>0){
+      let grats=allMc.filter(m=>m.tipo==='gratis').length;
+      let t612=allMc.filter(m=>m.tipo==='612').length;
+      let ext=allMc.filter(m=>m.tipo==='extra').length;
+      let p=[];
+      if(grats)p.push(grats+' sin costo');
+      if(t612)p.push(t612+' tarifa 6-12');
+      if(ext)p.push(ext+' extra');
+      menoresTexto='\n   Menores: '+p.join(', ');
+    }
   }
 
   let descLinea='';
@@ -1593,12 +1584,14 @@ function exportarPDF(){
     </tr>`;
   }
 
+  let _pdfAllMc=[];
+  (c.habitaciones||[]).forEach(h=>{let mc=clasifMenores(h.menoresEdades||[],h.tipo,h.adultos||1,h.adolescentes||0);mc.forEach(m=>_pdfAllMc.push(m));});
   let menoresTexto='—';
-  if(c.menores&&c.menores.length>0){
+  if(_pdfAllMc.length>0){
     let p=[];
-    let grats=c.menores.filter(m=>m.tipo==='gratis').length;
-    let t612=c.menores.filter(m=>m.tipo==='612').length;
-    let ext=c.menores.filter(m=>m.tipo==='extra').length;
+    let grats=_pdfAllMc.filter(m=>m.tipo==='gratis').length;
+    let t612=_pdfAllMc.filter(m=>m.tipo==='612').length;
+    let ext=_pdfAllMc.filter(m=>m.tipo==='extra').length;
     if(grats)p.push(`${grats} sin costo`);
     if(t612)p.push(`${t612} tarifa 6-12`);
     if(ext)p.push(`${ext} extra`);
@@ -1801,7 +1794,6 @@ let tom=new Date(today);tom.setDate(today.getDate()+2);
 document.getElementById('fecha-out').value=`${tom.getFullYear()}-${pad(tom.getMonth()+1)}-${pad(tom.getDate())}`;
 document.getElementById('cli-fecha-contacto').value=document.getElementById('fecha-in').value;
 renderHabs();
-renderMenores();
 calcular();
 </script>
 </body>
