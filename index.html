@@ -192,14 +192,6 @@ textarea{resize:vertical;min-height:70px}
 </div>
 
 <div class="card">
-  <div class="sec">Huéspedes</div>
-  <div class="grid2">
-    <div><label>Adultos (18+ años)</label><input type="number" id="adultos" min="1" max="8" value="2" onchange="calcular()"></div>
-    <div><label>Adolescentes (13-17)</label><input type="number" id="adolescentes" min="0" max="6" value="0" onchange="calcular()"></div>
-  </div>
-</div>
-
-<div class="card">
   <div class="sec">Habitaciones <span style="font-size:10px;font-weight:400;color:var(--texto-suave)">— Agrega una o más habitaciones con tipo independiente</span></div>
   <div id="habs-lista"></div>
   <button class="btn btn-sm" onclick="agregarHab()" style="margin-top:8px">+ Agregar habitación</button>
@@ -570,9 +562,9 @@ function calcular(){
   let fi=document.getElementById('fecha-in').value;
   let fo=document.getElementById('fecha-out').value;
   let plan=document.getElementById('plan').value;
-  // Totales globales de huéspedes (para modal, comparativa y resumen)
-  let adultos=parseInt(document.getElementById('adultos').value)||1;
-  let adoles=parseInt(document.getElementById('adolescentes').value)||0;
+  // Totales de huéspedes sumados de todas las habitaciones
+  let adultos=habitaciones.reduce((s,h)=>s+(h.adultos||1),0);
+  let adoles=habitaciones.reduce((s,h)=>s+(h.adolescentes||0),0);
   let numHabs=habitaciones.length;
   let hab=habitaciones[0]?.tipo||'ESTANDAR';
   let upg=habitaciones[0]?.upgrade||0;
@@ -651,8 +643,8 @@ function calcular(){
     let habTipo=habitaciones[hi].tipo;
     let habUpg=habitaciones[hi].upgrade||0;
     // Usar huéspedes propios de la habitación, con fallback al global
-    let habAdultos=habitaciones[hi].adultos||adultos;
-    let habAdoles=habitaciones[hi].adolescentes||adoles;
+    let habAdultos=habitaciones[hi].adultos||1;
+    let habAdoles=habitaciones[hi].adolescentes||0;
     let habMenoresCount=habitaciones[hi].menoresCount||0;
     // Construir array de menores simplificado para esta habitación
     let habMenoresArr=[];
@@ -833,7 +825,8 @@ function calcular(){
   if(t0&&t0.minAI&&plan==='AI'&&n<t0.minAI)
     adv+=`<div class="alerta alerta-red">⚠ Estancia mínima requerida: ${t0.minAI} noches (AI) para esta temporada.</div>`;
   let cap=HAB_CAP[hab]||4;
-  let total_p=adultos+adoles+menores.filter(m=>parseInt(m.edad||0)>=2).length;
+  let h0=habitaciones[0]||{adultos:1,adolescentes:0,menoresCount:0};
+  let total_p=(h0.adultos||1)+(h0.adolescentes||0)+(h0.menoresCount||0);
   if(total_p>cap){
     // Mostrar modal de capacidad en lugar de solo texto
     let msg=`La habitación <strong>${HAB_NOM[hab]}</strong> tiene capacidad para <strong>${cap} personas</strong>.<br><br>Estás cotizando para <strong>${total_p} personas</strong>. Te recomendamos revisar las opciones de habitación disponibles para este grupo.`;
@@ -1357,7 +1350,8 @@ function generarResumen(){
     texto+=`👤 ${nombre}\n`;
     texto+=`📅 ${fmtD(c.fi)} → ${fmtD(c.fo)} (${c.n} noche${c.n>1?'s':''})\n`;
     texto+=`🛏️ ${habLabel}${c.upg>0?' +upgrade':''} · ${planLabel}\n`;
-    texto+=`👥 ${c.adultos} adulto${c.adultos>1?'s':''}${c.adoles>0?', '+c.adoles+' adol.':''}${c.menores&&c.menores.length>0?', '+c.menores.length+' menor(es)':''}\n`;
+    let habDescWA=c.habitaciones.map((h,i)=>{let ad=h.adultos||1,ado=h.adolescentes||0,men=h.menoresCount||0;let p=[ad+' ad.'+(ad>1?'s':'')];if(ado>0)p.push(ado+' adol.');if(men>0)p.push(men+' men.');return 'H'+(i+1)+': '+p.join('+');}).join(' | ');
+    texto+=`👥 ${habDescWA}\n`;
     if(c.nocheGratisValor>0)texto+=`🎁 ¡Noche gratis incluida!\n`;
     texto+=`\n💵 *Total: ${fmt(c.totalFinal)} MXN*\n`;
     texto+=`\n📞 ${cfgTel}${agente?' · '+agente:''}`;
@@ -1367,7 +1361,8 @@ function generarResumen(){
     texto+=`📅 *Fechas:* ${fmtD(c.fi)} al ${fmtD(c.fo)} (${c.n} noche${c.n>1?'s':''})\n`;
     texto+=`🛏️ *Habitación:* ${habLabel} × ${c.numHabs}${c.upg>0?' (con upgrade)':''}\n`;
     texto+=`📋 *Plan:* ${planLabel}\n`;
-    texto+=`👥 *Huéspedes:* ${c.adultos} adulto${c.adultos>1?'s':''}${c.adoles>0?', '+c.adoles+' adolescente(s)':''}${menoresTexto?'\n   Menores: '+menoresTexto.trim():''}\n`;
+    let habDescAmi=c.habitaciones.map((h,i)=>{let ad=h.adultos||1,ado=h.adolescentes||0,men=h.menoresCount||0;let p=[ad+' adulto'+(ad>1?'s':'')];if(ado>0)p.push(ado+' adolescente'+(ado>1?'s':''));if(men>0)p.push(men+' menor'+(men>1?'es':''));return 'Hab '+(i+1)+': '+p.join(', ');}).join('\n   ');
+    texto+=`👥 *Huéspedes:*\n   ${habDescAmi}${menoresTexto?'\n   ('+menoresTexto.trim()+')':''}\n`;
     if(c.nocheGratisValor>0)texto+=`\n🎁 ¡Tienes una noche gratis! Ahorro de ${fmt(c.nocheGratisValor)}\n`;
     if(c.plan==='AI')texto+=`\n✅ *Incluye:* hospedaje, alimentos buffet, bebidas, actividades y club de playa\n`;
     texto+=`\n💵 *Total estimado: ${fmt(c.totalFinal)} MXN*\n`;
@@ -1394,8 +1389,7 @@ ${cfgSaludo}
    Plan: ${planLabel}
    Temporada: ${c.temporada}${descLinea}
 
-👥 HUÉSPEDES
-   Adultos: ${c.adultos}${c.adoles>0?'\n   Adolescentes (13-17): '+c.adoles:''}${menoresTexto}
+👥 HUÉSPEDES\n${c.habitaciones.map((h,idx)=>{let ad=h.adultos||1,ado=h.adolescentes||0,men=h.menoresCount||0;let ln='   Hab '+(idx+1)+' ('+HAB_NOM[h.tipo]+'): '+ad+' adulto'+(ad>1?'s':'');if(ado>0)ln+=', '+ado+' adol.';if(men>0)ln+=', '+men+' menor'+(men>1?'es':'');return ln;}).join('\\n')}${menoresTexto}xto}
 
 💰 DESGLOSE${desgloseLineas}${nocheGratisLinea}${descTotalLinea}${c.totalUpg>0?'\n   Upgrade: +'+fmt(c.totalUpg):''}
 
@@ -1589,9 +1583,7 @@ function exportarPDF(){
       <div class="dato"><span>Habitaciones</span>${c.numHabs} × ${habLabel}${c.upg>0?' (+upgrade)':''}</div>
       <div class="dato"><span>Plan</span>${planLabel}</div>
       <div class="dato"><span>Temporada</span>${c.temporada} <span class="badge badge-${getTarifa(c.fi)?getTarifa(c.fi).tipo:'baja'}">${{baja:'Baja',media:'Media',alta:'Alta'}[getTarifa(c.fi)?getTarifa(c.fi).tipo:'baja']}</span></div>
-      <div class="dato"><span>Adultos</span>${c.adultos}</div>
-      ${c.adoles>0?`<div class="dato"><span>Adolescentes (13-17)</span>${c.adoles}</div>`:''}
-      ${c.menores&&c.menores.length>0?`<div class="dato"><span>Menores</span>${menoresTexto}</div>`:''}
+      ${c.habitaciones.map((h,i)=>{let ad=h.adultos||1,ado=h.adolescentes||0,men=h.menoresCount||0;let txt=ad+' adulto'+(ad>1?'s':'');if(ado>0)txt+=', '+ado+' adol.';if(men>0)txt+=', '+men+' menor'+(men>1?'es':'');return '<div class="dato"><span>Hab '+(i+1)+' — '+HAB_NOM[h.tipo]+'</span>'+txt+'</div>';}).join('')}
       <div class="dato"><span>Descuento / Ajuste</span>${descTexto}</div>
     </div>
   </div>
