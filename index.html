@@ -118,6 +118,11 @@ textarea{resize:vertical;min-height:70px}
 /* Huéspedes por habitación */
 .hab-huesp{background:var(--azul-light);border-radius:8px;padding:7px 10px;margin-top:8px;border:1px solid var(--azul-mid)}
 .hab-huesp-title{font-size:10px;font-weight:700;color:var(--azul);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+.menor-edad-row{display:flex;align-items:center;gap:6px;margin-top:5px;flex-wrap:wrap}
+.menor-edad-tag{font-size:10px;padding:2px 7px;border-radius:12px;font-weight:600}
+.menor-edad-tag.gratis{background:#d4f4dd;color:#1a7a3a}
+.menor-edad-tag.tarifa{background:#fff3cd;color:#856404}
+.menor-edad-tag.extra{background:#fde8e8;color:#b91c1c}
 </style>
 </head>
 <body>
@@ -490,15 +495,43 @@ function getTBase(t,plan,we){
 }
 
 // Clasifica menores según habitación y adultos
-function clasifMenores(arr,hab,adultos){
-  let lim=hab==='MASTER_SUITE'?0:(adultos===1?1:2);
-  let dentro=0,res=[];
-  for(let m of arr){
-    let e=parseInt(m.edad||0);
-    if(e<=1){res.push({...m,tipo:'gratis'});continue;}
-    if(hab==='MASTER_SUITE'){res.push({...m,tipo:'extra'});continue;}
-    if(dentro<lim){res.push({...m,tipo:(e<=5)?'gratis':'612'});dentro++;}
-    else res.push({...m,tipo:'extra'});
+function clasifMenores(edadesArr,habTipo,adultos,adolescentes){
+  // edadesArr: array of numbers/strings (ages), or array of {edad} objects (legacy menores panel)
+  // Returns array of {edad, tipo} where tipo = 'gratis' | '612' | 'extra'
+  adolescentes=adolescentes||0;
+  let cap=HAB_CAP[habTipo]||4;
+  // Personas que ya ocupan cupo antes de los menores
+  let ocupado=adultos+adolescentes;
+  // Master Suite: sin menores en absoluto
+  if(habTipo==='MASTER_SUITE'){
+    return edadesArr.map(e=>({edad:typeof e==='object'?e.edad:e,tipo:'extra'}));
+  }
+  // Límite de menores que "entran" gratis/tarifa por regla de habitación
+  // (independiente del cupo total)
+  let limRegla=(adultos===1)?1:2;
+  let dentroRegla=0;
+  let res=[];
+  for(let raw of edadesArr){
+    let edad=typeof raw==='object'?parseInt(raw.edad||0):parseInt(raw===''?-1:raw);
+    if(edad<0){res.push({edad:'?',tipo:'gratis'});continue;} // sin edad: no cobrar hasta que se ingrese
+    // Primero: ¿hay cupo físico?
+    if(ocupado>=cap){
+      // Sin cupo: menor extra sin importar edad
+      res.push({edad,tipo:'extra'});
+      ocupado++;
+      continue;
+    }
+    // Hay cupo. ¿Entra dentro de la regla de habitación?
+    if(dentroRegla<limRegla){
+      // Dentro de la regla: 0-5 gratis, 6-12 tarifa niño
+      res.push({edad,tipo:edad<=5?'gratis':'612'});
+      dentroRegla++;
+      ocupado++;
+    } else {
+      // Excedió regla de habitación → extra (aunque haya cupo físico)
+      res.push({edad,tipo:'extra'});
+      ocupado++;
+    }
   }
   return res;
 }
@@ -523,10 +556,12 @@ function calcNoche(fecha,plan,adultos,adolescentes,menoresC,descTipo,descVal,des
     for(let i=3;i<=adultos;i++){base+=tb.pe;items.push({l:`Adulto extra #${i-2}`,v:tb.pe});}
     for(let i=0;i<adolescentes;i++){base+=tb.ad;items.push({l:'Adolescente (13-17)',v:tb.ad});}
     for(let m of menoresC){
-      let e=parseInt(m.edad||0);
-      if(m.tipo==='gratis'){items.push({l:`Menor ${e} años`,v:0,gratis:true});}
-      else if(m.tipo==='612'){base+=tb.n612;items.push({l:`Menor ${e} años (6-12)`,v:tb.n612});}
-      else{base+=tb.ne;items.push({l:`Menor extra`,v:tb.ne});}
+      let e=m.edad===''||m.edad===undefined?null:parseInt(m.edad);
+      let eLabel=e===null?'?':e+' años';
+      let rangoLabel=e===null?'':(e<=1?' (infante)':e<=5?' (2-5 gratis)':' (6-12)');
+      if(m.tipo==='gratis'){items.push({l:`Menor ${eLabel}${rangoLabel}`,v:0,gratis:true});}
+      else if(m.tipo==='612'){base+=tb.n612;items.push({l:`Menor ${eLabel} — tarifa niño`,v:tb.n612});}
+      else{base+=tb.ne;items.push({l:`Menor ${eLabel} — extra (excede cupo/regla)`,v:tb.ne});}
     }
   }else{
     base+=tb.s;items.push({l:'Habitación (1-2 personas)',v:tb.s});
@@ -534,10 +569,12 @@ function calcNoche(fecha,plan,adultos,adolescentes,menoresC,descTipo,descVal,des
     for(let i=0;i<ext;i++){base+=tb.pe;items.push({l:'Persona extra',v:tb.pe});}
     for(let i=0;i<adolescentes;i++){base+=tb.ad;items.push({l:'Adolescente (13-17)',v:tb.ad});}
     for(let m of menoresC){
-      let e=parseInt(m.edad||0);
-      if(m.tipo==='gratis'){items.push({l:`Menor ${e} años`,v:0,gratis:true});}
-      else if(m.tipo==='612'){base+=tb.n612;items.push({l:`Menor ${e} años`,v:tb.n612});}
-      else{base+=tb.ne;items.push({l:`Menor extra`,v:tb.ne});}
+      let e=m.edad===''||m.edad===undefined?null:parseInt(m.edad);
+      let eLabel=e===null?'?':e+' años';
+      let rangoLabel=e===null?'':(e<=1?' (infante)':e<=5?' (2-5 gratis)':' (6-12)');
+      if(m.tipo==='gratis'){items.push({l:`Menor ${eLabel}${rangoLabel}`,v:0,gratis:true});}
+      else if(m.tipo==='612'){base+=tb.n612;items.push({l:`Menor ${eLabel} — tarifa niño`,v:tb.n612});}
+      else{base+=tb.ne;items.push({l:`Menor ${eLabel} — extra (excede cupo/regla)`,v:tb.ne});}
     }
   }
 
@@ -611,7 +648,7 @@ function calcular(){
   let n=noches(fi,fo);
   if(n<=0){document.getElementById('advertencias').innerHTML='<div class="alerta alerta-red">La fecha de salida debe ser posterior a la llegada.</div>';return;}
 
-  let mc=clasifMenores(menores,hab,adultos);
+  let mc=clasifMenores(menores,hab,adultos,adoles);
   let t0=getTarifa(fi);
 
   // Info temporada
@@ -646,10 +683,12 @@ function calcular(){
     let habAdultos=habitaciones[hi].adultos||1;
     let habAdoles=habitaciones[hi].adolescentes||0;
     let habMenoresCount=habitaciones[hi].menoresCount||0;
-    // Construir array de menores simplificado para esta habitación
-    let habMenoresArr=[];
-    for(let m=0;m<habMenoresCount;m++)habMenoresArr.push({edad:'6'});
-    let mcHab=clasifMenores(habMenoresArr,habTipo,habAdultos);
+    // Usar edades reales ingresadas por el agente
+    let habEdades=habitaciones[hi].menoresEdades||[];
+    // Pad with empty strings if count > edades array (age not yet entered)
+    while(habEdades.length<habMenoresCount)habEdades.push('');
+    habEdades=habEdades.slice(0,habMenoresCount);
+    let mcHab=clasifMenores(habEdades,habTipo,habAdultos,habAdoles);
     let habNochesDet=[];
 
     // ── Descuento auto 5+ noches ──
@@ -860,7 +899,7 @@ function calcularComparativa(){
 
   // Calcula totales (con y sin descuento) para una combinación dada
   function totalesParaHab(habTipo,nHabs){
-    let mc2=clasifMenores(menores,habTipo,c.adultos);
+    let mc2=clasifMenores(menores,habTipo,c.adultos,c.adoles);
     let upg2=HAB_UPGRADE[habTipo]||0;
     let totConDesc=0, totSinDesc=0;
     for(let i=0;i<c.n;i++){
@@ -956,7 +995,7 @@ function calcularComparativa(){
 }
 
 // ─── HABITACIONES INDEPENDIENTES ─────────────────────────────────────────────
-let habitaciones=[{tipo:'ESTANDAR',upgrade:0,adultos:1,adolescentes:0,menoresCount:0,id:Date.now()}];
+let habitaciones=[{tipo:'ESTANDAR',upgrade:0,adultos:1,adolescentes:0,menoresCount:0,menoresEdades:[],id:Date.now()}];
 
 const HAB_OPCIONES=`
   <option value="ESTANDAR">Estándar (cap. 4)</option>
@@ -979,7 +1018,7 @@ const UPGRADE_OPCIONES=`
   <option value="1600">+$1,600/noche — Master Suite</option>`;
 
 function agregarHab(){
-  habitaciones.push({tipo:'ESTANDAR',upgrade:0,adultos:1,adolescentes:0,menoresCount:0,id:Date.now()});
+  habitaciones.push({tipo:'ESTANDAR',upgrade:0,adultos:1,adolescentes:0,menoresCount:0,menoresEdades:[],id:Date.now()});
   renderHabs();calcular();
 }
 
@@ -1129,21 +1168,91 @@ function renderHabs(){
     adoDiv.appendChild(adoLbl);adoDiv.appendChild(adoInp);
     hGrid.appendChild(adoDiv);
 
-    // Menores 0-12
+    // Menores: contador + campos de edad dinámicos
     let menDiv=document.createElement('div');
     let menLbl=document.createElement('label');menLbl.textContent='Menores (0-12)';
     let menInp=document.createElement('input');
-    menInp.type='number';menInp.min=0;menInp.max=6;
+    menInp.type='number';menInp.min=0;menInp.max=8;
     menInp.value=hab.menoresCount||0;
     menInp.onchange=(()=>{let id=hab.id;return function(){
       let h=habitaciones.find(x=>x.id===id);
-      if(h)h.menoresCount=parseInt(this.value)||0;
-      calcular();
+      if(!h)return;
+      let n=parseInt(this.value)||0;
+      h.menoresCount=n;
+      // Ajustar array de edades: agregar o quitar entradas
+      if(!h.menoresEdades)h.menoresEdades=[];
+      while(h.menoresEdades.length<n)h.menoresEdades.push('');
+      h.menoresEdades=h.menoresEdades.slice(0,n);
+      renderHabs();calcular();
     };})();
     menDiv.appendChild(menLbl);menDiv.appendChild(menInp);
     hGrid.appendChild(menDiv);
 
     hDiv.appendChild(hGrid);
+
+    // Campos de edad por cada menor
+    if((hab.menoresCount||0)>0){
+      if(!hab.menoresEdades)hab.menoresEdades=[];
+      while(hab.menoresEdades.length<hab.menoresCount)hab.menoresEdades.push('');
+      let edadesWrap=document.createElement('div');
+      edadesWrap.style.cssText='margin-top:8px;border-top:1px dashed var(--azul-mid);padding-top:7px';
+      let edadesTitle=document.createElement('div');
+      edadesTitle.style.cssText='font-size:10px;font-weight:700;color:var(--texto-suave);text-transform:uppercase;margin-bottom:6px';
+      edadesTitle.textContent='Edad de cada menor (años)';
+      edadesWrap.appendChild(edadesTitle);
+      let edadesGrid=document.createElement('div');
+      edadesGrid.style.cssText='display:flex;flex-wrap:wrap;gap:8px';
+      for(let mi=0;mi<hab.menoresCount;mi++){
+        let eWrap=document.createElement('div');
+        eWrap.style.cssText='display:flex;flex-direction:column;align-items:flex-start;min-width:80px';
+        let eLbl=document.createElement('label');
+        eLbl.style.cssText='font-size:10px;margin-bottom:2px';
+        eLbl.textContent='Menor '+(mi+1);
+        let eInp=document.createElement('input');
+        eInp.type='number';eInp.min=0;eInp.max=12;eInp.placeholder='0-12';
+        eInp.style.cssText='width:70px;padding:4px 6px;font-size:13px';
+        eInp.value=hab.menoresEdades[mi]!==''?hab.menoresEdades[mi]:'';
+        eInp.onchange=(()=>{let id=hab.id;let idx=mi;return function(){
+          let h=habitaciones.find(x=>x.id===id);
+          if(h&&h.menoresEdades){
+            let v=this.value===''?'':parseInt(this.value);
+            h.menoresEdades[idx]=v;
+            // Update tag
+            let tag=this.parentElement.querySelector('.menor-edad-tag');
+            if(tag)tag.remove();
+            if(this.value!==''){
+              let cap=HAB_CAP[h.tipo]||4;
+              let totalOcup=(h.adultos||1)+(h.adolescentes||0);
+              // Count how many prior menores (by age) already fit within cap
+              let cupoRestante=Math.max(0,cap-totalOcup);
+              // Rebuild classification to get this minor's status
+              let mc=clasifMenores(h.menoresEdades,h.tipo,h.adultos||1,h.adolescentes||0);
+              let status=mc[idx]?mc[idx].tipo:'extra';
+              let tagEl=document.createElement('span');
+              tagEl.className='menor-edad-tag '+(status==='gratis'?'gratis':status==='612'?'tarifa':'extra');
+              tagEl.textContent=status==='gratis'?'Gratis':status==='612'?'Tarifa niño':'Extra';
+              this.parentElement.appendChild(tagEl);
+            }
+            calcular();
+          }
+        };})();
+        eWrap.appendChild(eLbl);
+        eWrap.appendChild(eInp);
+        // Show tag if age already set
+        if(hab.menoresEdades[mi]!==''){
+          let mc=clasifMenores(hab.menoresEdades,hab.tipo,hab.adultos||1,hab.adolescentes||0);
+          let status=mc[mi]?mc[mi].tipo:'extra';
+          let tagEl=document.createElement('span');
+          tagEl.className='menor-edad-tag '+(status==='gratis'?'gratis':status==='612'?'tarifa':'extra');
+          tagEl.textContent=status==='gratis'?'Gratis':status==='612'?'Tarifa niño':'Extra';
+          eWrap.appendChild(tagEl);
+        }
+        edadesGrid.appendChild(eWrap);
+      }
+      edadesWrap.appendChild(edadesGrid);
+      hDiv.appendChild(edadesWrap);
+    }
+
     wrap.appendChild(hDiv);
 
     div.appendChild(wrap);
