@@ -108,6 +108,16 @@ textarea{resize:vertical;min-height:70px}
 .desc-tabla th{background:var(--azul-light);color:var(--azul-dark);padding:5px 8px;text-align:left;font-weight:600}
 .desc-tabla td{padding:5px 8px;border-bottom:1px solid var(--azul-light)}
 .desc-tabla tr.activa td{background:var(--dorado-light);font-weight:700;color:var(--dorado-dark)}
+/* Promo eventual */
+.promo-toggle-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--azul-light)}
+.promo-toggle-row:last-child{border-bottom:none}
+.promo-toggle-row label{margin-bottom:0;flex:1;font-size:13px}
+.promo-block{background:var(--dorado-light);border:1.5px solid var(--dorado);border-radius:10px;padding:1rem;margin-top:10px;display:none}
+.promo-block.activa{display:block}
+.promo-badge-activa{display:inline-block;background:var(--dorado);color:#fff;border-radius:6px;padding:3px 10px;font-size:11px;font-weight:700;margin-left:8px;vertical-align:middle}
+/* Huéspedes por habitación */
+.hab-huesp{background:var(--azul-light);border-radius:8px;padding:7px 10px;margin-top:8px;border:1px solid var(--azul-mid)}
+.hab-huesp-title{font-size:10px;font-weight:700;color:var(--azul);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
 </style>
 </head>
 <body>
@@ -348,6 +358,61 @@ textarea{resize:vertical;min-height:70px}
   <div class="sec">Agente predeterminado</div>
   <div class="config-row"><label>Nombre del agente</label><input type="text" id="cfg-agente" value="" placeholder="Nombre que aparece en el resumen" oninput="guardarConfig()"></div>
 </div>
+
+<!-- PROMOCIÓN EVENTUAL -->
+<div class="card">
+  <div class="sec">Promoción eventual / Fecha específica
+    <span id="promo-badge-on" class="promo-badge-activa" style="display:none">ACTIVA</span>
+  </div>
+  <p style="font-size:12px;color:var(--texto-suave);margin-bottom:10px">
+    Las promociones eventuales tienen <strong>prioridad</strong> sobre los descuentos automáticos AI cuando están activas.
+    Solo puede estar activa <strong>una</strong> a la vez.
+  </p>
+
+  <div class="promo-toggle-row">
+    <label>Activar promoción eventual</label>
+    <input type="checkbox" id="promo-eventual-activa" style="width:18px;height:18px;cursor:pointer"
+      onchange="togglePromoEventual(this)">
+  </div>
+
+  <div id="promo-eventual-block" class="promo-block">
+    <div class="grid2" style="margin-bottom:10px">
+      <div><label>Nombre de la promoción</label>
+        <input type="text" id="promo-nombre" placeholder="Ej. Semana de Verano" oninput="calcular()">
+      </div>
+      <div><label>Vigencia — Fecha inicio</label>
+        <input type="date" id="promo-fecha-ini" onchange="calcular()">
+      </div>
+    </div>
+    <div class="grid2" style="margin-bottom:10px">
+      <div><label>Vigencia — Fecha fin</label>
+        <input type="date" id="promo-fecha-fin" onchange="calcular()">
+      </div>
+      <div><label>Tipo de beneficio</label>
+        <select id="promo-tipo" onchange="togglePromoBeneficio();calcular()">
+          <option value="pct">% de descuento sobre tarifa</option>
+          <option value="noche_gratis">Noche gratis (menor valor)</option>
+          <option value="pct_noche">% descuento + noche gratis</option>
+          <option value="monto">Monto fijo por noche ($)</option>
+        </select>
+      </div>
+    </div>
+    <div class="grid2" style="margin-bottom:10px">
+      <div id="promo-val-pct-wrap">
+        <label>Porcentaje de descuento (%)</label>
+        <input type="number" id="promo-val-pct" min="0" max="100" value="0" onchange="calcular()">
+      </div>
+      <div id="promo-val-monto-wrap" style="display:none">
+        <label>Monto de descuento por noche ($)</label>
+        <input type="number" id="promo-val-monto" min="0" value="0" onchange="calcular()">
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--dorado-dark);margin-top:4px">
+      ⚠ Al activar esta promoción, los descuentos automáticos AI quedan <strong>desactivados</strong> automáticamente.
+    </div>
+  </div>
+</div>
+
 <div style="margin-top:4px"><button class="btn btn-primary" onclick="resetConfig()">Restablecer valores predeterminados</button></div>
 </div>
 
@@ -505,18 +570,26 @@ function calcular(){
   let fi=document.getElementById('fecha-in').value;
   let fo=document.getElementById('fecha-out').value;
   let plan=document.getElementById('plan').value;
+  // Totales globales de huéspedes (para modal, comparativa y resumen)
   let adultos=parseInt(document.getElementById('adultos').value)||1;
   let adoles=parseInt(document.getElementById('adolescentes').value)||0;
   let numHabs=habitaciones.length;
-  // Compatibilidad: usar primera habitación como referencia para modal cap y comparativa
   let hab=habitaciones[0]?.tipo||'ESTANDAR';
   let upg=habitaciones[0]?.upgrade||0;
   let descTipo=document.getElementById('desc-tipo').value;
   let descVal=parseFloat(document.getElementById('desc-valor').value)||0;
-  // upg viene de habitaciones[0] arriba
+
+  // ── Promo eventual ──
+  let promoActiva=document.getElementById('promo-eventual-activa')?.checked||false;
+  let promoNombre=document.getElementById('promo-nombre')?.value||'';
+  let promoFechaIni=document.getElementById('promo-fecha-ini')?.value||'';
+  let promoFechaFin=document.getElementById('promo-fecha-fin')?.value||'';
+  let promoTipo=document.getElementById('promo-tipo')?.value||'pct';
+  let promoValPct=parseFloat(document.getElementById('promo-val-pct')?.value)||0;
+  let promoValMonto=parseFloat(document.getElementById('promo-val-monto')?.value)||0;
 
   // ── Descuento automático AI ──
-  let descAutoActivo=document.getElementById('cfg-desc-auto')?.checked!==false;
+  let descAutoActivo=!promoActiva&&(document.getElementById('cfg-desc-auto')?.checked!==false);
   let descAutoPct=0;
   let descAutoLabel='';
   let nTemp=(!fi||!fo)?0:noches(fi,fo);
@@ -524,12 +597,14 @@ function calcular(){
     if(nTemp===1){descAutoPct=10;descAutoLabel='10% descuento (1 noche)';}
     else if(nTemp===2){descAutoPct=15;descAutoLabel='15% descuento (2 noches)';}
     else if(nTemp===3){descAutoPct=20;descAutoLabel='20% descuento (3 noches)';}
-    // 4+ noches: noche gratis se maneja después del cálculo
   }
   // Mostrar badge info
   let autoInfoEl=document.getElementById('desc-auto-info');
   if(autoInfoEl){
-    if(plan==='AI'&&descAutoActivo&&nTemp>0){
+    if(promoActiva&&promoNombre){
+      autoInfoEl.style.display='block';
+      autoInfoEl.innerHTML=`🎁 <strong>Promo eventual activa:</strong> ${promoNombre}${promoTipo==='pct'?` — ${promoValPct}% desc.`:promoTipo==='noche_gratis'?' — Noche gratis':promoTipo==='pct_noche'?` — ${promoValPct}% + noche gratis`:` — $${promoValMonto}/noche`}`;
+    }else if(plan==='AI'&&descAutoActivo&&nTemp>0){
       let labelAuto=nTemp===1?'10% (1 noche)':nTemp===2?'15% (2 noches)':nTemp===3?'20% (3 noches)':nTemp>=4?'🎁 Noche de menor valor gratis (4+ noches)':'';
       autoInfoEl.style.display='block';
       autoInfoEl.innerHTML=`🏷️ <strong>Descuento automático AI activo:</strong> ${labelAuto}`;
@@ -561,10 +636,10 @@ function calcular(){
   }
 
   // ── Descuento automático: 5+ noches = 20% del total ──
-  // (reemplaza el escalonado para estancias largas)
+  // (reemplaza el escalonado para estancias largas) — ahora se aplica por habitación en el loop
   if(plan==='AI'&&descAutoActivo&&n>=5){descAutoPct=20;
     let autoInfoEl2=document.getElementById('desc-auto-info');
-    if(autoInfoEl2){autoInfoEl2.style.display='block';autoInfoEl2.innerHTML='🏷️ <strong>Descuento automático AI activo:</strong> 20% (5+ noches)';}
+    if(autoInfoEl2&&!promoActiva){autoInfoEl2.style.display='block';autoInfoEl2.innerHTML='🏷️ <strong>Descuento automático AI activo:</strong> 20% (5+ noches)';}
   }
 
   // Calcula valor base de cada noche para CADA habitación independiente
@@ -575,12 +650,36 @@ function calcular(){
   for(let hi=0;hi<habitaciones.length;hi++){
     let habTipo=habitaciones[hi].tipo;
     let habUpg=habitaciones[hi].upgrade||0;
-    let mcHab=clasifMenores(menores,habTipo,adultos);
+    // Usar huéspedes propios de la habitación, con fallback al global
+    let habAdultos=habitaciones[hi].adultos||adultos;
+    let habAdoles=habitaciones[hi].adolescentes||adoles;
+    let habMenoresCount=habitaciones[hi].menoresCount||0;
+    // Construir array de menores simplificado para esta habitación
+    let habMenoresArr=[];
+    for(let m=0;m<habMenoresCount;m++)habMenoresArr.push({edad:'6'});
+    let mcHab=clasifMenores(habMenoresArr,habTipo,habAdultos);
     let habNochesDet=[];
 
+    // ── Descuento auto 5+ noches ──
+    let descAutoPctHab=descAutoPct;
+    if(plan==='AI'&&descAutoActivo&&n>=5)descAutoPctHab=20;
+
+    // ── Promo eventual: calcular descuento por noche según vigencia ──
     for(let i=0;i<n;i++){
       let fecha=addDays(fi,i);
-      let res=calcNoche(fecha,plan,adultos,adoles,mcHab,descTipo,descVal,descAutoPct);
+      let promoPctNoche=0;
+      let promoNocheGratis=false;
+      if(promoActiva){
+        let fechaEnVigencia=(!promoFechaIni||!promoFechaFin)||(fecha>=promoFechaIni&&fecha<=promoFechaFin);
+        if(fechaEnVigencia){
+          if(promoTipo==='pct')promoPctNoche=promoValPct;
+          else if(promoTipo==='monto')descTipo='monto_desc',descVal=promoValMonto;
+          else if(promoTipo==='pct_noche')promoPctNoche=promoValPct;
+        }
+      }
+      // Calcular noche normal con descuento auto (o promo %)
+      let descAutoPctFinal=promoActiva?promoPctNoche:descAutoPctHab;
+      let res=calcNoche(fecha,plan,habAdultos,habAdoles,mcHab,descTipo,descVal,descAutoPctFinal);
       if(!res)continue;
       let d=parseD(fecha);
       let diasSem=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
@@ -591,7 +690,7 @@ function calcular(){
       totalAjuste+=res.ajuste;
     }
     totalUpg+=habUpg*n;
-    desgloseHabs.push({idx:hi,tipo:habTipo,upgrade:habUpg,noches:habNochesDet});
+    desgloseHabs.push({idx:hi,tipo:habTipo,upgrade:habUpg,noches:habNochesDet,adultos:habAdultos,adoles:habAdoles,menores:habMenoresCount});
     if(hi===0)nochesDet=habNochesDet;
   }
   let totalFinal=totalBase+totalAjuste+totalUpg;
@@ -709,8 +808,13 @@ function calcular(){
 
   document.getElementById('desglose').innerHTML=html;
   document.getElementById('total-valor').textContent=fmt(totalFinal);
-  let habsDesc=habitaciones.map((h,i)=>`Hab ${i+1}: ${HAB_NOM[h.tipo]}`).join(' · ');
-  document.getElementById('total-sub-txt').textContent=`${n} noche${n>1?'s':''} · ${numHabs} hab. · ${adultos+adoles+menores.length} persona${(adultos+adoles+menores.length)>1?'s':''} · ${habsDesc}`;
+  let habsDesc=habitaciones.map((h,i)=>{
+    let ad=h.adultos||1;let ado=h.adolescentes||0;let men=h.menoresCount||0;
+    let pax=ad+(ado>0?'+'+ado+'adol':'')+(men>0?'+'+men+'men':'');
+    return `Hab ${i+1}: ${HAB_NOM[h.tipo]} (${ad}ad${ado>0?','+ado+'adol':''}${men>0?','+men+'men':''})`;
+  }).join(' · ');
+  let totalPax=habitaciones.reduce((s,h)=>(s+(h.adultos||1)+(h.adolescentes||0)+(h.menoresCount||0)),0);
+  document.getElementById('total-sub-txt').textContent=`${n} noche${n>1?'s':''} · ${numHabs} hab. · ${totalPax} persona${totalPax>1?'s':''} · ${habsDesc}`;
   document.getElementById('resultado').style.display='block';
 
   // ── Noche gratis para exactamente 4 noches AI ──
@@ -752,7 +856,7 @@ function calcular(){
   }
 
   // Guardar para otras pestañas
-  window._cot={fi,fo,n,plan,hab,adultos,adoles,menores:mc,numHabs,upg,descTipo,descVal,descAutoPct,nocheGratisValor,nocheGratisLabel,totalFinal,totalBase,totalAjuste,totalUpg,nochesDet,desgloseHabs,habitaciones:[...habitaciones],temporada:t0?t0.nombre:''};
+  window._cot={fi,fo,n,plan,hab,adultos,adoles,menores:mc,numHabs,upg,descTipo,descVal,descAutoPct,nocheGratisValor,nocheGratisLabel,totalFinal,totalBase,totalAjuste,totalUpg,nochesDet,desgloseHabs,habitaciones:[...habitaciones],temporada:t0?t0.nombre:'',promoActiva,promoNombre,promoTipo,promoValPct,promoValMonto};
   calcularComparativa();
 }
 
@@ -859,7 +963,7 @@ function calcularComparativa(){
 }
 
 // ─── HABITACIONES INDEPENDIENTES ─────────────────────────────────────────────
-let habitaciones=[{tipo:'ESTANDAR',upgrade:0,id:Date.now()}];
+let habitaciones=[{tipo:'ESTANDAR',upgrade:0,adultos:1,adolescentes:0,menoresCount:0,id:Date.now()}];
 
 const HAB_OPCIONES=`
   <option value="ESTANDAR">Estándar (cap. 4)</option>
@@ -882,7 +986,7 @@ const UPGRADE_OPCIONES=`
   <option value="1600">+$1,600/noche — Master Suite</option>`;
 
 function agregarHab(){
-  habitaciones.push({tipo:'ESTANDAR',upgrade:0,id:Date.now()});
+  habitaciones.push({tipo:'ESTANDAR',upgrade:0,adultos:1,adolescentes:0,menoresCount:0,id:Date.now()});
   renderHabs();calcular();
 }
 
@@ -993,6 +1097,62 @@ function renderHabs(){
     info.textContent=`Cap. ${HAB_CAP[hab.tipo]} personas · ${HAB_NOM[hab.tipo]}${hab.upgrade>0?' · Upgrade +$'+hab.upgrade+'/noche':''}`;
     wrap.setAttribute('data-habid',hab.id);
     wrap.appendChild(info);
+
+    // ── Huéspedes por habitación ──
+    let hDiv=document.createElement('div');
+    hDiv.className='hab-huesp';
+    let hTitle=document.createElement('div');
+    hTitle.className='hab-huesp-title';
+    hTitle.textContent='Huéspedes de esta habitación';
+    hDiv.appendChild(hTitle);
+    let hGrid=document.createElement('div');
+    hGrid.className='grid3';
+
+    // Adultos
+    let adDiv=document.createElement('div');
+    let adLbl=document.createElement('label');adLbl.textContent='Adultos';
+    let adInp=document.createElement('input');
+    adInp.type='number';adInp.min=1;adInp.max=8;
+    adInp.value=hab.adultos||1;
+    adInp.onchange=(()=>{let id=hab.id;return function(){
+      let h=habitaciones.find(x=>x.id===id);
+      if(h)h.adultos=parseInt(this.value)||1;
+      calcular();
+    };})();
+    adDiv.appendChild(adLbl);adDiv.appendChild(adInp);
+    hGrid.appendChild(adDiv);
+
+    // Adolescentes
+    let adoDiv=document.createElement('div');
+    let adoLbl=document.createElement('label');adoLbl.textContent='Adol. (13-17)';
+    let adoInp=document.createElement('input');
+    adoInp.type='number';adoInp.min=0;adoInp.max=6;
+    adoInp.value=hab.adolescentes||0;
+    adoInp.onchange=(()=>{let id=hab.id;return function(){
+      let h=habitaciones.find(x=>x.id===id);
+      if(h)h.adolescentes=parseInt(this.value)||0;
+      calcular();
+    };})();
+    adoDiv.appendChild(adoLbl);adoDiv.appendChild(adoInp);
+    hGrid.appendChild(adoDiv);
+
+    // Menores 0-12
+    let menDiv=document.createElement('div');
+    let menLbl=document.createElement('label');menLbl.textContent='Menores (0-12)';
+    let menInp=document.createElement('input');
+    menInp.type='number';menInp.min=0;menInp.max=6;
+    menInp.value=hab.menoresCount||0;
+    menInp.onchange=(()=>{let id=hab.id;return function(){
+      let h=habitaciones.find(x=>x.id===id);
+      if(h)h.menoresCount=parseInt(this.value)||0;
+      calcular();
+    };})();
+    menDiv.appendChild(menLbl);menDiv.appendChild(menInp);
+    hGrid.appendChild(menDiv);
+
+    hDiv.appendChild(hGrid);
+    wrap.appendChild(hDiv);
+
     div.appendChild(wrap);
   });
 }
@@ -1031,24 +1191,58 @@ function toggleDescuento(){
   calcular();
 }
 
+// ─── PROMO EVENTUAL ──────────────────────────────────────────────────────────
+function togglePromoEventual(chk){
+  let block=document.getElementById('promo-eventual-block');
+  let badge=document.getElementById('promo-badge-on');
+  let descAutoChk=document.getElementById('cfg-desc-auto');
+  if(chk.checked){
+    block.classList.add('activa');
+    badge.style.display='inline-block';
+    // Desactivar descuentos automáticos AI mientras promo eventual esté activa
+    if(descAutoChk)descAutoChk.checked=false;
+  }else{
+    block.classList.remove('activa');
+    badge.style.display='none';
+    // Reactivar descuentos automáticos AI
+    if(descAutoChk)descAutoChk.checked=true;
+  }
+  calcular();
+}
+
+function togglePromoBeneficio(){
+  let tipo=document.getElementById('promo-tipo').value;
+  let pctW=document.getElementById('promo-val-pct-wrap');
+  let montoW=document.getElementById('promo-val-monto-wrap');
+  if(tipo==='monto'){pctW.style.display='none';montoW.style.display='block';}
+  else if(tipo==='noche_gratis'){pctW.style.display='none';montoW.style.display='none';}
+  else{pctW.style.display='block';montoW.style.display='none';}
+}
+
 // ─── MODAL RECORDATORIO ──────────────────────────────────────────────────────
 function abrirModal(){
   let c=window._cot;
   if(!c){alert('Completa la cotización primero.');return;}
   let fi=document.getElementById('fecha-in').value;
   let fo=document.getElementById('fecha-out').value;
-  let adultos=document.getElementById('adultos').value;
-  let adoles=document.getElementById('adolescentes').value;
-  let numHabs=document.getElementById('num-habs').value;
   let plan=document.getElementById('plan').value;
   let desc=document.getElementById('desc-tipo').value;
   let descVal=document.getElementById('desc-valor').value;
+  let numHabs=habitaciones.length;
+
+  // Resumen de huespedes por habitacion
+  let huespedesDesc=habitaciones.map(function(h,i){
+    var ad=h.adultos||1,ado=h.adolescentes||0,men=h.menoresCount||0;
+    var partes=[ad+' adulto'+(ad>1?'s':'')];
+    if(ado>0)partes.push(ado+' adol.');
+    if(men>0)partes.push(men+' menor'+(men>1?'es':''));
+    return 'Hab '+(i+1)+': '+partes.join(', ');
+  }).join(' · ');
 
   let checks=[];
   checks.push(`✅ Fecha de llegada: <strong>${fmtD(fi)}</strong>`);
   checks.push(`✅ Fecha de salida: <strong>${fmtD(fo)}</strong> (${c.n} noche${c.n>1?'s':''})`);
-  checks.push(`✅ Huéspedes: <strong>${adultos} adulto${adultos>1?'s':''}${parseInt(adoles)>0?', '+adoles+' adolescente(s)':''}${menores.length>0?', '+menores.length+' menor(es)':''}</strong>`);
-  checks.push(`✅ Número de habitaciones: <strong>${numHabs}</strong>`);
+  checks.push('✅ Habitaciones: <strong>'+numHabs+'</strong> — '+huespedesDesc);
   checks.push(`✅ Plan: <strong>${plan==='AI'?'Todo Incluido':'Plan Europeo'}</strong>`);
 
   // Descuento automático AI
@@ -1060,7 +1254,12 @@ function abrirModal(){
     else if(nochesCount===3)checks.push(`🏷️ Descuento automático AI: <strong>20% (3 noches)</strong>`);
     else if(nochesCount>=4)checks.push(`🎁 Descuento automático AI: <strong>Noche gratis incluida (4+ noches)</strong>`);
   }
-  if(desc!=='ninguno'&&parseFloat(descVal)>0){
+  // Promo eventual o descuento manual
+  let promoActMsg=document.getElementById('promo-eventual-activa')?.checked;
+  let promoNom=document.getElementById('promo-nombre')?.value;
+  if(promoActMsg&&promoNom){
+    checks.push(`🎁 Promoción eventual activa: <strong>${promoNom}</strong> — ¿confirmado?`);
+  } else if(desc!=='ninguno'&&parseFloat(descVal)>0){
     let descLabel={pct_desc:'Descuento adicional '+descVal+'%',monto_desc:'Descuento adicional '+fmt(descVal)+'/noche',pct_inc:'Incremento '+descVal+'%',monto_inc:'Incremento '+fmt(descVal)+'/noche'}[desc];
     checks.push(`🏷️ Ajuste manual: <strong>${descLabel}</strong> — ¿confirmado?`);
   }
@@ -1118,7 +1317,10 @@ function generarResumen(){
   }
 
   let descLinea='';
-  if(c.descTipo!=='ninguno'&&c.descVal>0){
+  if(c.promoActiva&&c.promoNombre){
+    let tipoPl=c.promoTipo==='pct'?`Descuento ${c.promoValPct}%`:c.promoTipo==='noche_gratis'?'Noche gratis':c.promoTipo==='pct_noche'?`Desc. ${c.promoValPct}% + noche gratis`:`Descuento $${c.promoValMonto}/noche`;
+    descLinea=`\n   Promoción: ${c.promoNombre} — ${tipoPl}`;
+  } else if(c.descTipo!=='ninguno'&&c.descVal>0){
     let dl={pct_desc:`Descuento ${c.descVal}%`,monto_desc:`Descuento ${fmt(c.descVal)}/noche`,pct_inc:`Incremento ${c.descVal}%`,monto_inc:`Incremento ${fmt(c.descVal)}/noche`}[c.descTipo];
     descLinea=`\n   Ajuste aplicado: ${dl}`;
   }
@@ -1485,6 +1687,9 @@ function resetConfig(){
   }
   let chk=document.getElementById('cfg-desc-auto');
   if(chk)chk.checked=true;
+  // Resetear promo eventual
+  let promoChk=document.getElementById('promo-eventual-activa');
+  if(promoChk){promoChk.checked=false;togglePromoEventual(promoChk);}
   guardarConfig();
 }
 
