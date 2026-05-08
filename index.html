@@ -362,75 +362,101 @@ textarea{resize:vertical;min-height:70px}
   <div class="config-row"><label>Mensaje de cierre</label><input type="text" id="cfg-cierre" value="Tarifas sujetas a disponibilidad. Cotización válida al momento de emisión." oninput="guardarConfig()"></div>
 </div>
 <div class="card">
-  <div class="sec">Descuentos automáticos AI (todo el año)</div>
-  <p style="font-size:12px;color:var(--texto-suave);margin-bottom:10px">Aplican automáticamente solo en Plan Todo Incluido. Los descuentos manuales se suman a estos.</p>
-  <table class="desc-tabla">
-    <tr><th>Noches</th><th>Descuento automático</th></tr>
-    <tr><td>1 noche</td><td>10%</td></tr>
-    <tr><td>2 noches</td><td>15%</td></tr>
-    <tr><td>3 noches</td><td>20%</td></tr>
-    <tr><td>4+ noches</td><td>Noche de menor valor gratis</td></tr>
-  </table>
-  <div style="margin-top:10px;display:flex;gap:8px;align-items:center">
-    <label style="margin-bottom:0;font-size:13px">Activar descuentos automáticos AI</label>
-    <input type="checkbox" id="cfg-desc-auto" checked onchange="guardarConfig();calcular()" style="width:auto;width:18px;height:18px;cursor:pointer">
-  </div>
-</div>
-<div class="card">
   <div class="sec">Agente predeterminado</div>
   <div class="config-row"><label>Nombre del agente</label><input type="text" id="cfg-agente" value="" placeholder="Nombre que aparece en el resumen" oninput="guardarConfig()"></div>
 </div>
 
-<!-- PROMOCIÓN EVENTUAL -->
+<!-- DESCUENTOS: AI + PROMO EVENTUAL en una sola card -->
 <div class="card">
-  <div class="sec">Promoción eventual / Fecha específica
-    <span id="promo-badge-on" class="promo-badge-activa" style="display:none">ACTIVA</span>
-  </div>
-  <p style="font-size:12px;color:var(--texto-suave);margin-bottom:10px">
-    Las promociones eventuales tienen <strong>prioridad</strong> sobre los descuentos automáticos AI cuando están activas.
-    Solo puede estar activa <strong>una</strong> a la vez.
+  <div class="sec">Descuentos y promociones</div>
+  <p style="font-size:12px;color:var(--texto-suave);margin-bottom:12px">
+    Solo puede estar activa <strong>una opción</strong> a la vez. Al activar una, la otra se desactiva automáticamente.
   </p>
 
-  <div class="promo-toggle-row">
-    <label>Activar promoción eventual</label>
-    <input type="checkbox" id="promo-eventual-activa" style="width:18px;height:18px;cursor:pointer"
-      onchange="togglePromoEventual(this)">
+  <!-- ── Opción A: Descuentos automáticos AI ── -->
+  <div id="desc-auto-card" style="border:1.5px solid var(--azul-mid);border-radius:10px;padding:12px 14px;margin-bottom:10px;transition:.2s">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+      <input type="checkbox" id="cfg-desc-auto" checked
+        onchange="toggleDescAuto(this)"
+        style="width:18px;height:18px;cursor:pointer;flex-shrink:0">
+      <label style="margin-bottom:0;font-weight:700;font-size:13px;cursor:pointer" for="cfg-desc-auto">
+        Descuentos automáticos AI (todo el año)
+      </label>
+    </div>
+    <p style="font-size:11px;color:var(--texto-suave);margin:0 0 8px 28px">
+      Aplican automáticamente solo en Plan Todo Incluido.
+    </p>
+    <table class="desc-tabla" style="margin-left:28px">
+      <tr><th>Noches</th><th>Descuento automático</th></tr>
+      <tr><td>1 noche</td><td>10%</td></tr>
+      <tr><td>2 noches</td><td>15%</td></tr>
+      <tr><td>3 noches</td><td>20%</td></tr>
+      <tr><td>4+ noches</td><td>Noche de menor valor gratis</td></tr>
+    </table>
   </div>
 
-  <div id="promo-eventual-block" class="promo-block">
-    <div class="grid2" style="margin-bottom:10px">
-      <div><label>Nombre de la promoción</label>
-        <input type="text" id="promo-nombre" placeholder="Ej. Semana de Verano" oninput="calcular()">
-      </div>
-      <div><label>Vigencia — Fecha inicio</label>
-        <input type="date" id="promo-fecha-ini" onchange="calcular()">
-      </div>
+  <!-- ── Opción B: Promoción eventual ── -->
+  <div id="promo-eventual-card" style="border:1.5px solid var(--azul-mid);border-radius:10px;padding:12px 14px;transition:.2s">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+      <input type="checkbox" id="promo-eventual-activa"
+        onchange="togglePromoEventual(this)"
+        style="width:18px;height:18px;cursor:pointer;flex-shrink:0">
+      <label style="margin-bottom:0;font-weight:700;font-size:13px;cursor:pointer" for="promo-eventual-activa">
+        Promoción eventual / Fecha específica
+        <span id="promo-badge-on" class="promo-badge-activa" style="display:none">ACTIVA</span>
+      </label>
     </div>
-    <div class="grid2" style="margin-bottom:10px">
-      <div><label>Vigencia — Fecha fin</label>
-        <input type="date" id="promo-fecha-fin" onchange="calcular()">
+
+    <div id="promo-eventual-block" class="promo-block" style="margin-left:0">
+      <!-- Nombre y fechas -->
+      <div class="grid2" style="margin-bottom:10px">
+        <div><label>Nombre de la promoción</label>
+          <input type="text" id="promo-nombre" placeholder="Ej. Mayo: 2a noche al 50%" oninput="calcular()">
+        </div>
+        <div><label>Vigencia — Fecha inicio</label>
+          <input type="date" id="promo-fecha-ini" onchange="calcular()">
+        </div>
       </div>
-      <div><label>Tipo de beneficio</label>
-        <select id="promo-tipo" onchange="togglePromoBeneficio();calcular()">
-          <option value="pct">% de descuento sobre tarifa</option>
-          <option value="noche_gratis">Noche gratis (menor valor)</option>
-          <option value="pct_noche">% descuento + noche gratis</option>
-          <option value="monto">Monto fijo por noche ($)</option>
-        </select>
+      <div class="grid2" style="margin-bottom:12px">
+        <div><label>Vigencia — Fecha fin</label>
+          <input type="date" id="promo-fecha-fin" onchange="calcular()">
+        </div>
+        <div><label>Tipo de beneficio</label>
+          <select id="promo-tipo" onchange="togglePromoBeneficio();calcular()">
+            <option value="pct">% de descuento (todas las noches)</option>
+            <option value="noche_gratis">Noche gratis (la de menor valor)</option>
+            <option value="pct_noche">% descuento + noche gratis</option>
+            <option value="monto">Monto fijo por noche ($)</option>
+            <option value="noches_especificas">Descuento por noche específica</option>
+          </select>
+        </div>
       </div>
-    </div>
-    <div class="grid2" style="margin-bottom:10px">
-      <div id="promo-val-pct-wrap">
+
+      <!-- Campos según tipo -->
+      <div id="promo-val-pct-wrap" style="margin-bottom:10px">
         <label>Porcentaje de descuento (%)</label>
         <input type="number" id="promo-val-pct" min="0" max="100" value="0" onchange="calcular()">
       </div>
-      <div id="promo-val-monto-wrap" style="display:none">
+      <div id="promo-val-monto-wrap" style="display:none;margin-bottom:10px">
         <label>Monto de descuento por noche ($)</label>
         <input type="number" id="promo-val-monto" min="0" value="0" onchange="calcular()">
       </div>
-    </div>
-    <div style="font-size:11px;color:var(--dorado-dark);margin-top:4px">
-      ⚠ Al activar esta promoción, los descuentos automáticos AI quedan <strong>desactivados</strong> automáticamente.
+
+      <!-- Noches específicas -->
+      <div id="promo-noches-esp-wrap" style="display:none;margin-bottom:10px">
+        <div style="font-size:12px;font-weight:700;color:var(--azul);margin-bottom:8px">
+          Descuento por número de noche de la estancia
+        </div>
+        <p style="font-size:11px;color:var(--texto-suave);margin-bottom:10px">
+          Define qué % de descuento aplica a cada noche. Ej: noche 1 = 0%, noche 2 = 50%. Deja en 0 las noches sin descuento.
+        </p>
+        <div id="promo-noches-filas" style="display:flex;flex-direction:column;gap:6px"></div>
+        <button class="btn btn-sm" onclick="agregarNocheEspecifica()" style="margin-top:8px">+ Agregar noche</button>
+      </div>
+
+      <div style="font-size:11px;color:var(--dorado-dark);margin-top:6px">
+        ⚠ Al activar esta promoción, los descuentos automáticos AI quedan <strong>desactivados</strong> automáticamente.
+      </div>
     </div>
   </div>
 </div>
@@ -476,6 +502,8 @@ textarea{resize:vertical;min-height:70px}
 </div><!-- /panel-historial -->
 
 </div><!-- /container -->
+
+<div id="jsonp-container" style="display:none"></div>
 
 <script>
 // ─── DATOS DE TARIFAS 2026 ───────────────────────────────────────────────────
@@ -700,7 +728,12 @@ function calcular(){
   if(autoInfoEl){
     if(promoActiva&&promoNombre){
       autoInfoEl.style.display='block';
-      autoInfoEl.innerHTML=`🎁 <strong>Promo eventual activa:</strong> ${promoNombre}${promoTipo==='pct'?` — ${promoValPct}% desc.`:promoTipo==='noche_gratis'?' — Noche gratis':promoTipo==='pct_noche'?` — ${promoValPct}% + noche gratis`:` — $${promoValMonto}/noche`}`;
+      let promoDesc=promoTipo==='pct'?`${promoValPct}% desc.`
+        :promoTipo==='noche_gratis'?'Noche gratis'
+        :promoTipo==='pct_noche'?`${promoValPct}% + noche gratis`
+        :promoTipo==='monto'?`$${promoValMonto}/noche`
+        :promoTipo==='noches_especificas'?_nochesEsp.map(x=>`N${x.noche}: ${x.pct}%`).join(', '):'';
+      autoInfoEl.innerHTML=`🎁 <strong>Promo eventual activa:</strong> ${promoNombre} — ${promoDesc}`;
     }else if(plan==='AI'&&descAutoActivo&&nTemp>0){
       let labelAuto=nTemp===1?'10% (1 noche)':nTemp===2?'15% (2 noches)':nTemp===3?'20% (3 noches)':nTemp>=4?'🎁 Noche de menor valor gratis (4+ noches)':'';
       autoInfoEl.style.display='block';
@@ -778,6 +811,12 @@ function calcular(){
       }
       // Calcular noche normal con descuento auto (o promo %)
       let descAutoPctFinal=promoActiva?promoPctNoche:descAutoPctHab;
+      // Noches específicas: el índice de noche dentro de la estancia es i+1
+      if(promoActiva&&promoTipo==='noches_especificas'){
+        let nocheNum=i+1;
+        let reglaNoche=_nochesEsp.find(x=>x.noche===nocheNum);
+        descAutoPctFinal=reglaNoche?reglaNoche.pct:0;
+      }
       let res=calcNoche(fecha,plan,habAdultos,habAdoles,mcHab,descTipo,descVal,descAutoPctFinal);
       if(!res)continue;
       let d=parseD(fecha);
@@ -957,7 +996,7 @@ if(hab==='MASTER_SUITE'&&_msHasMenores){
   }
 
   // Guardar para otras pestañas
-  window._cot={fi,fo,n,plan,hab,adultos,adoles,menores:[],numHabs,upg,descTipo,descVal,descAutoPct,nocheGratisValor,nocheGratisLabel,totalFinal,totalBase,totalAjuste,totalUpg,nochesDet,desgloseHabs,habitaciones:[...habitaciones],temporada:t0?t0.nombre:'',promoActiva,promoNombre,promoTipo,promoValPct,promoValMonto};
+  window._cot={fi,fo,n,plan,hab,adultos,adoles,menores:[],numHabs,upg,descTipo,descVal,descAutoPct,nocheGratisValor,nocheGratisLabel,totalFinal,totalBase,totalAjuste,totalUpg,nochesDet,desgloseHabs,habitaciones:[...habitaciones],temporada:t0?t0.nombre:'',promoActiva,promoNombre,promoTipo,promoValPct,promoValMonto,nochesEsp:[..._nochesEsp]};
   calcularComparativa();
 }
 
@@ -1345,31 +1384,99 @@ function toggleDescuento(){
 }
 
 // ─── PROMO EVENTUAL ──────────────────────────────────────────────────────────
+// ── Toggle mutuo: Descuentos AI ──────────────────────────────
+function toggleDescAuto(chk){
+  let promoChk=document.getElementById('promo-eventual-activa');
+  let promoBlock=document.getElementById('promo-eventual-block');
+  let promoBadge=document.getElementById('promo-badge-on');
+  let autoCard=document.getElementById('desc-auto-card');
+  let promoCard=document.getElementById('promo-eventual-card');
+  if(chk.checked){
+    // Apagar promo eventual
+    if(promoChk){promoChk.checked=false;}
+    if(promoBlock){promoBlock.classList.remove('activa');}
+    if(promoBadge){promoBadge.style.display='none';}
+    if(autoCard){autoCard.style.borderColor='var(--azul)';autoCard.style.background='var(--azul-light)';}
+    if(promoCard){promoCard.style.borderColor='var(--azul-mid)';promoCard.style.background='';}
+  }else{
+    if(autoCard){autoCard.style.borderColor='var(--azul-mid)';autoCard.style.background='';}
+  }
+  guardarConfig();calcular();
+}
+
+// ── Toggle mutuo: Promo eventual ──────────────────────────────
 function togglePromoEventual(chk){
   let block=document.getElementById('promo-eventual-block');
   let badge=document.getElementById('promo-badge-on');
   let descAutoChk=document.getElementById('cfg-desc-auto');
+  let autoCard=document.getElementById('desc-auto-card');
+  let promoCard=document.getElementById('promo-eventual-card');
   if(chk.checked){
     block.classList.add('activa');
     badge.style.display='inline-block';
-    // Desactivar descuentos automáticos AI mientras promo eventual esté activa
-    if(descAutoChk)descAutoChk.checked=false;
+    // Apagar AI
+    if(descAutoChk){descAutoChk.checked=false;}
+    if(autoCard){autoCard.style.borderColor='var(--azul-mid)';autoCard.style.background='';}
+    if(promoCard){promoCard.style.borderColor='var(--dorado)';promoCard.style.background='var(--dorado-light)';}
   }else{
     block.classList.remove('activa');
     badge.style.display='none';
-    // Reactivar descuentos automáticos AI
-    if(descAutoChk)descAutoChk.checked=true;
+    if(promoCard){promoCard.style.borderColor='var(--azul-mid)';promoCard.style.background='';}
   }
   calcular();
 }
 
+// ── Mostrar/ocultar campos según tipo de promo ────────────────
 function togglePromoBeneficio(){
   let tipo=document.getElementById('promo-tipo').value;
   let pctW=document.getElementById('promo-val-pct-wrap');
   let montoW=document.getElementById('promo-val-monto-wrap');
-  if(tipo==='monto'){pctW.style.display='none';montoW.style.display='block';}
-  else if(tipo==='noche_gratis'){pctW.style.display='none';montoW.style.display='none';}
-  else{pctW.style.display='block';montoW.style.display='none';}
+  let nochesW=document.getElementById('promo-noches-esp-wrap');
+  pctW.style.display='none';
+  montoW.style.display='none';
+  nochesW.style.display='none';
+  if(tipo==='pct'||tipo==='pct_noche'){pctW.style.display='block';}
+  else if(tipo==='monto'){montoW.style.display='block';}
+  else if(tipo==='noches_especificas'){nochesW.style.display='block';renderNochesEspecificas();}
+  // noche_gratis: no extra fields
+}
+
+// ── Noches específicas ────────────────────────────────────────
+let _nochesEsp=[{noche:2,pct:50}]; // default: noche 2 al 50%
+
+function renderNochesEspecificas(){
+  let cont=document.getElementById('promo-noches-filas');
+  if(!cont)return;
+  cont.innerHTML='';
+  _nochesEsp.forEach((item,idx)=>{
+    let row=document.createElement('div');
+    row.style.cssText='display:flex;align-items:center;gap:8px;flex-wrap:wrap';
+    row.innerHTML=`
+      <div style="display:flex;align-items:center;gap:6px">
+        <label style="font-size:12px;margin-bottom:0;white-space:nowrap">Noche #</label>
+        <input type="number" min="1" max="30" value="${item.noche}"
+          style="width:60px;padding:4px 6px;font-size:13px"
+          onchange="_nochesEsp[${idx}].noche=parseInt(this.value)||1;calcular()">
+      </div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <label style="font-size:12px;margin-bottom:0;white-space:nowrap">Descuento</label>
+        <input type="number" min="0" max="100" value="${item.pct}"
+          style="width:70px;padding:4px 6px;font-size:13px"
+          onchange="_nochesEsp[${idx}].pct=parseFloat(this.value)||0;calcular()">
+        <span style="font-size:12px">%</span>
+      </div>
+      <span style="font-size:11px;color:var(--texto-suave)">${item.pct===100?'(gratis)':item.pct===50?'(mitad de precio)':''}</span>
+      <button class="btn btn-sm" style="padding:2px 8px;background:#fde8e8;color:#b91c1c;border-color:#f5b4b4"
+        onclick="_nochesEsp.splice(${idx},1);renderNochesEspecificas();calcular()">✕</button>
+    `;
+    cont.appendChild(row);
+  });
+}
+
+function agregarNocheEspecifica(){
+  let nextN=(_nochesEsp.length>0?Math.max(..._nochesEsp.map(x=>x.noche)):0)+1;
+  _nochesEsp.push({noche:nextN,pct:0});
+  renderNochesEspecificas();
 }
 
 // ─── MODAL RECORDATORIO ──────────────────────────────────────────────────────
@@ -1480,7 +1587,12 @@ function generarResumen(){
 
   let descLinea='';
   if(c.promoActiva&&c.promoNombre){
-    let tipoPl=c.promoTipo==='pct'?`Descuento ${c.promoValPct}%`:c.promoTipo==='noche_gratis'?'Noche gratis':c.promoTipo==='pct_noche'?`Desc. ${c.promoValPct}% + noche gratis`:`Descuento $${c.promoValMonto}/noche`;
+    let tipoPl=c.promoTipo==='pct'?`Descuento ${c.promoValPct}%`
+      :c.promoTipo==='noche_gratis'?'Noche gratis'
+      :c.promoTipo==='pct_noche'?`Desc. ${c.promoValPct}% + noche gratis`
+      :c.promoTipo==='monto'?`Descuento $${c.promoValMonto}/noche`
+      :c.promoTipo==='noches_especificas'?(c.nochesEsp||[]).map(x=>`N${x.noche}:${x.pct}%`).join(', ')
+      :`Descuento $${c.promoValMonto}/noche`;
     descLinea=`\n   Promoción: ${c.promoNombre} — ${tipoPl}`;
   } else if(c.descTipo!=='ninguno'&&c.descVal>0){
     let dl={pct_desc:`Descuento ${c.descVal}%`,monto_desc:`Descuento ${fmt(c.descVal)}/noche`,pct_inc:`Incremento ${c.descVal}%`,monto_inc:`Incremento ${fmt(c.descVal)}/noche`}[c.descTipo];
@@ -1851,9 +1963,12 @@ function resetConfig(){
   }
   let chk=document.getElementById('cfg-desc-auto');
   if(chk)chk.checked=true;
-  // Resetear promo eventual
+  // Resetear promo eventual y restaurar AI
   let promoChk=document.getElementById('promo-eventual-activa');
   if(promoChk){promoChk.checked=false;togglePromoEventual(promoChk);}
+  let autoChk=document.getElementById('cfg-desc-auto');
+  if(autoChk){autoChk.checked=true;toggleDescAuto(autoChk);}
+  _nochesEsp=[{noche:2,pct:50}];
   guardarConfig();
 }
 
@@ -1864,19 +1979,45 @@ let tom=new Date(today);tom.setDate(today.getDate()+2);
 document.getElementById('fecha-out').value=`${tom.getFullYear()}-${pad(tom.getMonth()+1)}-${pad(tom.getDate())}`;
 document.getElementById('cli-fecha-contacto').value=document.getElementById('fecha-in').value;
 // ═══════════════════════════════════════════════════════════════
-// HISTORIAL — localStorage
+// HISTORIAL — Google Sheets via JSONP (sin CORS)
 // ═══════════════════════════════════════════════════════════════
-const LS_KEY = 'maeva_historial';
+
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyL46tXeQOTrP33Q3OsKL-UjIYRGdXkYQe4umhpXWcQCLdiobFLzZDIKPp8yPNEvaUW/exec';
 
 let _histFilter = 'todos';
+let _histCache  = null;
+let _jsonpCount = 0; // contador para callbacks únicos
 
-// ── localStorage helpers ──────────────────────────────────────
-function lsCargar() {
-  try { return JSON.parse(localStorage.getItem(LS_KEY) || '[]'); }
-  catch(e) { return []; }
-}
-function lsGuardar(arr) {
-  localStorage.setItem(LS_KEY, JSON.stringify(arr));
+// ── JSONP: inyecta <script> en lugar de fetch ─────────────────
+function jsonpGet(params) {
+  return new Promise((resolve, reject) => {
+    let cbName = '__gsCallback' + (++_jsonpCount);
+    let timeout = setTimeout(() => {
+      delete window[cbName];
+      reject(new Error('Timeout al conectar con Google Sheets'));
+    }, 12000);
+
+    window[cbName] = function(data) {
+      clearTimeout(timeout);
+      delete window[cbName];
+      document.getElementById('jsonp-container')?.querySelectorAll('script').forEach(s => s.remove());
+      resolve(data);
+    };
+
+    params.callback = cbName;
+    let qs = Object.entries(params)
+      .map(([k,v]) => encodeURIComponent(k) + '=' + encodeURIComponent(v))
+      .join('&');
+
+    let script = document.createElement('script');
+    script.src = APPS_SCRIPT_URL + '?' + qs;
+    script.onerror = () => {
+      clearTimeout(timeout);
+      delete window[cbName];
+      reject(new Error('Error al cargar el script de Google'));
+    };
+    document.getElementById('jsonp-container').appendChild(script);
+  });
 }
 
 // ── Filtro ────────────────────────────────────────────────────
@@ -1907,11 +2048,11 @@ function histMsg(txt, color) {
   el.style.display = 'block';
   el.style.color   = color || '#1a7a3a';
   el.textContent   = txt;
-  if (color !== '#b91c1c') setTimeout(() => { el.style.display = 'none'; }, 3000);
+  if (color !== '#b91c1c') setTimeout(() => { el.style.display = 'none'; }, 4000);
 }
 
 // ── GUARDAR ───────────────────────────────────────────────────
-function guardarEnHistorial() {
+async function guardarEnHistorial() {
   let cot     = window._cot;
   let cliente = document.getElementById('cliente-nombre')?.value || 'Sin nombre';
   let tipo    = document.getElementById('hist-save-tipo').value;
@@ -1921,92 +2062,125 @@ function guardarEnHistorial() {
     histMsg('⚠ Completa la cotización antes de guardar.', '#b91c1c'); return;
   }
 
-  let registro = {
-    id:             Date.now(),
-    tipo, cliente, nota,
-    fecha_guardado: new Date().toISOString(),
-    fi:             cot.fi, fo: cot.fo, n: cot.n, plan: cot.plan,
-    totalFinal:     cot.totalFinal,
-    totalBase:      cot.totalBase,
-    totalAjuste:    cot.totalAjuste,
-    totalUpg:       cot.totalUpg || 0,
-    nocheGratisValor: cot.nocheGratisValor || 0,
-    descTipo:       cot.descTipo,
-    descVal:        cot.descVal,
-    promoActiva:    cot.promoActiva || false,
-    promoNombre:    cot.promoNombre || '',
-    temporada:      cot.temporada || '',
-    habitaciones:   (cot.habitaciones||[]).map(h => ({
-      tipo: h.tipo, adultos: h.adultos||1,
-      adolescentes: h.adolescentes||0,
-      menoresCount: h.menoresCount||0,
-      menoresEdades: h.menoresEdades||[],
-      upgrade: h.upgrade||0
-    })),
-    noches_det: (cot.nochesDet||[]).map(nd => ({
-      fechaLabel: nd.fechaLabel, total: nd.total, tmp: nd.tmp
-    }))
+  let btn = document.querySelector('[onclick="guardarEnHistorial()"]');
+  if (btn) { btn.disabled = true; btn.textContent = 'Guardando…'; }
+  histMsg('⏳ Guardando en Google Sheets…', '#0077b6');
+
+  let data = {
+    id:              String(Date.now()),
+    tipo, cliente,
+    nota:            nota,
+    fecha_guardado:  new Date().toISOString(),
+    fi:              cot.fi, fo: cot.fo, n: cot.n, plan: cot.plan,
+    totalFinal:      cot.totalFinal,
+    totalBase:       cot.totalBase,
+    totalAjuste:     cot.totalAjuste,
+    totalUpg:        cot.totalUpg || 0,
+    nocheGratisValor:cot.nocheGratisValor || 0,
+    descTipo:        cot.descTipo || '',
+    descVal:         cot.descVal || 0,
+    promoNombre:     cot.promoNombre || '',
+    habitaciones:    JSON.stringify((cot.habitaciones||[]).map(h=>({
+      tipo:h.tipo, adultos:h.adultos||1, adolescentes:h.adolescentes||0,
+      menoresCount:h.menoresCount||0, menoresEdades:h.menoresEdades||[], upgrade:h.upgrade||0
+    }))),
+    noches_det:      JSON.stringify((cot.nochesDet||[]).map(nd=>({
+      fechaLabel:nd.fechaLabel, total:nd.total, tmp:nd.tmp
+    })))
   };
 
-  let arr = lsCargar();
-  arr.unshift(registro);
-  if (arr.length > 500) arr = arr.slice(0, 500);
-  lsGuardar(arr);
-
-  histMsg(`✅ Guardado como ${tipo==='reservacion'?'reservación':'cotización'} para ${cliente}`);
-  document.getElementById('hist-save-nota').value = '';
+  try {
+    let res = await jsonpGet({ accion: 'guardar', data: JSON.stringify(data) });
+    if (res.ok) {
+      histMsg(`✅ Guardado como ${tipo==='reservacion'?'reservación':'cotización'} para ${cliente}`);
+      document.getElementById('hist-save-nota').value = '';
+      _histCache = null;
+    } else {
+      histMsg('Error: ' + (res.error || 'desconocido'), '#b91c1c');
+    }
+  } catch(e) {
+    histMsg('Error: ' + e.message, '#b91c1c');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Guardar'; }
+  }
 }
 
 // ── CAMBIAR TIPO ──────────────────────────────────────────────
-function cambiarTipoRegistro(id, nuevoTipo) {
-  let arr = lsCargar();
-  let reg = arr.find(r => r.id === id);
-  if (reg) { reg.tipo = nuevoTipo; lsGuardar(arr); renderHistorial(); }
+async function cambiarTipoRegistro(id, nuevoTipo) {
+  try {
+    let res = await jsonpGet({ accion:'cambiarTipo', id:String(id), tipo:nuevoTipo });
+    if (res.ok) { _histCache = null; renderHistorial(); }
+    else alert('Error: ' + (res.error||'desconocido'));
+  } catch(e) { alert('Error: ' + e.message); }
 }
 
 // ── ELIMINAR ──────────────────────────────────────────────────
-function eliminarRegistro(id) {
+async function eliminarRegistro(id) {
   if (!confirm('¿Eliminar este registro del historial?')) return;
-  let arr = lsCargar().filter(r => r.id !== id);
-  lsGuardar(arr);
-  renderHistorial();
+  try {
+    let res = await jsonpGet({ accion:'eliminar', id:String(id) });
+    if (res.ok) { _histCache = null; renderHistorial(); }
+    else alert('Error: ' + (res.error||'desconocido'));
+  } catch(e) { alert('Error: ' + e.message); }
 }
 
 // ── LIMPIAR TODO ──────────────────────────────────────────────
-function limpiarHistorial() {
+async function limpiarHistorial() {
   if (!confirm('¿Borrar TODO el historial permanentemente?')) return;
-  localStorage.removeItem(LS_KEY);
-  renderHistorial();
+  try {
+    let res = await jsonpGet({ accion:'limpiar' });
+    if (res.ok) { _histCache = null; renderHistorial(); }
+  } catch(e) { alert('Error: ' + e.message); }
 }
 
-// ── EXPORTAR a CSV ────────────────────────────────────────────
-function exportarHistorialCSV() {
-  let arr = lsCargar();
-  if (!arr.length) { alert('No hay registros para exportar.'); return; }
-  let cols = ['Tipo','Cliente','Nota','Fecha','Check-in','Check-out','Noches','Plan','Total','Temporada','Promoción'];
-  let rows = arr.map(r => [
-    r.tipo, r.cliente, r.nota||'',
-    r.fecha_guardado.slice(0,16).replace('T',' '),
-    r.fi, r.fo, r.n, r.plan==='AI'?'Todo Incluido':'Plan Europeo',
-    r.totalFinal, r.temporada||'', r.promoNombre||''
-  ].map(v => `"${String(v).replace(/"/g,'""')}"`).join(','));
-  let csv = [cols.join(','), ...rows].join('\n');
-  let blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8'});
-  let a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `historial_maeva_${new Date().toISOString().slice(0,10)}.csv`;
-  a.click();
+// ── EXPORTAR CSV ──────────────────────────────────────────────
+async function exportarHistorialCSV() {
+  histMsg('⏳ Descargando datos…', '#0077b6');
+  try {
+    let json = await jsonpGet({ accion:'listar' });
+    let arr  = json.registros || [];
+    if (!arr.length) { histMsg('No hay registros para exportar.', '#b91c1c'); return; }
+    let cols = ['Tipo','Cliente','Nota','Fecha','Check-in','Check-out','Noches','Plan','Total','Temporada','Promoción'];
+    let rows = arr.map(r => [
+      r.tipo, r.cliente, r.nota||'',
+      String(r.fecha_guardado).slice(0,16).replace('T',' '),
+      r.fi, r.fo, r.n, r.plan==='AI'?'Todo Incluido':'Plan Europeo',
+      r.totalFinal, r.temporada||'', r.promoNombre||''
+    ].map(v => `"${String(v).replace(/"/g,'""')}"`).join(','));
+    let csv  = [cols.join(','), ...rows].join('\n');
+    let blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8'});
+    let a    = document.createElement('a');
+    a.href   = URL.createObjectURL(blob);
+    a.download = `historial_maeva_${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+    histMsg('✅ CSV descargado');
+  } catch(e) { histMsg('Error: ' + e.message, '#b91c1c'); }
 }
 
 // ── RENDERIZAR ────────────────────────────────────────────────
-function renderHistorial() {
+async function renderHistorial() {
   let lista = document.getElementById('hist-lista');
   if (!lista) return;
 
-  let arr = lsCargar();
+  let registros = _histCache;
+  if (!registros) {
+    lista.innerHTML = '<div class="hist-empty">⏳ Cargando historial…</div>';
+    try {
+      let json = await jsonpGet({ accion:'listar' });
+      registros = json.registros || [];
+      _histCache = registros;
+    } catch(e) {
+      lista.innerHTML = `<div class="hist-empty" style="color:#b91c1c">
+        ❌ Error al cargar el historial.<br>
+        <span style="font-size:11px">${e.message}</span>
+      </div>`;
+      return;
+    }
+  }
+
   let filtrados = _histFilter === 'todos'
-    ? arr
-    : arr.filter(r => r.tipo === _histFilter);
+    ? registros
+    : registros.filter(r => r.tipo === _histFilter);
 
   if (!filtrados.length) {
     lista.innerHTML = '<div class="hist-empty">📭 No hay registros aún.<br><span style="font-size:12px">Guarda una cotización usando el botón de arriba.</span></div>';
@@ -2016,7 +2190,7 @@ function renderHistorial() {
   // Agrupar por día
   let byDay = {};
   filtrados.forEach(r => {
-    let dk = dayKey(r.fecha_guardado);
+    let dk = dayKey(String(r.fecha_guardado));
     if (!byDay[dk]) byDay[dk] = [];
     byDay[dk].push(r);
   });
@@ -2034,44 +2208,44 @@ function renderHistorial() {
       <div class="hist-day-label">📅 ${fmtHistDate(dk+'T12:00:00')} &nbsp;·&nbsp; ${resumen.join(', ')}</div>`;
 
     dayRecs.forEach(reg => {
-      let habs   = reg.habitaciones || [];
-      let noches = reg.noches_det   || [];
+      let habs   = typeof reg.habitaciones === 'string' ? JSON.parse(reg.habitaciones||'[]') : (reg.habitaciones||[]);
+      let noches = typeof reg.noches_det   === 'string' ? JSON.parse(reg.noches_det||'[]')   : (reg.noches_det||[]);
 
       let habsDesc = habs.map((h,i) => {
         let ad=h.adultos||1, ado=h.adolescentes||0, men=h.menoresCount||0;
-        let p = [ad+' adult'+(ad>1?'os':'o')];
-        if (ado>0) p.push(ado+' adol.');
-        if (men>0) p.push(men+' menor'+(men>1?'es':''));
+        let p=[ad+' adult'+(ad>1?'os':'o')];
+        if(ado>0) p.push(ado+' adol.');
+        if(men>0) p.push(men+' menor'+(men>1?'es':''));
         return 'H'+(i+1)+': '+(HAB_NOM[h.tipo]||h.tipo)+' ('+p.join(', ')+')';
       }).join(' · ');
 
       let menoresStr = habs.map((h,hi) => {
-        if (!(h.menoresCount>0)) return '';
+        if(!(h.menoresCount>0)) return '';
         let edades = h.menoresEdades||[];
-        if (!edades.some(e=>e!=='')) return '';
-        return 'H'+(hi+1)+': '+edades.map((e,i)=>`M${i+1}:${e===''?'?':e}a`).join(', ');
+        if(!edades.some(e=>e!=='')) return '';
+        return 'H'+(hi+1)+': '+edades.map((e,idx)=>`M${idx+1}:${e===''?'?':e}a`).join(', ');
       }).filter(Boolean).join(' · ');
 
       let nochesHtml = noches.map(nd =>
         `<span>${nd.fechaLabel}: <strong>${fmt(nd.total)}</strong> <em style="font-size:10px">(${nd.tmp})</em></span>`
       ).join(' · ');
 
-      let promoStr = reg.promoActiva && reg.promoNombre
+      let promoStr = reg.promoNombre
         ? `<span style="background:var(--dorado);color:#fff;border-radius:5px;padding:1px 7px;font-size:10px;margin-left:4px">${reg.promoNombre}</span>`
         : '';
 
       html += `
       <div class="hist-item" id="hist-${reg.id}">
-        <div class="hist-item-header" onclick="toggleHistItem(${reg.id})">
+        <div class="hist-item-header" onclick="toggleHistItem('${reg.id}')">
           <span class="hist-tipo-badge ${reg.tipo}">${reg.tipo==='reservacion'?'✅ Reservación':'📄 Cotización'}</span>
           <span class="hist-name">${reg.cliente||'Sin nombre'}</span>
-          <span class="hist-meta">${fmtHistTime(reg.fecha_guardado)} · ${reg.n} noche${reg.n>1?'s':''} · ${habs.length} hab.</span>
+          <span class="hist-meta">${fmtHistTime(String(reg.fecha_guardado))} · ${reg.n} noche${reg.n>1?'s':''} · ${habs.length} hab.</span>
           <span class="hist-total-badge">${fmt(reg.totalFinal)}</span>
           <span class="hist-chevron">▼</span>
         </div>
         <div class="hist-detail">
           <div style="font-size:11px;color:var(--texto-suave);margin-top:4px">
-            Guardado a las ${fmtHistTime(reg.fecha_guardado)}
+            Guardado a las ${fmtHistTime(String(reg.fecha_guardado))}
             ${reg.nota?'&nbsp;·&nbsp;<em>'+reg.nota+'</em>':''} ${promoStr}
           </div>
           <div class="hist-detail-grid">
@@ -2087,10 +2261,10 @@ function renderHistorial() {
           ${nochesHtml?`<div class="hist-noches-mini" style="margin-top:8px"><strong style="font-size:11px">Desglose por noche:</strong><br>${nochesHtml}</div>`:''}
           <div class="hist-actions">
             ${reg.tipo==='cotizacion'
-              ?`<button class="btn btn-sm" onclick="cambiarTipoRegistro(${reg.id},'reservacion')">✅ Marcar como reservación</button>`
-              :`<button class="btn btn-sm" onclick="cambiarTipoRegistro(${reg.id},'cotizacion')">📄 Revertir a cotización</button>`
+              ?`<button class="btn btn-sm" onclick="cambiarTipoRegistro('${reg.id}','reservacion')">✅ Marcar como reservación</button>`
+              :`<button class="btn btn-sm" onclick="cambiarTipoRegistro('${reg.id}','cotizacion')">📄 Revertir a cotización</button>`
             }
-            <button class="btn btn-sm" style="background:#fde8e8;color:#b91c1c;border-color:#f5b4b4" onclick="eliminarRegistro(${reg.id})">🗑 Eliminar</button>
+            <button class="btn btn-sm" style="background:#fde8e8;color:#b91c1c;border-color:#f5b4b4" onclick="eliminarRegistro('${reg.id}')">🗑 Eliminar</button>
           </div>
         </div>
       </div>`;
