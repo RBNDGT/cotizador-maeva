@@ -23,28 +23,19 @@
   --texto-suave:#4A7A92;
   /* Dark mode overrides (applied via body.dark) */
 }
-body.dark{
-  --azul-light:#0a2a3a;
-  --azul-mid:#0d3a50;
-  --dorado-light:#2a1f00;
-  --blanco:#1e1e1e;
-  --gris-bg:#141414;
-  --gris-borde:#2a2a2a;
-  --texto:#e8f4fb;
-  --texto-suave:#7fb8d4;
-}
+
 body{font-family:system-ui,-apple-system,sans-serif;font-size:14px;color:var(--texto);background:var(--gris-bg);padding:0;min-height:100vh}
-.topbar{background:var(--azul);padding:0;display:flex;align-items:stretch;box-shadow:0 2px 12px rgba(0,174,239,.25)}
-.topbar-logo{background:var(--azul);padding:10px 24px;display:flex;align-items:center}
+.topbar{background:#4dd4ff;padding:0;display:flex;align-items:stretch;box-shadow:0 2px 12px rgba(77,212,255,.35)}
+.topbar-logo{background:#4dd4ff;padding:10px 24px;display:flex;align-items:center}
 .topbar-logo img{height:56px;width:auto}
-.topbar-info{background:var(--azul-dark);padding:10px 20px;display:flex;flex-direction:column;justify-content:center}
-.topbar-title{color:var(--blanco);font-size:15px;font-weight:700;letter-spacing:.02em}
-.topbar-sub{color:rgba(255,255,255,.75);font-size:11px;margin-top:2px}
-.topbar-agente{background:rgba(255,255,255,.12);padding:8px 16px;display:flex;align-items:center;gap:8px;margin-left:auto}
-.topbar-agente label{color:rgba(255,255,255,.85);font-size:11px;white-space:nowrap;font-weight:600}
-.topbar-agente input{font-size:12px;padding:4px 10px;border:1.5px solid rgba(255,255,255,.3);border-radius:6px;background:rgba(255,255,255,.15);color:#fff;width:170px;outline:none}
-.topbar-agente input::placeholder{color:rgba(255,255,255,.5)}
-.topbar-agente input:focus{border-color:rgba(255,255,255,.8);background:rgba(255,255,255,.25)}
+.topbar-info{background:#4dd4ff;padding:10px 20px;display:flex;flex-direction:column;justify-content:center}
+.topbar-title{color:#fff;font-size:15px;font-weight:700;letter-spacing:.02em}
+.topbar-sub{color:rgba(255,255,255,.8);font-size:11px;margin-top:2px}
+.topbar-agente{background:rgba(0,0,0,.12);padding:8px 16px;display:flex;align-items:center;gap:8px;margin-left:auto}
+.topbar-agente label{color:#fff;font-size:11px;white-space:nowrap;font-weight:700;text-shadow:0 1px 3px rgba(0,0,0,.2)}
+.topbar-agente input{font-size:12px;padding:4px 10px;border:2px solid rgba(255,255,255,.6);border-radius:6px;background:rgba(255,255,255,.25);color:#fff;width:170px;outline:none;font-weight:600;text-shadow:0 1px 2px rgba(0,0,0,.2)}
+.topbar-agente input::placeholder{color:rgba(255,255,255,.6);font-weight:400}
+.topbar-agente input:focus{border-color:#fff;background:rgba(255,255,255,.35)}
 .container{max-width:920px;margin:0 auto;padding:1.25rem 1rem 2rem}
 h2{font-size:15px;font-weight:600;margin-bottom:.75rem}
 label{font-size:12px;color:var(--texto-suave);display:block;margin-bottom:3px;font-weight:500}
@@ -97,6 +88,15 @@ textarea{resize:vertical;min-height:70px}
 .comp-card{border:1.5px solid var(--gris-borde);border-radius:12px;padding:.9rem;background:var(--blanco);transition:all .15s}
 .comp-card.mejor{border:2px solid var(--azul);background:var(--azul-light);box-shadow:0 2px 12px rgba(0,174,239,.18)}
 .comp-card h4{font-size:13px;font-weight:600;margin-bottom:6px;color:var(--texto)}
+.comp-nombre{font-size:13px;font-weight:700;color:var(--texto)}
+.comp-meta{font-size:11px;color:var(--texto-suave);margin-bottom:6px}
+.comp-precio-antes{font-size:12px;color:#888;text-decoration:line-through;margin-bottom:2px}
+.comp-precio-final{font-size:22px;font-weight:700}
+.comp-precio-mejor{color:var(--azul-dark)}
+.comp-precio-normal{color:var(--texto)}
+.comp-ahorro{font-size:11px;color:#1A7A3F;font-weight:600;margin-top:2px}
+.comp-ng{font-size:11px;color:#1A7A3F;margin-top:3px}
+.comp-vs-mejor{margin-top:6px;font-size:11px;font-weight:600;color:var(--dorado-dark);background:var(--dorado-light);border:1.5px solid var(--dorado);border-radius:8px;padding:5px 10px}
 .comp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin-top:8px}
 .noche-block{background:var(--gris-bg);border-radius:10px;padding:.8rem;margin-bottom:8px;border:1px solid var(--azul-light)}
 .noche-block h4{font-size:11px;font-weight:700;color:var(--azul);margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em}
@@ -171,52 +171,157 @@ textarea{resize:vertical;min-height:70px}
 .hist-tipo-select{border:1.5px solid var(--azul);border-radius:8px;padding:6px 10px;font-size:13px;color:var(--azul);font-weight:600;cursor:pointer}
 .hist-nota-input{flex:1;min-width:160px;border:1.5px solid #cde;border-radius:8px;padding:6px 10px;font-size:13px}
 
-/* ── DARK MODE ─────────────────────────────────────────────── */
-body.dark{background:var(--gris-bg);color:var(--texto)}
-body.dark .card{background:#1e1e1e;border-color:#2a2a2a;box-shadow:0 2px 10px rgba(0,0,0,.4)}
-body.dark .tabs{background:#1a1a1a;border-color:#2a2a2a}
-body.dark .tab{color:#7fb8d4}
-body.dark .tab.active{background:#141414;color:var(--azul)}
-body.dark .tab:hover:not(.active){background:#222}
-body.dark input,body.dark select,body.dark textarea{
-  background:#262626;border-color:#383838;color:var(--texto)
+/* ══════════════════════════════════════════════════════════
+   DARK MODE  —  paleta 3 colores
+   BASE:  #141414 fondo · #1e1e1e superficies · #2d2d2d bordes
+   AZUL:  #4dd4ff (acento principal, igual que azul de marca en claro)
+   TEXTO: #e8f4fb claro · #a8cfe0 suave
+   Dorado/verde/rojo solo para datos de ahorro y alertas (igual que claro)
+   ══════════════════════════════════════════════════════════ */
+body.dark{
+  --azul:#4dd4ff;
+  --azul-dark:#00AEEF;
+  --azul-light:#0d1f2d;
+  --azul-mid:#1a3a50;
+  --dorado:#F5A623;
+  --dorado-dark:#D4880A;
+  --dorado-light:#2a1a00;
+  --blanco:#1e1e1e;
+  --gris-bg:#141414;
+  --gris-borde:#2d2d2d;
+  --texto:#e8f4fb;
+  --texto-suave:#a8cfe0;
+  background:#141414;color:#e8f4fb
 }
-body.dark input:focus,body.dark select:focus,body.dark textarea:focus{
-  border-color:var(--azul);background:#1e2a30
-}
+
+/* ── Estructura base ── */
+body.dark .card{background:#1e1e1e;border-color:#2d2d2d;box-shadow:0 2px 10px rgba(0,0,0,.5)}
+body.dark .card-resultado{background:#1e1e1e;border-color:#4dd4ff;border-width:2px}
+body.dark .card-accent{border-left-color:#4dd4ff}
+
+/* ── Navegación ── */
+body.dark .tabs{background:#1e1e1e;border-color:#2d2d2d}
+body.dark .tab{color:#a8cfe0}
+body.dark .tab.active{background:#4dd4ff;color:#0a1a24;font-weight:700;box-shadow:none}
+body.dark .tab:hover:not(.active){background:#252525;color:#e8f4fb}
+
+/* ── Formularios ── */
+body.dark input,body.dark select,body.dark textarea{background:#252525;border-color:#2d2d2d;color:#e8f4fb}
+body.dark input:focus,body.dark select:focus,body.dark textarea:focus{border-color:#4dd4ff;background:#252525;box-shadow:0 0 0 3px rgba(77,212,255,.12)}
 body.dark input::placeholder,body.dark textarea::placeholder{color:#4a6a7a}
-body.dark .btn{background:#262626;border-color:#383838;color:var(--texto)}
-body.dark .btn-primary{background:var(--azul);color:#fff;border-color:var(--azul-dark)}
-body.dark .btn-primary:hover{background:var(--azul-dark)}
-body.dark .btn-sm{background:#1e1e1e;border-color:#383838;color:var(--texto-suave)}
-body.dark .btn-sm:hover{background:#2a2a2a}
-body.dark .modal{background:#1e1e1e;border-color:#383838}
-body.dark .modal-overlay{background:rgba(0,0,0,.7)}
-body.dark .total-box{background:#1a1f24;border-color:#2a3a44}
-body.dark .desglose-row{border-color:#2a2a2a}
-body.dark .desglose-row:hover{background:#1e2a30}
-body.dark .badge-azul{background:#0a2a3a;color:var(--azul)}
-body.dark .badge-dorado{background:#2a1f00;color:var(--dorado)}
-body.dark .badge-verde{background:#0a2a1a;color:#4ade80}
-body.dark .info-reglas{background:#1a2a1a;border-color:#2a3a2a;color:#7fb8a0}
-body.dark .desc-tabla th{background:#0a2a3a;color:var(--azul)}
-body.dark .desc-tabla td{border-color:#2a2a2a;color:var(--texto)}
-body.dark .desc-tabla tr:hover td{background:#1e2a30}
-body.dark .hab-huesp{background:#1a2530;border-color:#2a3a4a}
-body.dark .hist-item{background:#1e1e1e;border-color:#2a2a2a}
-body.dark .hist-item.open{border-color:var(--azul)}
-body.dark .hist-item-header:hover{background:#222}
-body.dark .hist-day-label{background:#1a2a3a;color:var(--azul)}
-body.dark .hist-dato{background:#262626}
-body.dark .hist-filter-btn{background:#1e1e1e;border-color:#383838;color:var(--texto-suave)}
-body.dark .hist-filter-btn.active{background:var(--azul);color:#fff;border-color:var(--azul)}
-body.dark .promo-block{background:#1a1f10;border-color:var(--dorado)}
-body.dark #desc-auto-card,body.dark #promo-eventual-card{border-color:#383838}
-body.dark .config-row{border-color:#2a2a2a}
-body.dark .topbar-info{background:#005a8a}
-body.dark label{color:var(--texto-suave)}
-body.dark .sec{color:var(--azul);border-color:#2a3a4a}
-body.dark .info-box{background:#1a2530;border-color:#2a3a4a}
+body.dark label{color:#a8cfe0}
+
+/* ── Botones ── */
+body.dark .btn{background:#252525;border-color:#2d2d2d;color:#e8f4fb}
+body.dark .btn:hover{background:#2d2d2d;border-color:#4dd4ff;color:#4dd4ff}
+body.dark .btn-primary{background:#4dd4ff;color:#0a1a24;border-color:#4dd4ff;font-weight:700}
+body.dark .btn-primary:hover{background:#7de0ff;border-color:#7de0ff}
+body.dark .btn-sm{background:#1e1e1e;border-color:#2d2d2d;color:#a8cfe0}
+body.dark .btn-sm:hover{background:#252525;border-color:#4dd4ff;color:#4dd4ff}
+
+/* ── Modal ── */
+body.dark .modal{background:#1e1e1e;border-color:#2d2d2d}
+body.dark .modal h2{color:#e8f4fb}
+body.dark .modal ul{color:#a8cfe0}
+body.dark .modal-overlay{background:rgba(0,0,0,.8)}
+
+/* ── Secciones y separadores ── */
+body.dark .sec{color:#4dd4ff;border-color:#2d2d2d}
+body.dark .sec::before{background:#4dd4ff}
+body.dark .div-sep{background:#2d2d2d}
+
+/* ── Total box ── */
+body.dark .total-box{background:#4dd4ff;color:#0a1a24}
+body.dark .total-label{color:#0a1a24;opacity:.75}
+body.dark .total-sub-txt{color:#0a1a24;opacity:.75}
+
+/* ── Desglose ── */
+body.dark .desglose-row{border-color:#2d2d2d;color:#e8f4fb}
+body.dark .desglose-row:hover{background:#252525}
+body.dark .desglose-sub{color:#a8cfe0}
+
+/* ── Badges ── */
+body.dark .badge-azul{background:#0d2535;color:#4dd4ff;border:1px solid #1a3a50}
+body.dark .badge-dorado{background:#2a1a00;color:#F5A623}
+body.dark .badge-verde{background:#0a1f0e;color:#4ade80}
+body.dark .badge-rojo{background:#1f0808;color:#f87171}
+body.dark .badge-gris{background:#252525;color:#a8cfe0}
+
+/* ── Alertas — dorado/verde/rojo se conservan igual que en claro ── */
+body.dark .alerta-blue{background:#0d1f2d;border-color:#1a3a50;color:#4dd4ff}
+body.dark .alerta-amber{background:#2a1a00;border-color:#7a4800;color:#F5A623}
+body.dark .alerta-red{background:#1f0808;border-color:#7a1a1a;color:#f87171}
+body.dark .alerta-green{background:#0a1f0e;border-color:#1a4a22;color:#4ade80}
+
+/* ── Info boxes ── */
+body.dark .info-reglas{background:#0a1f0e;border-color:#1a4a22;color:#4ade80}
+body.dark .info-box{background:#0d1f2d;border-color:#1a3a50;color:#a8cfe0}
+
+/* ── Tabla de descuentos ── */
+body.dark .desc-tabla th{background:#0d1f2d;color:#4dd4ff;border-bottom:1px solid #2d2d2d}
+body.dark .desc-tabla td{border-color:#2d2d2d;color:#e8f4fb}
+body.dark .desc-tabla tr:hover td{background:#252525}
+body.dark .desc-tabla tr.activa td{background:#2a1a00;color:#F5A623;font-weight:700}
+
+/* ── Habitaciones ── */
+body.dark .hab-huesp{background:#0d1f2d;border-color:#1a3a50}
+body.dark .hab-huesp-title{color:#4dd4ff}
+body.dark .noche-block{background:#252525;border-color:#2d2d2d}
+body.dark .noche-block h4{color:#4dd4ff}
+body.dark .menor-edad-tag.gratis{background:#0a1f0e;color:#4ade80}
+body.dark .menor-edad-tag.tarifa{background:#2a1a00;color:#F5A623}
+body.dark .menor-edad-tag.extra{background:#1f0808;color:#f87171}
+
+/* ── Comparativa ── */
+body.dark .comp-card{background:#1e1e1e;border-color:#2d2d2d}
+body.dark .comp-card.mejor{background:#1e1e1e;border:2px solid #4dd4ff}
+body.dark .comp-nombre{color:#e8f4fb}
+body.dark .comp-meta{color:#a8cfe0}
+body.dark .comp-precio-antes{color:#4a6a7a;text-decoration:line-through}
+body.dark .comp-precio-mejor{color:#4dd4ff}
+body.dark .comp-precio-normal{color:#e8f4fb}
+body.dark .comp-ahorro{color:#4ade80}
+body.dark .comp-ng{color:#4ade80}
+body.dark .comp-vs-mejor{color:#F5A623;background:#2a1a00;border-color:#7a4800}
+
+/* ── Historial ── */
+body.dark .hist-item{background:#1e1e1e;border-color:#2d2d2d}
+body.dark .hist-item.open{border-color:#4dd4ff}
+body.dark .hist-item-header:hover{background:#252525}
+body.dark .hist-name{color:#e8f4fb}
+body.dark .hist-meta{color:#a8cfe0}
+body.dark .hist-day-label{background:#0d1f2d;color:#4dd4ff}
+body.dark .hist-dato{background:#252525}
+body.dark .hist-dato span{color:#4dd4ff}
+body.dark .hist-dato p{color:#e8f4fb}
+body.dark .hist-noches-mini{color:#a8cfe0}
+body.dark .hist-total-badge{color:#F5A623}
+body.dark .hist-tipo-badge.cotizacion{background:#0d1f2d;color:#4dd4ff}
+body.dark .hist-tipo-badge.reservacion{background:#0a1f0e;color:#4ade80}
+body.dark .hist-filter-btn{background:#1e1e1e;border-color:#2d2d2d;color:#a8cfe0}
+body.dark .hist-filter-btn.active{background:#4dd4ff;color:#0a1a24;border-color:#4dd4ff;font-weight:700}
+body.dark .hist-detail{border-color:#2d2d2d}
+body.dark .hist-tipo-select{border-color:#4dd4ff;color:#4dd4ff;background:#252525}
+body.dark .hist-nota-input{border-color:#2d2d2d;background:#252525;color:#e8f4fb}
+
+/* ── Promo y config ── */
+body.dark .promo-block{background:#2a1a00;border-color:#7a4800}
+body.dark .promo-toggle-row{border-color:#2d2d2d}
+body.dark #desc-auto-card,body.dark #promo-eventual-card{border-color:#2d2d2d;background:#1e1e1e}
+body.dark .config-row{border-color:#2d2d2d}
+body.dark .desc-auto-badge{background:#2a1a00;border-color:#7a4800;color:#F5A623}
+
+/* ── Topbar ── */
+body.dark .topbar{background:#4dd4ff;box-shadow:0 2px 12px rgba(77,212,255,.2)}
+body.dark .topbar-logo{background:#4dd4ff}
+body.dark .topbar-info{background:#4dd4ff}
+body.dark .topbar-info .topbar-title{color:#0d2535}
+body.dark .topbar-info .topbar-sub{color:rgba(13,37,53,.7)}
+body.dark .topbar-agente{background:rgba(0,0,0,.15)}
+body.dark .topbar-agente label{color:#0d2535;text-shadow:none}
+body.dark .topbar-agente input{background:rgba(0,0,0,.2);border-color:rgba(13,37,53,.4);color:#0d2535;text-shadow:none}
+body.dark .topbar-agente input::placeholder{color:rgba(13,37,53,.5)}
+body.dark .topbar-agente input:focus{border-color:#0d2535;background:rgba(0,0,0,.3)}
 /* Dark toggle button */
 .dark-toggle{display:flex;align-items:center;gap:10px}
 .dark-toggle-track{width:44px;height:24px;background:#ccc;border-radius:12px;position:relative;cursor:pointer;transition:background .2s;flex-shrink:0}
@@ -1224,13 +1329,13 @@ function calcularComparativa(){
     let ngLabel=r.ngValor>0?`🎁 Noche gratis incluida (-${fmt(r.ngValor)})`:'';
     html+=`<div class="comp-card ${esMejor?'mejor':''}">
       ${esMejor?'<div class="badge badge-azul" style="margin-bottom:6px">✓ Mejor precio</div>':''}
-      <h4 style="margin-bottom:4px">${r.label}</h4>
-      <div style="font-size:11px;color:#4A7A92;margin-bottom:6px">${c.n} noche${c.n>1?'s':''} · cap. ${HAB_CAP[r.hab]*r.nHabs} pers. · ${upgLabel}</div>
-      ${hayDescuento&&r.sinDesc!==r.conDesc?`<div style="font-size:12px;color:#888;text-decoration:line-through;margin-bottom:2px">${fmt(r.sinDesc)}</div>`:''}
-      <div style="font-size:22px;font-weight:700;color:${esMejor?'var(--azul)':'#0D2D3F'}">${fmt(r.conDesc)}</div>
-      ${hayDescuento&&ahorroDescuento>0?`<div style="font-size:11px;color:#1A7A3F;font-weight:600;margin-top:2px">Ahorro con descuento: ${fmt(ahorroDescuento)}</div>`:''}
-      ${ngLabel?`<div style="font-size:11px;color:#1A7A3F;margin-top:3px">${ngLabel}</div>`:''}
-      ${ahorroVsMejor>0?`<div class="alerta alerta-amber" style="margin-top:6px;font-size:11px">+${fmt(ahorroVsMejor)} vs mejor opción</div>`:''}
+      <h4 class="comp-nombre" style="margin-bottom:4px">${r.label}</h4>
+      <div class="comp-meta">${c.n} noche${c.n>1?'s':''} · cap. ${HAB_CAP[r.hab]*r.nHabs} pers. · ${upgLabel}</div>
+      ${hayDescuento&&r.sinDesc!==r.conDesc?`<div class="comp-precio-antes">${fmt(r.sinDesc)}</div>`:''}
+      <div class="comp-precio-final ${esMejor?'comp-precio-mejor':'comp-precio-normal'}">${fmt(r.conDesc)}</div>
+      ${hayDescuento&&ahorroDescuento>0?`<div class="comp-ahorro">Ahorro con descuento: ${fmt(ahorroDescuento)}</div>`:''}
+      ${ngLabel?`<div class="comp-ng">${ngLabel}</div>`:''}
+      ${ahorroVsMejor>0?`<div class="comp-vs-mejor">+${fmt(ahorroVsMejor)} vs mejor opción</div>`:''}
     </div>`;
   }
   html+=`</div>`;
