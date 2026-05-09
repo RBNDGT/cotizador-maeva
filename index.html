@@ -965,107 +965,135 @@ function calcular(){
 
   // Renderizar desglose: si hay múltiples habitaciones, mostrar sección por habitación
   let html='';
-  let mostrarPorHab=desgloseHabs.length>1;
-  // Para desglose usamos hab 1; si hay varias, mostrar separado
-  let habsParaRender=mostrarPorHab?desgloseHabs:[{idx:0,tipo:habitaciones[0]?.tipo||'ESTANDAR',upgrade:habitaciones[0]?.upgrade||0,noches:nochesDet}];
 
-  habsParaRender.forEach((habDet,hi)=>{
-    let habNochesLocal=habDet.noches||nochesDet;
-    // Marcar noche gratis solo en hab 1
-    let idxGratisLocal=hi===0?idxNocheGratis:-1;
-    if(mostrarPorHab){
-      html+=`<div style="background:var(--azul);color:#fff;border-radius:8px;padding:6px 12px;margin-bottom:6px;font-size:12px;font-weight:700">
-        🛏 Habitación ${hi+1} — ${HAB_NOM[habDet.tipo]}${habDet.upgrade>0?' · Upgrade +$'+fmt(habDet.upgrade)+'/noche':''}
+  desgloseHabs.forEach((habDet, hi)=>{
+    let habNochesLocal = habDet.noches || [];
+    let habTotalBase   = habNochesLocal.reduce((s,nd)=>s+nd.base,0);
+    let habTotalAjuste = habNochesLocal.reduce((s,nd)=>s+nd.ajuste,0);
+    let habUpgTotal    = (habDet.upgrade||0)*n;
+    let habSubtotal    = habTotalBase + habTotalAjuste + habUpgTotal;
+
+    // Huéspedes de esta habitación
+    let h = habitaciones[hi]||{};
+    let habAd  = h.adultos||1, habAdo = h.adolescentes||0, habMen = h.menoresCount||0;
+    let habEdades = h.menoresEdades||[];
+    let mcHabRender = clasifMenores(habEdades, habDet.tipo, habAd, habAdo);
+
+    // Línea de huéspedes
+    let paxParts = [habAd+' adulto'+(habAd>1?'s':'')];
+    if(habAdo>0) paxParts.push(habAdo+' adolescente'+(habAdo>1?'s':''));
+    mcHabRender.forEach((m,mi)=>{
+      let edad = m.edad===''||m.edad===undefined?'?':m.edad;
+      let label = m.tipo==='gratis'
+        ? `Menor ${edad}a (gratis)`
+        : m.tipo==='612'
+        ? `Menor ${edad}a (tarifa)`
+        : `Menor ${edad}a (extra)`;
+      paxParts.push(label);
+    });
+    let paxLine = paxParts.join(' · ');
+
+    // Header de habitación
+    html += `<div style="background:var(--azul);color:#fff;border-radius:10px 10px 0 0;padding:8px 14px;display:flex;justify-content:space-between;align-items:center;margin-top:${hi>0?'18px':'0'}">
+      <div>
+        <span style="font-size:13px;font-weight:700">🛏 Hab ${hi+1} — ${HAB_NOM[habDet.tipo]}</span>
+        ${habDet.upgrade>0?`<span style="font-size:11px;opacity:.85;margin-left:8px">Upgrade +${fmt(habDet.upgrade)}/noche</span>`:''}
+      </div>
+      <button onclick="copiarDesglose(${hi})" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:6px;padding:3px 10px;font-size:11px;cursor:pointer">📋 Copiar</button>
+    </div>
+    <div style="border:1.5px solid var(--azul-mid);border-top:none;border-radius:0 0 10px 10px;padding:10px 14px;margin-bottom:2px" id="hab-desglose-${hi}">
+      <div style="font-size:11px;color:var(--texto-suave);margin-bottom:10px;padding-bottom:8px;border-bottom:1px dashed var(--gris-borde)">
+        👥 ${paxLine}
       </div>`;
-    }
-    habNochesLocal.forEach((nd,i)=>{
-    let esGratis=(i===idxGratisLocal);
-    let tipoDia=nd.we?'Vie/Sáb':'Dom-Jue';
-    esGratis=nd.gratis;
-    let blockStyle=esGratis?'background:linear-gradient(135deg,#E6F7EE,#fff);border:2px solid #5CB85C;':'';
-    html+=`<div class="noche-block" style="${blockStyle}">`;
-    // Header de la noche con fecha exacta
-    if(esGratis){
-      html+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-        <h4 style="font-size:11px;font-weight:700;color:#1A7A3F;text-transform:uppercase;letter-spacing:.04em">
-          🎁 Noche ${i+1} — ${nd.fechaLabel} <span style="font-size:10px;background:#1A7A3F;color:#fff;padding:1px 7px;border-radius:10px;margin-left:4px">GRATIS</span>
-        </h4>
-        <span style="font-size:11px;color:#1A7A3F;font-weight:700">Incluida</span>
-      </div>`;
-    } else {
-      html+=`<h4 style="font-size:11px;font-weight:700;color:var(--azul,#00AEEF);margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em">
-        Noche ${i+1} — ${nd.fechaLabel} · ${nd.tmp} · ${tipoDia}
-      </h4>`;
-    }
-    // Items de la noche
-    for(let it of nd.items){
+
+    // Noches
+    habNochesLocal.forEach((nd, i)=>{
+      let esGratis = nd.gratis || false;
+      let tipoDia  = nd.we ? 'Vie/Sáb' : 'Dom-Jue';
+      let blockStyle = esGratis ? 'background:linear-gradient(135deg,#E6F7EE,#fff);border:1.5px solid #5CB85C;border-radius:8px;' : '';
+
+      html += `<div class="noche-block" style="${blockStyle}">`;
+
       if(esGratis){
-        html+=`<div class="desglose-row" style="color:#888;text-decoration:line-through">
-          <span>${it.l}</span>
-          <span>${it.gratis?'Gratis':fmt(it.v)}</span>
+        html += `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <h4 style="font-size:11px;font-weight:700;color:#1A7A3F;text-transform:uppercase;letter-spacing:.04em">
+            🎁 Noche ${i+1} — ${nd.fechaLabel} <span style="font-size:10px;background:#1A7A3F;color:#fff;padding:1px 7px;border-radius:10px;margin-left:4px">GRATIS</span>
+          </h4>
+          <span style="font-size:12px;color:#1A7A3F;font-weight:700">Incluida</span>
         </div>`;
       } else {
-        html+=`<div class="desglose-row">
-          <span style="color:${it.gratis?'#666':'#0D2D3F'}">
-            ${it.l}
-            ${it.subtexto?`<span class="desglose-sub" style="display:block;color:var(--texto-suave);font-size:11px;margin-top:1px">${it.subtexto}</span>`:''}
-          </span>
-          <span style="color:${it.gratis?'#1A7A3F':'#0D2D3F'};font-weight:${it.subtexto?'700':'400'}">${it.gratis?'Gratis':fmt(it.v)+' <span class="desglose-sub">/noche</span>'}</span>
-        </div>`;
+        html += `<h4 style="font-size:11px;font-weight:700;color:var(--azul);margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em">
+          Noche ${i+1} — ${nd.fechaLabel} · ${nd.tmp} · ${tipoDia}
+        </h4>`;
       }
-    }
-    if(!esGratis){
-      html+=`<div class="desglose-row" style="margin-top:2px">
-        <span style="color:#555;font-size:11px">Subtotal noche ${i+1}</span>
-        <span style="font-weight:600">${fmt(nd.base)}</span>
-      </div>`;
-      if(nd.ajuste!==0){
-        html+=`<div class="desglose-row" style="color:${nd.ajuste<0?'#1A7A3F':'#C0392B'};font-size:11px">
-          <span>${nd.ajuste<0?'Descuento':'Incremento'}</span>
-          <span>${nd.ajuste<0?'-':'+'}${fmt(Math.abs(nd.ajuste))}</span>
-        </div>`;
+
+      // Items
+      for(let it of nd.items){
+        if(esGratis){
+          html += `<div class="desglose-row" style="color:#888;text-decoration:line-through">
+            <span>${it.l}</span><span>${it.gratis?'Gratis':fmt(it.v)}</span>
+          </div>`;
+        } else {
+          html += `<div class="desglose-row">
+            <span style="color:${it.gratis?'#1A7A3F':'var(--texto)'}">
+              ${it.l}
+              ${it.subtexto?`<span class="desglose-sub" style="display:block;color:var(--texto-suave);font-size:11px;margin-top:1px">${it.subtexto}</span>`:''}
+            </span>
+            <span style="color:${it.gratis?'#1A7A3F':'var(--texto)'};font-weight:${it.subtexto?'700':'400'}">
+              ${it.gratis?'<span style="color:#1A7A3F;font-weight:600">Gratis</span>':fmt(it.v)+' <span class="desglose-sub">/noche</span>'}
+            </span>
+          </div>`;
+        }
       }
-    } else {
-      html+=`<div class="desglose-row" style="margin-top:2px;color:#1A7A3F;font-weight:700">
-        <span>🎁 Esta noche va gratis</span><span>-${fmt(nd.base*numHabs)}</span>
+
+      // Subtotal noche (solo si no es gratis)
+      if(!esGratis){
+        html += `<div class="desglose-row" style="margin-top:4px;padding-top:4px;border-top:1px solid var(--gris-borde)">
+          <span style="color:var(--texto-suave);font-size:11px">Subtotal noche ${i+1}</span>
+          <span style="font-weight:700;color:var(--texto)">${fmt(nd.total)}</span>
+        </div>`;
+        if(nd.ajuste!==0){
+          let ajLabel = nd.ajuste<0?'Descuento aplicado':'Cargo adicional';
+          html += `<div class="desglose-row" style="color:${nd.ajuste<0?'#1A7A3F':'#c0392b'}">
+            <span style="font-size:11px">${ajLabel}</span>
+            <span style="font-size:11px;font-weight:600">${nd.ajuste<0?'-':'+'} ${fmt(Math.abs(nd.ajuste))}</span>
+          </div>`;
+        }
+      }
+      html += `</div>`;
+    });
+
+    // Upgrade si aplica
+    if(habUpgTotal>0){
+      html += `<div class="desglose-row" style="margin-top:6px;padding-top:6px;border-top:1px dashed var(--gris-borde)">
+        <span style="color:var(--texto-suave);font-size:12px">Upgrade habitación (${n} noche${n>1?'s':''})</span>
+        <span style="font-weight:600;color:var(--dorado-dark)">+${fmt(habUpgTotal)}</span>
       </div>`;
     }
-    html+=`</div>`;
-    });// end noches
 
-    // Subtotal por habitación si hay varias
-    let habTotal=habNochesLocal.reduce((s,nd)=>s+(nd.gratis?0:nd.base+nd.ajuste),0);
-    if(habDet.upgrade>0)habTotal+=habDet.upgrade*n;
-    if(mostrarPorHab){
-      html+=`<div class="desglose-row" style="padding:5px 0;font-weight:700;color:var(--azul);border-top:2px solid var(--azul-mid)">
-        <span>Subtotal Hab. ${hi+1}</span><span>${fmt(habTotal)}</span>
-      </div><br>`;
-    }
-    if(habDet.upgrade>0&&!mostrarPorHab){
-      html+=`<div class="desglose-row" style="padding:6px 0;font-weight:600">
-        <span>Upgrade · ${n} noches</span><span>${fmt(habDet.upgrade*n)}</span>
-      </div>`;
-    }
-  });// end habitaciones
-
-  // Upgrade total si varias habitaciones
-  if(mostrarPorHab&&totalUpg>0){
-    html+=`<div class="desglose-row" style="padding:6px 0;font-weight:600">
-      <span>Upgrades totales · ${numHabs} hab.</span><span>${fmt(totalUpg)}</span>
+    // Total por habitación
+    html += `<div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding-top:8px;border-top:2px solid var(--azul-mid);background:var(--azul-light);border-radius:0 0 8px 8px;margin:-10px -14px -10px -14px;padding:8px 14px">
+      <span style="font-weight:700;font-size:13px;color:var(--azul)">Total Hab ${hi+1}</span>
+      <span style="font-weight:800;font-size:15px;color:var(--azul)">${fmt(habSubtotal)}</span>
+    </div>
     </div>`;
-  } else if(!mostrarPorHab&&upg>0){
-    html+=`<div class="desglose-row" style="padding:6px 0;font-weight:600">
-      <span>Upgrade habitación · ${n} noches</span>
-      <span>${fmt(totalUpg)}</span>
+  });
+
+  // Total general si hay más de una habitación
+  if(desgloseHabs.length>1){
+    let totalSinNocheGratis = totalBase+totalAjuste+totalUpg;
+    html += `<div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;background:var(--dorado-light);border:2px solid var(--dorado);border-radius:10px;padding:10px 16px">
+      <span style="font-weight:700;font-size:14px;color:var(--dorado-dark)">TOTAL GENERAL (${desgloseHabs.length} habitaciones)</span>
+      <span style="font-weight:800;font-size:17px;color:var(--dorado-dark)">${fmt(totalSinNocheGratis)}</span>
     </div>`;
   }
-  if(totalAjuste!==0){
+
+  if(totalAjuste!==0&&desgloseHabs.length===1){
     html+=`<div class="desglose-row" style="padding:6px 0;color:#00AEEF;font-weight:600">
       <span>Descuento total sobre tarifa base</span>
-      <span>-${fmt(Math.abs(totalAjuste)*numHabs)}</span>
+      <span>-${fmt(Math.abs(totalAjuste))}</span>
     </div>`;
   }
-
   document.getElementById('desglose').innerHTML=html;
   document.getElementById('total-valor').textContent=fmt(totalFinal);
   let habsDesc=habitaciones.map((h,i)=>{
@@ -1703,9 +1731,8 @@ function generarResumen(){
       if(grats)p.push(grats+' sin costo');
       if(t612)p.push(t612+' tarifa 6-12');
       if(ext)p.push(ext+' extra');
-      menoresTexto='\n   Menores: '+p.join(', ');
+      menoresTexto='Menores: '+p.join(', ');
     }
-  }
 
   let descLinea='';
   if(c.promoActiva&&c.promoNombre){
@@ -2470,6 +2497,61 @@ function initDarkMode() {
   let isDark = saved === '1';
   if (isDark) document.body.classList.add('dark');
   updateDarkUI(isDark);
+}
+
+// ── Copiar desglose de una habitación ────────────────────────
+function copiarDesglose(hi){
+  let c=window._cot;
+  if(!c)return;
+  let h=c.habitaciones[hi]||{};
+  let hDet=c.desgloseHabs[hi]||{};
+  let noches=hDet.noches||[];
+  let ad=h.adultos||1,ado=h.adolescentes||0,men=h.menoresCount||0;
+  let edades=h.menoresEdades||[];
+  let mc=clasifMenores(edades,h.tipo,ad,ado);
+
+  let paxParts=[ad+' adulto'+(ad>1?'s':'')];
+  if(ado>0)paxParts.push(ado+' adolescente'+(ado>1?'s':''));
+  mc.forEach(m=>{
+    let edad=m.edad===''||m.edad===undefined?'?':m.edad;
+    paxParts.push('Menor '+edad+'a ('+(m.tipo==='gratis'?'gratis':m.tipo==='612'?'tarifa':'extra')+')');
+  });
+
+  let txt=`🏨 Club Maeva Miramar
+`;
+  txt+=`🛏 Habitación ${hi+1} — ${HAB_NOM[h.tipo]}
+`;
+  txt+=`👥 ${paxParts.join(' · ')}
+`;
+  txt+=`📅 ${fmtD(c.fi)} → ${fmtD(c.fo)} (${c.n} noche${c.n>1?'s':''})
+`;
+  txt+=`📋 Plan: ${c.plan==='AI'?'Todo Incluido':'Plan Europeo'}
+
+`;
+
+  noches.forEach((nd,i)=>{
+    txt+=`— Noche ${i+1}: ${nd.fechaLabel} (${nd.tmp})
+`;
+    for(let it of nd.items){
+      txt+=`   ${it.l}: ${it.gratis?'Gratis':fmt(it.v)}
+`;
+    }
+    txt+=`   Subtotal: ${fmt(nd.total)}
+`;
+  });
+
+  let upg=(h.upgrade||0)*c.n;
+  if(upg>0)txt+=`   Upgrade: +${fmt(upg)}
+`;
+
+  let habTotal=noches.reduce((s,nd)=>s+nd.total,0)+upg;
+  txt+=`
+💵 Total Hab ${hi+1}: *${fmt(habTotal)} MXN*`;
+
+  navigator.clipboard.writeText(txt).then(()=>{
+    let btn=document.querySelector(`[onclick="copiarDesglose(${hi})"]`);
+    if(btn){let orig=btn.textContent;btn.textContent='✅ Copiado';setTimeout(()=>btn.textContent=orig,2000);}
+  });
 }
 
 renderHabs();
