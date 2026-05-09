@@ -491,7 +491,8 @@ textarea{resize:vertical;min-height:70px}
   <button class="hist-filter-btn active" onclick="setHistFilter('todos',this)">Todos</button>
   <button class="hist-filter-btn" onclick="setHistFilter('cotizacion',this)">Solo cotizaciones</button>
   <button class="hist-filter-btn" onclick="setHistFilter('reservacion',this)">Solo reservaciones</button>
-  <button class="btn btn-sm" onclick="exportarHistorialCSV()">⬇ Exportar CSV</button>
+  <button class="btn btn-sm" onclick="exportarHistorialCSV()">⬇ CSV</button>
+  <button class="btn btn-sm" onclick="exportarHistorialPDF()">🖨 PDF</button>
   <button class="btn btn-sm" style="margin-left:auto;background:#fde8e8;color:#b91c1c;border-color:#f5b4b4" onclick="limpiarHistorial()">🗑 Borrar todo</button>
 </div>
 
@@ -503,7 +504,6 @@ textarea{resize:vertical;min-height:70px}
 
 </div><!-- /container -->
 
-<div id="jsonp-container" style="display:none"></div>
 
 <script>
 // ─── DATOS DE TARIFAS 2026 ───────────────────────────────────────────────────
@@ -1979,48 +1979,19 @@ let tom=new Date(today);tom.setDate(today.getDate()+2);
 document.getElementById('fecha-out').value=`${tom.getFullYear()}-${pad(tom.getMonth()+1)}-${pad(tom.getDate())}`;
 document.getElementById('cli-fecha-contacto').value=document.getElementById('fecha-in').value;
 // ═══════════════════════════════════════════════════════════════
-// HISTORIAL — Google Sheets via JSONP (sin CORS)
+// HISTORIAL — localStorage (sin dependencias externas)
 // ═══════════════════════════════════════════════════════════════
-
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyL46tXeQOTrP33Q3OsKL-UjIYRGdXkYQe4umhpXWcQCLdiobFLzZDIKPp8yPNEvaUW/exec';
-
+const LS_KEY = 'maeva_historial';
 let _histFilter = 'todos';
-let _histCache  = null;
-let _jsonpCount = 0; // contador para callbacks únicos
 
-// ── JSONP: inyecta <script> en lugar de fetch ─────────────────
-function jsonpGet(params) {
-  return new Promise((resolve, reject) => {
-    let cbName = '__gsCallback' + (++_jsonpCount);
-    let timeout = setTimeout(() => {
-      delete window[cbName];
-      reject(new Error('Timeout al conectar con Google Sheets'));
-    }, 12000);
-
-    window[cbName] = function(data) {
-      clearTimeout(timeout);
-      delete window[cbName];
-      document.getElementById('jsonp-container')?.querySelectorAll('script').forEach(s => s.remove());
-      resolve(data);
-    };
-
-    params.callback = cbName;
-    let qs = Object.entries(params)
-      .map(([k,v]) => encodeURIComponent(k) + '=' + encodeURIComponent(v))
-      .join('&');
-
-    let script = document.createElement('script');
-    script.src = APPS_SCRIPT_URL + '?' + qs;
-    script.onerror = () => {
-      clearTimeout(timeout);
-      delete window[cbName];
-      reject(new Error('Error al cargar el script de Google'));
-    };
-    document.getElementById('jsonp-container').appendChild(script);
-  });
+function lsCargar() {
+  try { return JSON.parse(localStorage.getItem(LS_KEY) || '[]'); }
+  catch(e) { return []; }
+}
+function lsGuardar(arr) {
+  localStorage.setItem(LS_KEY, JSON.stringify(arr));
 }
 
-// ── Filtro ────────────────────────────────────────────────────
 function setHistFilter(f, btn) {
   _histFilter = f;
   document.querySelectorAll('.hist-filter-btn').forEach(b => b.classList.remove('active'));
@@ -2028,7 +1999,6 @@ function setHistFilter(f, btn) {
   renderHistorial();
 }
 
-// ── Helpers de fecha ──────────────────────────────────────────
 function fmtHistDate(isoStr) {
   let d = new Date(isoStr);
   let dias  = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
@@ -2048,11 +2018,11 @@ function histMsg(txt, color) {
   el.style.display = 'block';
   el.style.color   = color || '#1a7a3a';
   el.textContent   = txt;
-  if (color !== '#b91c1c') setTimeout(() => { el.style.display = 'none'; }, 4000);
+  if (color !== '#b91c1c') setTimeout(() => { el.style.display = 'none'; }, 3000);
 }
 
 // ── GUARDAR ───────────────────────────────────────────────────
-async function guardarEnHistorial() {
+function guardarEnHistorial() {
   let cot     = window._cot;
   let cliente = document.getElementById('cliente-nombre')?.value || 'Sin nombre';
   let tipo    = document.getElementById('hist-save-tipo').value;
@@ -2062,141 +2032,206 @@ async function guardarEnHistorial() {
     histMsg('⚠ Completa la cotización antes de guardar.', '#b91c1c'); return;
   }
 
-  let btn = document.querySelector('[onclick="guardarEnHistorial()"]');
-  if (btn) { btn.disabled = true; btn.textContent = 'Guardando…'; }
-  histMsg('⏳ Guardando en Google Sheets…', '#0077b6');
-
-  let data = {
-    id:              String(Date.now()),
-    tipo, cliente,
-    nota:            nota,
-    fecha_guardado:  new Date().toISOString(),
-    fi:              cot.fi, fo: cot.fo, n: cot.n, plan: cot.plan,
-    totalFinal:      cot.totalFinal,
-    totalBase:       cot.totalBase,
-    totalAjuste:     cot.totalAjuste,
-    totalUpg:        cot.totalUpg || 0,
-    nocheGratisValor:cot.nocheGratisValor || 0,
-    descTipo:        cot.descTipo || '',
-    descVal:         cot.descVal || 0,
-    promoNombre:     cot.promoNombre || '',
-    habitaciones:    JSON.stringify((cot.habitaciones||[]).map(h=>({
-      tipo:h.tipo, adultos:h.adultos||1, adolescentes:h.adolescentes||0,
-      menoresCount:h.menoresCount||0, menoresEdades:h.menoresEdades||[], upgrade:h.upgrade||0
-    }))),
-    noches_det:      JSON.stringify((cot.nochesDet||[]).map(nd=>({
-      fechaLabel:nd.fechaLabel, total:nd.total, tmp:nd.tmp
-    })))
+  let registro = {
+    id:             Date.now(),
+    tipo, cliente, nota,
+    fecha_guardado: new Date().toISOString(),
+    fi: cot.fi, fo: cot.fo, n: cot.n, plan: cot.plan,
+    totalFinal:     cot.totalFinal,
+    totalBase:      cot.totalBase,
+    totalAjuste:    cot.totalAjuste,
+    totalUpg:       cot.totalUpg || 0,
+    nocheGratisValor: cot.nocheGratisValor || 0,
+    descTipo:       cot.descTipo,
+    descVal:        cot.descVal,
+    promoActiva:    cot.promoActiva || false,
+    promoNombre:    cot.promoNombre || '',
+    temporada:      cot.temporada || '',
+    habitaciones:   (cot.habitaciones||[]).map(h => ({
+      tipo: h.tipo, adultos: h.adultos||1,
+      adolescentes: h.adolescentes||0,
+      menoresCount: h.menoresCount||0,
+      menoresEdades: h.menoresEdades||[],
+      upgrade: h.upgrade||0
+    })),
+    noches_det: (cot.nochesDet||[]).map(nd => ({
+      fechaLabel: nd.fechaLabel, total: nd.total, tmp: nd.tmp
+    }))
   };
 
-  try {
-    let res = await jsonpGet({ accion: 'guardar', data: JSON.stringify(data) });
-    if (res.ok) {
-      histMsg(`✅ Guardado como ${tipo==='reservacion'?'reservación':'cotización'} para ${cliente}`);
-      document.getElementById('hist-save-nota').value = '';
-      _histCache = null;
-    } else {
-      histMsg('Error: ' + (res.error || 'desconocido'), '#b91c1c');
-    }
-  } catch(e) {
-    histMsg('Error: ' + e.message, '#b91c1c');
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = 'Guardar'; }
-  }
+  let arr = lsCargar();
+  arr.unshift(registro);
+  if (arr.length > 500) arr = arr.slice(0, 500);
+  lsGuardar(arr);
+  histMsg(`✅ Guardado como ${tipo==='reservacion'?'reservación':'cotización'} para ${cliente}`);
+  document.getElementById('hist-save-nota').value = '';
 }
 
 // ── CAMBIAR TIPO ──────────────────────────────────────────────
-async function cambiarTipoRegistro(id, nuevoTipo) {
-  try {
-    let res = await jsonpGet({ accion:'cambiarTipo', id:String(id), tipo:nuevoTipo });
-    if (res.ok) { _histCache = null; renderHistorial(); }
-    else alert('Error: ' + (res.error||'desconocido'));
-  } catch(e) { alert('Error: ' + e.message); }
+function cambiarTipoRegistro(id, nuevoTipo) {
+  let arr = lsCargar();
+  let reg = arr.find(r => r.id === id);
+  if (reg) { reg.tipo = nuevoTipo; lsGuardar(arr); renderHistorial(); }
 }
 
 // ── ELIMINAR ──────────────────────────────────────────────────
-async function eliminarRegistro(id) {
-  if (!confirm('¿Eliminar este registro del historial?')) return;
-  try {
-    let res = await jsonpGet({ accion:'eliminar', id:String(id) });
-    if (res.ok) { _histCache = null; renderHistorial(); }
-    else alert('Error: ' + (res.error||'desconocido'));
-  } catch(e) { alert('Error: ' + e.message); }
+function eliminarRegistro(id) {
+  if (!confirm('¿Eliminar este registro?')) return;
+  lsGuardar(lsCargar().filter(r => r.id !== id));
+  renderHistorial();
 }
 
 // ── LIMPIAR TODO ──────────────────────────────────────────────
-async function limpiarHistorial() {
+function limpiarHistorial() {
   if (!confirm('¿Borrar TODO el historial permanentemente?')) return;
-  try {
-    let res = await jsonpGet({ accion:'limpiar' });
-    if (res.ok) { _histCache = null; renderHistorial(); }
-  } catch(e) { alert('Error: ' + e.message); }
+  localStorage.removeItem(LS_KEY);
+  renderHistorial();
 }
 
 // ── EXPORTAR CSV ──────────────────────────────────────────────
-async function exportarHistorialCSV() {
-  histMsg('⏳ Descargando datos…', '#0077b6');
-  try {
-    let json = await jsonpGet({ accion:'listar' });
-    let arr  = json.registros || [];
-    if (!arr.length) { histMsg('No hay registros para exportar.', '#b91c1c'); return; }
-    let cols = ['Tipo','Cliente','Nota','Fecha','Check-in','Check-out','Noches','Plan','Total','Temporada','Promoción'];
-    let rows = arr.map(r => [
+function exportarHistorialCSV() {
+  let arr = lsCargar();
+  if (!arr.length) { alert('No hay registros para exportar.'); return; }
+  let cols = ['Tipo','Cliente','Nota','Fecha guardado','Check-in','Check-out',
+              'Noches','Plan','Total MXN','Temporada','Promoción','Habitaciones'];
+  let rows = arr.map(r => {
+    let habsDesc = (r.habitaciones||[]).map((h,i) => {
+      let ad=h.adultos||1, ado=h.adolescentes||0, men=h.menoresCount||0;
+      let p=[ad+' adult'+(ad>1?'os':'o')];
+      if(ado>0) p.push(ado+' adol.');
+      if(men>0) p.push(men+' menor'+(men>1?'es':''));
+      return 'H'+(i+1)+':'+(HAB_NOM[h.tipo]||h.tipo)+'('+p.join(',')+')';
+    }).join(' | ');
+    return [
       r.tipo, r.cliente, r.nota||'',
       String(r.fecha_guardado).slice(0,16).replace('T',' '),
-      r.fi, r.fo, r.n, r.plan==='AI'?'Todo Incluido':'Plan Europeo',
-      r.totalFinal, r.temporada||'', r.promoNombre||''
-    ].map(v => `"${String(v).replace(/"/g,'""')}"`).join(','));
-    let csv  = [cols.join(','), ...rows].join('\n');
-    let blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8'});
-    let a    = document.createElement('a');
-    a.href   = URL.createObjectURL(blob);
-    a.download = `historial_maeva_${new Date().toISOString().slice(0,10)}.csv`;
-    a.click();
-    histMsg('✅ CSV descargado');
-  } catch(e) { histMsg('Error: ' + e.message, '#b91c1c'); }
+      r.fi, r.fo, r.n,
+      r.plan==='AI'?'Todo Incluido':'Plan Europeo',
+      r.totalFinal, r.temporada||'', r.promoNombre||'', habsDesc
+    ].map(v => `"${String(v).replace(/"/g,'""')}"`).join(',');
+  });
+  let csv  = [cols.join(','), ...rows].join('\n');
+  let blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8'});
+  let a    = document.createElement('a');
+  a.href   = URL.createObjectURL(blob);
+  a.download = `historial_maeva_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+}
+
+// ── EXPORTAR PDF ──────────────────────────────────────────────
+function exportarHistorialPDF() {
+  let arr = lsCargar();
+  if (!_histFilter || _histFilter !== 'todos') {
+    arr = arr.filter(r => r.tipo === _histFilter);
+  }
+  if (!arr.length) { alert('No hay registros para exportar.'); return; }
+
+  let filtroLabel = _histFilter==='cotizacion'?'Cotizaciones'
+    :_histFilter==='reservacion'?'Reservaciones':'Todos los registros';
+  let hoy = new Date().toLocaleDateString('es-MX',{day:'2-digit',month:'long',year:'numeric'});
+
+  // Group by day
+  let byDay = {};
+  arr.forEach(r => {
+    let dk = dayKey(r.fecha_guardado);
+    if (!byDay[dk]) byDay[dk] = [];
+    byDay[dk].push(r);
+  });
+
+  let rowsHtml = '';
+  Object.keys(byDay).sort((a,b)=>b.localeCompare(a)).forEach(dk => {
+    let dayRecs = byDay[dk];
+    let totCot = dayRecs.filter(r=>r.tipo==='cotizacion').length;
+    let totRes = dayRecs.filter(r=>r.tipo==='reservacion').length;
+    let resumen=[]; if(totCot)resumen.push(totCot+' cot.'); if(totRes)resumen.push(totRes+' res.');
+    rowsHtml += `<tr class="day-header"><td colspan="7">📅 ${fmtHistDate(dk+'T12:00:00')} — ${resumen.join(', ')}</td></tr>`;
+    dayRecs.forEach(r => {
+      let habs=(r.habitaciones||[]).map((h,i)=>{
+        let ad=h.adultos||1,ado=h.adolescentes||0,men=h.menoresCount||0;
+        let p=[ad+'ad'];if(ado)p.push(ado+'adol');if(men)p.push(men+'men');
+        return 'H'+(i+1)+':'+(HAB_NOM[h.tipo]||h.tipo)+' ('+p.join('+')+')';
+      }).join('<br>');
+      let tipoBadge=r.tipo==='reservacion'
+        ?'<span class="badge res">Reservación</span>'
+        :'<span class="badge cot">Cotización</span>';
+      rowsHtml += `<tr>
+        <td>${tipoBadge}</td>
+        <td><strong>${r.cliente||'—'}</strong>${r.nota?'<br><em style="font-size:10px">'+r.nota+'</em>':''}</td>
+        <td>${String(r.fecha_guardado).slice(0,10)}<br>${fmtHistTime(r.fecha_guardado)}</td>
+        <td>${fmtD(r.fi)}<br>→ ${fmtD(r.fo)}</td>
+        <td>${r.n} noche${r.n>1?'s':''}<br>${r.plan==='AI'?'Todo Inc.':'Plan Eur.'}</td>
+        <td>${habs}</td>
+        <td style="text-align:right;font-weight:700;color:#b8750a">${fmt(r.totalFinal)}</td>
+      </tr>`;
+    });
+  });
+
+  let totalGeneral = arr.reduce((s,r)=>s+(parseFloat(r.totalFinal)||0),0);
+
+  let html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <title>Historial Cotizaciones — Club Maeva Miramar</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:Arial,sans-serif;font-size:11px;color:#1a1a2e;padding:20px}
+    h1{font-size:16px;color:#00AEEF;margin-bottom:2px}
+    .sub{font-size:11px;color:#666;margin-bottom:14px}
+    table{width:100%;border-collapse:collapse;margin-top:8px}
+    th{background:#00AEEF;color:#fff;padding:6px 8px;text-align:left;font-size:11px}
+    td{padding:5px 8px;border-bottom:1px solid #e8f0f5;vertical-align:top}
+    tr:hover td{background:#f5fbff}
+    tr.day-header td{background:#e8f4fd;font-weight:700;font-size:11px;color:#0077b6;padding:5px 8px;border-top:2px solid #00AEEF}
+    .badge{display:inline-block;padding:2px 7px;border-radius:8px;font-size:10px;font-weight:700}
+    .badge.res{background:#d4f4dd;color:#1a7a3a}
+    .badge.cot{background:#e8f4fd;color:#0077b6}
+    .total-row td{font-weight:700;background:#fff8e6;border-top:2px solid #F5A623}
+    @media print{body{padding:10px}.no-print{display:none}}
+  </style>
+  </head><body>
+  <h1>Club Maeva Miramar — Historial de Cotizaciones</h1>
+  <div class="sub">${filtroLabel} · Generado: ${hoy} · ${arr.length} registro${arr.length>1?'s':''}</div>
+  <table>
+    <thead><tr>
+      <th>Tipo</th><th>Cliente</th><th>Guardado</th>
+      <th>Fechas</th><th>Noches / Plan</th><th>Habitaciones</th><th>Total</th>
+    </tr></thead>
+    <tbody>${rowsHtml}
+      <tr class="total-row">
+        <td colspan="6" style="text-align:right">TOTAL GENERAL (${arr.length} registros)</td>
+        <td style="text-align:right">${fmt(totalGeneral)}</td>
+      </tr>
+    </tbody>
+  </table>
+  <script>window.onload=()=>window.print();<\/script>
+  </body></html>`;
+
+  let w = window.open('', '_blank');
+  w.document.write(html);
+  w.document.close();
 }
 
 // ── RENDERIZAR ────────────────────────────────────────────────
-async function renderHistorial() {
+function renderHistorial() {
   let lista = document.getElementById('hist-lista');
   if (!lista) return;
 
-  let registros = _histCache;
-  if (!registros) {
-    lista.innerHTML = '<div class="hist-empty">⏳ Cargando historial…</div>';
-    try {
-      let json = await jsonpGet({ accion:'listar' });
-      registros = json.registros || [];
-      _histCache = registros;
-    } catch(e) {
-      lista.innerHTML = `<div class="hist-empty" style="color:#b91c1c">
-        ❌ Error al cargar el historial.<br>
-        <span style="font-size:11px">${e.message}</span>
-      </div>`;
-      return;
-    }
-  }
-
+  let arr = lsCargar();
   let filtrados = _histFilter === 'todos'
-    ? registros
-    : registros.filter(r => r.tipo === _histFilter);
+    ? arr : arr.filter(r => r.tipo === _histFilter);
 
   if (!filtrados.length) {
     lista.innerHTML = '<div class="hist-empty">📭 No hay registros aún.<br><span style="font-size:12px">Guarda una cotización usando el botón de arriba.</span></div>';
     return;
   }
 
-  // Agrupar por día
   let byDay = {};
   filtrados.forEach(r => {
-    let dk = dayKey(String(r.fecha_guardado));
+    let dk = dayKey(r.fecha_guardado);
     if (!byDay[dk]) byDay[dk] = [];
     byDay[dk].push(r);
   });
 
   let html = '';
-  Object.keys(byDay).sort((a,b) => b.localeCompare(a)).forEach(dk => {
+  Object.keys(byDay).sort((a,b)=>b.localeCompare(a)).forEach(dk => {
     let dayRecs = byDay[dk];
     let totCot  = dayRecs.filter(r=>r.tipo==='cotizacion').length;
     let totRes  = dayRecs.filter(r=>r.tipo==='reservacion').length;
@@ -2208,8 +2243,8 @@ async function renderHistorial() {
       <div class="hist-day-label">📅 ${fmtHistDate(dk+'T12:00:00')} &nbsp;·&nbsp; ${resumen.join(', ')}</div>`;
 
     dayRecs.forEach(reg => {
-      let habs   = typeof reg.habitaciones === 'string' ? JSON.parse(reg.habitaciones||'[]') : (reg.habitaciones||[]);
-      let noches = typeof reg.noches_det   === 'string' ? JSON.parse(reg.noches_det||'[]')   : (reg.noches_det||[]);
+      let habs   = reg.habitaciones || [];
+      let noches = reg.noches_det   || [];
 
       let habsDesc = habs.map((h,i) => {
         let ad=h.adultos||1, ado=h.adolescentes||0, men=h.menoresCount||0;
@@ -2223,29 +2258,29 @@ async function renderHistorial() {
         if(!(h.menoresCount>0)) return '';
         let edades = h.menoresEdades||[];
         if(!edades.some(e=>e!=='')) return '';
-        return 'H'+(hi+1)+': '+edades.map((e,idx)=>`M${idx+1}:${e===''?'?':e}a`).join(', ');
+        return 'H'+(hi+1)+': '+edades.map((e,i)=>`M${i+1}:${e===''?'?':e}a`).join(', ');
       }).filter(Boolean).join(' · ');
 
       let nochesHtml = noches.map(nd =>
         `<span>${nd.fechaLabel}: <strong>${fmt(nd.total)}</strong> <em style="font-size:10px">(${nd.tmp})</em></span>`
       ).join(' · ');
 
-      let promoStr = reg.promoNombre
+      let promoStr = reg.promoActiva && reg.promoNombre
         ? `<span style="background:var(--dorado);color:#fff;border-radius:5px;padding:1px 7px;font-size:10px;margin-left:4px">${reg.promoNombre}</span>`
         : '';
 
       html += `
       <div class="hist-item" id="hist-${reg.id}">
-        <div class="hist-item-header" onclick="toggleHistItem('${reg.id}')">
+        <div class="hist-item-header" onclick="toggleHistItem(${reg.id})">
           <span class="hist-tipo-badge ${reg.tipo}">${reg.tipo==='reservacion'?'✅ Reservación':'📄 Cotización'}</span>
           <span class="hist-name">${reg.cliente||'Sin nombre'}</span>
-          <span class="hist-meta">${fmtHistTime(String(reg.fecha_guardado))} · ${reg.n} noche${reg.n>1?'s':''} · ${habs.length} hab.</span>
+          <span class="hist-meta">${fmtHistTime(reg.fecha_guardado)} · ${reg.n} noche${reg.n>1?'s':''} · ${habs.length} hab.</span>
           <span class="hist-total-badge">${fmt(reg.totalFinal)}</span>
           <span class="hist-chevron">▼</span>
         </div>
         <div class="hist-detail">
           <div style="font-size:11px;color:var(--texto-suave);margin-top:4px">
-            Guardado a las ${fmtHistTime(String(reg.fecha_guardado))}
+            Guardado a las ${fmtHistTime(reg.fecha_guardado)}
             ${reg.nota?'&nbsp;·&nbsp;<em>'+reg.nota+'</em>':''} ${promoStr}
           </div>
           <div class="hist-detail-grid">
@@ -2261,10 +2296,10 @@ async function renderHistorial() {
           ${nochesHtml?`<div class="hist-noches-mini" style="margin-top:8px"><strong style="font-size:11px">Desglose por noche:</strong><br>${nochesHtml}</div>`:''}
           <div class="hist-actions">
             ${reg.tipo==='cotizacion'
-              ?`<button class="btn btn-sm" onclick="cambiarTipoRegistro('${reg.id}','reservacion')">✅ Marcar como reservación</button>`
-              :`<button class="btn btn-sm" onclick="cambiarTipoRegistro('${reg.id}','cotizacion')">📄 Revertir a cotización</button>`
+              ?`<button class="btn btn-sm" onclick="cambiarTipoRegistro(${reg.id},'reservacion')">✅ Marcar como reservación</button>`
+              :`<button class="btn btn-sm" onclick="cambiarTipoRegistro(${reg.id},'cotizacion')">📄 Revertir a cotización</button>`
             }
-            <button class="btn btn-sm" style="background:#fde8e8;color:#b91c1c;border-color:#f5b4b4" onclick="eliminarRegistro('${reg.id}')">🗑 Eliminar</button>
+            <button class="btn btn-sm" style="background:#fde8e8;color:#b91c1c;border-color:#f5b4b4" onclick="eliminarRegistro(${reg.id})">🗑 Eliminar</button>
           </div>
         </div>
       </div>`;
