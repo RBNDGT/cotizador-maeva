@@ -21,6 +21,17 @@
   --gris-borde:#C8EAF8;
   --texto:#0D2D3F;
   --texto-suave:#4A7A92;
+  /* Dark mode overrides (applied via body.dark) */
+}
+body.dark{
+  --azul-light:#0a2a3a;
+  --azul-mid:#0d3a50;
+  --dorado-light:#2a1f00;
+  --blanco:#1e1e1e;
+  --gris-bg:#141414;
+  --gris-borde:#2a2a2a;
+  --texto:#e8f4fb;
+  --texto-suave:#7fb8d4;
 }
 body{font-family:system-ui,-apple-system,sans-serif;font-size:14px;color:var(--texto);background:var(--gris-bg);padding:0;min-height:100vh}
 .topbar{background:var(--azul);padding:0;display:flex;align-items:stretch;box-shadow:0 2px 12px rgba(0,174,239,.25)}
@@ -154,6 +165,59 @@ textarea{resize:vertical;min-height:70px}
 .hist-save-row{display:flex;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap}
 .hist-tipo-select{border:1.5px solid var(--azul);border-radius:8px;padding:6px 10px;font-size:13px;color:var(--azul);font-weight:600;cursor:pointer}
 .hist-nota-input{flex:1;min-width:160px;border:1.5px solid #cde;border-radius:8px;padding:6px 10px;font-size:13px}
+
+/* ── DARK MODE ─────────────────────────────────────────────── */
+body.dark{background:var(--gris-bg);color:var(--texto)}
+body.dark .card{background:#1e1e1e;border-color:#2a2a2a;box-shadow:0 2px 10px rgba(0,0,0,.4)}
+body.dark .tabs{background:#1a1a1a;border-color:#2a2a2a}
+body.dark .tab{color:#7fb8d4}
+body.dark .tab.active{background:#141414;color:var(--azul)}
+body.dark .tab:hover:not(.active){background:#222}
+body.dark input,body.dark select,body.dark textarea{
+  background:#262626;border-color:#383838;color:var(--texto)
+}
+body.dark input:focus,body.dark select:focus,body.dark textarea:focus{
+  border-color:var(--azul);background:#1e2a30
+}
+body.dark input::placeholder,body.dark textarea::placeholder{color:#4a6a7a}
+body.dark .btn{background:#262626;border-color:#383838;color:var(--texto)}
+body.dark .btn-primary{background:var(--azul);color:#fff;border-color:var(--azul-dark)}
+body.dark .btn-primary:hover{background:var(--azul-dark)}
+body.dark .btn-sm{background:#1e1e1e;border-color:#383838;color:var(--texto-suave)}
+body.dark .btn-sm:hover{background:#2a2a2a}
+body.dark .modal{background:#1e1e1e;border-color:#383838}
+body.dark .modal-overlay{background:rgba(0,0,0,.7)}
+body.dark .total-box{background:#1a1f24;border-color:#2a3a44}
+body.dark .desglose-row{border-color:#2a2a2a}
+body.dark .desglose-row:hover{background:#1e2a30}
+body.dark .badge-azul{background:#0a2a3a;color:var(--azul)}
+body.dark .badge-dorado{background:#2a1f00;color:var(--dorado)}
+body.dark .badge-verde{background:#0a2a1a;color:#4ade80}
+body.dark .info-reglas{background:#1a2a1a;border-color:#2a3a2a;color:#7fb8a0}
+body.dark .desc-tabla th{background:#0a2a3a;color:var(--azul)}
+body.dark .desc-tabla td{border-color:#2a2a2a;color:var(--texto)}
+body.dark .desc-tabla tr:hover td{background:#1e2a30}
+body.dark .hab-huesp{background:#1a2530;border-color:#2a3a4a}
+body.dark .hist-item{background:#1e1e1e;border-color:#2a2a2a}
+body.dark .hist-item.open{border-color:var(--azul)}
+body.dark .hist-item-header:hover{background:#222}
+body.dark .hist-day-label{background:#1a2a3a;color:var(--azul)}
+body.dark .hist-dato{background:#262626}
+body.dark .hist-filter-btn{background:#1e1e1e;border-color:#383838;color:var(--texto-suave)}
+body.dark .hist-filter-btn.active{background:var(--azul);color:#fff;border-color:var(--azul)}
+body.dark .promo-block{background:#1a1f10;border-color:var(--dorado)}
+body.dark #desc-auto-card,body.dark #promo-eventual-card{border-color:#383838}
+body.dark .config-row{border-color:#2a2a2a}
+body.dark .topbar-info{background:#005a8a}
+body.dark label{color:var(--texto-suave)}
+body.dark .sec{color:var(--azul);border-color:#2a3a4a}
+body.dark .info-box{background:#1a2530;border-color:#2a3a4a}
+/* Dark toggle button */
+.dark-toggle{display:flex;align-items:center;gap:10px}
+.dark-toggle-track{width:44px;height:24px;background:#ccc;border-radius:12px;position:relative;cursor:pointer;transition:background .2s;flex-shrink:0}
+.dark-toggle-track.on{background:var(--azul)}
+.dark-toggle-thumb{width:20px;height:20px;background:#fff;border-radius:50%;position:absolute;top:2px;left:2px;transition:left .2s;box-shadow:0 1px 4px rgba(0,0,0,.3)}
+.dark-toggle-track.on .dark-toggle-thumb{left:22px}
 </style>
 </head>
 <body>
@@ -293,10 +357,14 @@ textarea{resize:vertical;min-height:70px}
 <div id="panel-cliente" class="panel">
 <div class="card">
   <div class="sec">Datos del cliente</div>
+
+  <!-- Fila 1: Nombre + Teléfono -->
   <div class="grid2" style="margin-bottom:12px">
     <div><label>Nombre completo</label><input type="text" id="cli-nombre" placeholder="Nombre del cliente"></div>
     <div><label>Teléfono / WhatsApp</label><input type="text" id="cli-tel" placeholder="+52 833..."></div>
   </div>
+
+  <!-- Fila 2: Email + Canal -->
   <div class="grid2" style="margin-bottom:12px">
     <div><label>Correo electrónico</label><input type="email" id="cli-email" placeholder="correo@ejemplo.com"></div>
     <div><label>Canal de contacto</label>
@@ -308,6 +376,45 @@ textarea{resize:vertical;min-height:70px}
       </select>
     </div>
   </div>
+
+  <!-- Fila 3: Tipo de oferta + Factura -->
+  <div class="grid2" style="margin-bottom:12px">
+    <div><label>Tipo de oferta</label>
+      <input type="text" id="cli-tipo-oferta" placeholder="Ej. Paquete familiar, Grupo corporativo…">
+    </div>
+    <div>
+      <label>¿Requiere factura?</label>
+      <div style="display:flex;gap:16px;margin-top:6px">
+        <label style="display:flex;align-items:center;gap:6px;margin-bottom:0;font-weight:400;cursor:pointer">
+          <input type="radio" name="cli-factura" id="cli-factura-si" value="si" style="width:16px;height:16px"> Sí
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;margin-bottom:0;font-weight:400;cursor:pointer">
+          <input type="radio" name="cli-factura" id="cli-factura-no" value="no" checked style="width:16px;height:16px"> No
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <!-- Fila 4: Dirección -->
+  <div style="margin-bottom:12px">
+    <label>Dirección</label>
+    <input type="text" id="cli-direccion" placeholder="Calle, número, colonia">
+  </div>
+
+  <!-- Fila 5: País + Estado + Ciudad -->
+  <div class="grid3" style="margin-bottom:12px">
+    <div><label>País</label>
+      <input type="text" id="cli-pais" placeholder="México" value="México">
+    </div>
+    <div><label>Estado</label>
+      <input type="text" id="cli-estado" placeholder="Tamaulipas">
+    </div>
+    <div><label>Ciudad</label>
+      <input type="text" id="cli-ciudad" placeholder="Tampico">
+    </div>
+  </div>
+
+  <!-- Notas -->
   <div><label>Peticiones especiales / Notas internas</label>
     <textarea id="cli-notas" placeholder="Cama extra, luna de miel, alergias, cuarto específico, etc."></textarea>
   </div>
@@ -348,6 +455,21 @@ textarea{resize:vertical;min-height:70px}
 
 <!-- ═══════════════ CONFIG ═══════════════ -->
 <div id="panel-config" class="panel">
+
+<!-- Modo oscuro -->
+<div class="card" style="margin-bottom:4px">
+  <div class="sec">Apariencia</div>
+  <div class="dark-toggle" style="padding:4px 0">
+    <div class="dark-toggle-track" id="dark-track" onclick="toggleDarkMode()">
+      <div class="dark-toggle-thumb"></div>
+    </div>
+    <label style="margin-bottom:0;cursor:pointer" onclick="toggleDarkMode()">
+      Modo oscuro
+      <span id="dark-label" style="font-size:11px;color:var(--texto-suave);margin-left:4px">Desactivado</span>
+    </label>
+  </div>
+</div>
+
 <div class="card">
   <div class="sec">Información del hotel</div>
   <div class="config-row"><label>Nombre del hotel</label><input type="text" id="cfg-hotel" value="Club Maeva Miramar" oninput="guardarConfig()"></div>
@@ -2024,7 +2146,13 @@ function histMsg(txt, color) {
 // ── GUARDAR ───────────────────────────────────────────────────
 function guardarEnHistorial() {
   let cot     = window._cot;
-  let cliente = document.getElementById('cliente-nombre')?.value || 'Sin nombre';
+  let cliente   = document.getElementById('cli-nombre')?.value || document.getElementById('cliente-nombre')?.value || 'Sin nombre';
+  let factura   = document.querySelector('input[name="cli-factura"]:checked')?.value || 'no';
+  let tipoOferta= document.getElementById('cli-tipo-oferta')?.value || '';
+  let pais      = document.getElementById('cli-pais')?.value || '';
+  let estado    = document.getElementById('cli-estado')?.value || '';
+  let ciudad    = document.getElementById('cli-ciudad')?.value || '';
+  let direccion = document.getElementById('cli-direccion')?.value || '';
   let tipo    = document.getElementById('hist-save-tipo').value;
   let nota    = document.getElementById('hist-save-nota').value || '';
 
@@ -2035,6 +2163,7 @@ function guardarEnHistorial() {
   let registro = {
     id:             Date.now(),
     tipo, cliente, nota,
+    factura, tipoOferta, pais, estado, ciudad, direccion,
     fecha_guardado: new Date().toISOString(),
     fi: cot.fi, fo: cot.fo, n: cot.n, plan: cot.plan,
     totalFinal:     cot.totalFinal,
@@ -2092,7 +2221,7 @@ function limpiarHistorial() {
 function exportarHistorialCSV() {
   let arr = lsCargar();
   if (!arr.length) { alert('No hay registros para exportar.'); return; }
-  let cols = ['Tipo','Cliente','Nota','Fecha guardado','Check-in','Check-out',
+  let cols = ['Tipo','Cliente','Nota','Tipo Oferta','Factura','País','Estado','Ciudad','Dirección','Fecha guardado','Check-in','Check-out',
               'Noches','Plan','Total MXN','Temporada','Promoción','Habitaciones'];
   let rows = arr.map(r => {
     let habsDesc = (r.habitaciones||[]).map((h,i) => {
@@ -2105,6 +2234,7 @@ function exportarHistorialCSV() {
     return [
       r.tipo, r.cliente, r.nota||'',
       String(r.fecha_guardado).slice(0,16).replace('T',' '),
+      r.tipoOferta||'', r.factura||'no', r.pais||'', r.estado||'', r.ciudad||'', r.direccion||'',
       r.fi, r.fo, r.n,
       r.plan==='AI'?'Todo Incluido':'Plan Europeo',
       r.totalFinal, r.temporada||'', r.promoNombre||'', habsDesc
@@ -2154,12 +2284,14 @@ function exportarHistorialPDF() {
       let tipoBadge=r.tipo==='reservacion'
         ?'<span class="badge res">Reservación</span>'
         :'<span class="badge cot">Cotización</span>';
+      let ubicPDF=[r.ciudad,r.estado,r.pais].filter(Boolean).join(', ');
       rowsHtml += `<tr>
         <td>${tipoBadge}</td>
-        <td><strong>${r.cliente||'—'}</strong>${r.nota?'<br><em style="font-size:10px">'+r.nota+'</em>':''}</td>
+        <td><strong>${r.cliente||'—'}</strong>${r.nota?'<br><em style="font-size:10px">'+r.nota+'</em>':''}${ubicPDF?'<br><span style="font-size:9px;color:#666">'+ubicPDF+'</span>':''}</td>
         <td>${String(r.fecha_guardado).slice(0,10)}<br>${fmtHistTime(r.fecha_guardado)}</td>
         <td>${fmtD(r.fi)}<br>→ ${fmtD(r.fo)}</td>
         <td>${r.n} noche${r.n>1?'s':''}<br>${r.plan==='AI'?'Todo Inc.':'Plan Eur.'}</td>
+        <td>${r.tipoOferta||'—'}<br>${r.factura==='si'?'✅ Factura':'Sin factura'}</td>
         <td>${habs}</td>
         <td style="text-align:right;font-weight:700;color:#b8750a">${fmt(r.totalFinal)}</td>
       </tr>`;
@@ -2192,11 +2324,11 @@ function exportarHistorialPDF() {
   <table>
     <thead><tr>
       <th>Tipo</th><th>Cliente</th><th>Guardado</th>
-      <th>Fechas</th><th>Noches / Plan</th><th>Habitaciones</th><th>Total</th>
+      <th>Fechas</th><th>Noches / Plan</th><th>Oferta / Factura</th><th>Habitaciones</th><th>Total</th>
     </tr></thead>
     <tbody>${rowsHtml}
       <tr class="total-row">
-        <td colspan="6" style="text-align:right">TOTAL GENERAL (${arr.length} registros)</td>
+        <td colspan="7" style="text-align:right">TOTAL GENERAL (${arr.length} registros)</td>
         <td style="text-align:right">${fmt(totalGeneral)}</td>
       </tr>
     </tbody>
@@ -2290,6 +2422,10 @@ function renderHistorial() {
             <div class="hist-dato"><span>Plan</span><p>${reg.plan==='AI'?'Todo Incluido':'Plan Europeo'}</p></div>
             <div class="hist-dato"><span>Total</span><p style="color:var(--dorado-dark);font-weight:700">${fmt(reg.totalFinal)}</p></div>
             <div class="hist-dato"><span>Temporada</span><p>${reg.temporada||'—'}</p></div>
+            ${reg.tipoOferta?`<div class="hist-dato"><span>Tipo de oferta</span><p>${reg.tipoOferta}</p></div>`:''}
+            ${reg.factura?`<div class="hist-dato"><span>Factura</span><p>${reg.factura==='si'?'✅ Sí':'No'}</p></div>`:''}
+            ${(reg.ciudad||reg.estado||reg.pais)?`<div class="hist-dato"><span>Ubicación</span><p>${[reg.ciudad,reg.estado,reg.pais].filter(Boolean).join(', ')}</p></div>`:''}
+            ${reg.direccion?`<div class="hist-dato" style="grid-column:span 2"><span>Dirección</span><p>${reg.direccion}</p></div>`:''}
           </div>
           <div style="margin-top:10px;font-size:12px"><strong>Habitaciones:</strong> ${habsDesc}</div>
           ${menoresStr?`<div style="font-size:11px;color:var(--texto-suave);margin-top:4px">Edades menores: ${menoresStr}</div>`:''}
@@ -2315,8 +2451,30 @@ function toggleHistItem(id) {
   if (el) el.classList.toggle('open');
 }
 
+// ── MODO OSCURO ───────────────────────────────────────────────
+function toggleDarkMode() {
+  let isDark = document.body.classList.toggle('dark');
+  localStorage.setItem('maeva_dark', isDark ? '1' : '0');
+  updateDarkUI(isDark);
+}
+
+function updateDarkUI(isDark) {
+  let track = document.getElementById('dark-track');
+  let label = document.getElementById('dark-label');
+  if (track) track.classList.toggle('on', isDark);
+  if (label) label.textContent = isDark ? 'Activado' : 'Desactivado';
+}
+
+function initDarkMode() {
+  let saved = localStorage.getItem('maeva_dark');
+  let isDark = saved === '1';
+  if (isDark) document.body.classList.add('dark');
+  updateDarkUI(isDark);
+}
+
 renderHabs();
 calcular();
+initDarkMode();
 </script>
 </body>
 </html>
