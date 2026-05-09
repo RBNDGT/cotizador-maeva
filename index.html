@@ -37,9 +37,14 @@ body{font-family:system-ui,-apple-system,sans-serif;font-size:14px;color:var(--t
 .topbar{background:var(--azul);padding:0;display:flex;align-items:stretch;box-shadow:0 2px 12px rgba(0,174,239,.25)}
 .topbar-logo{background:var(--azul);padding:10px 24px;display:flex;align-items:center}
 .topbar-logo img{height:56px;width:auto}
-.topbar-info{background:var(--azul-dark);padding:10px 20px;display:flex;flex-direction:column;justify-content:center;margin-left:auto}
+.topbar-info{background:var(--azul-dark);padding:10px 20px;display:flex;flex-direction:column;justify-content:center}
 .topbar-title{color:var(--blanco);font-size:15px;font-weight:700;letter-spacing:.02em}
 .topbar-sub{color:rgba(255,255,255,.75);font-size:11px;margin-top:2px}
+.topbar-agente{background:rgba(255,255,255,.12);padding:8px 16px;display:flex;align-items:center;gap:8px;margin-left:auto}
+.topbar-agente label{color:rgba(255,255,255,.85);font-size:11px;white-space:nowrap;font-weight:600}
+.topbar-agente input{font-size:12px;padding:4px 10px;border:1.5px solid rgba(255,255,255,.3);border-radius:6px;background:rgba(255,255,255,.15);color:#fff;width:170px;outline:none}
+.topbar-agente input::placeholder{color:rgba(255,255,255,.5)}
+.topbar-agente input:focus{border-color:rgba(255,255,255,.8);background:rgba(255,255,255,.25)}
 .container{max-width:920px;margin:0 auto;padding:1.25rem 1rem 2rem}
 h2{font-size:15px;font-weight:600;margin-bottom:.75rem}
 label{font-size:12px;color:var(--texto-suave);display:block;margin-bottom:3px;font-weight:500}
@@ -227,6 +232,11 @@ body.dark .info-box{background:#1a2530;border-color:#2a3a4a}
   <div class="topbar-info">
     <div class="topbar-title">Cotizador de Reservaciones</div>
     <div class="topbar-sub">Tarifas públicas 2026 · Todo Incluido y Plan Europeo · Tampico, México</div>
+  </div>
+  <div class="topbar-agente">
+    <label>👤 Agente:</label>
+    <input type="text" id="agente-global" placeholder="Tu nombre completo"
+      oninput="syncAgenteGlobal(this.value)">
   </div>
 </div>
 <div class="container">
@@ -1673,6 +1683,22 @@ function setTono(t){
 
 function getCfg(id,def){return document.getElementById(id)?.value||def;}
 
+function syncAgenteGlobal(val){
+  // Sync agente-global field to cli-agente and cfg-agente, and persist to localStorage
+  val=(val||'').trim();
+  let cliEl=document.getElementById('cli-agente');
+  if(cliEl)cliEl.value=val;
+  let cfgEl=document.getElementById('cfg-agente');
+  if(cfgEl)cfgEl.value=val;
+  // Save to localStorage
+  try{
+    let raw=localStorage.getItem('maeva_config');
+    let d=raw?JSON.parse(raw):{};
+    d['cfg-agente']=val;
+    localStorage.setItem('maeva_config',JSON.stringify(d));
+  }catch(e){}
+}
+
 function generarResumen(){
   let c=window._cot;
   if(!c){document.getElementById('resumen-output').textContent='Completa la cotización primero.';return;}
@@ -1680,7 +1706,11 @@ function generarResumen(){
   let nombre=document.getElementById('cli-nombre').value||'[Cliente]';
   let tel=document.getElementById('cli-tel').value;
   let notas=document.getElementById('cli-notas').value;
-  let agente=(document.getElementById('cli-agente').value||'').trim()||(document.getElementById('cfg-agente')?.value||'').trim();
+  // Leer agente: agente-global (topbar) > cli-agente > cfg-agente > localStorage
+  let agente=(document.getElementById('agente-global')?.value||'').trim()
+    ||(document.getElementById('cli-agente')?.value||'').trim()
+    ||(document.getElementById('cfg-agente')?.value||'').trim()
+    ||(()=>{try{return(JSON.parse(localStorage.getItem('maeva_config')||'{}')['cfg-agente']||'').trim();}catch(e){return'';}})();
   let canal=document.getElementById('cli-canal').value;
   let planLabel=c.plan==='AI'?'Todo Incluido (AI)':'Plan Europeo (EP)';
   let habLabel=HAB_NOM[c.hab]||c.hab;
@@ -2302,11 +2332,42 @@ function guardarConfig(){
   let tel=document.getElementById('cfg-tel')?.value||'833 205 4100';
   let topSub=document.querySelector('.topbar-sub');
   if(topSub)topSub.textContent=`${ciudad} · 📞 ${tel}`;
-  // Pre-fill agente if config has default
+  // Persistir config en localStorage
+  let cfgIds=['cfg-hotel','cfg-ciudad','cfg-tel','cfg-wa','cfg-email','cfg-saludo','cfg-cierre','cfg-agente'];
+  let cfgData={};
+  cfgIds.forEach(id=>{let el=document.getElementById(id);if(el)cfgData[id]=el.value;});
+  try{localStorage.setItem('maeva_config',JSON.stringify(cfgData));}catch(e){}
+  // Pre-fill agente en datos del cliente si está vacío
   let cfgAgente=document.getElementById('cfg-agente')?.value||'';
   let agenteInput=document.getElementById('cli-agente');
   if(agenteInput&&!agenteInput.value&&cfgAgente)agenteInput.value=cfgAgente;
   calcular();
+}
+
+function cargarConfig(){
+  try{
+    let saved=localStorage.getItem('maeva_config');
+    if(!saved)return;
+    let cfgData=JSON.parse(saved);
+    Object.entries(cfgData).forEach(([id,val])=>{
+      let el=document.getElementById(id);
+      if(el&&val)el.value=val;
+    });
+    // Actualizar topbar
+    let hotel=cfgData['cfg-hotel']||'Club Maeva Miramar';
+    let ciudad=cfgData['cfg-ciudad']||'Tampico, Tamaulipas, México';
+    let tel=cfgData['cfg-tel']||'833 205 4100';
+    let topSub=document.querySelector('.topbar-sub');
+    if(topSub)topSub.textContent=`${ciudad} · 📞 ${tel}`;
+    // Pre-fill agente en todos los campos
+    let cfgAgente=(cfgData['cfg-agente']||'').trim();
+    if(cfgAgente){
+      let agenteInput=document.getElementById('cli-agente');
+      if(agenteInput)agenteInput.value=cfgAgente;
+      let globalInput=document.getElementById('agente-global');
+      if(globalInput)globalInput.value=cfgAgente;
+    }
+  }catch(e){}
 }
 
 function resetConfig(){
@@ -2713,6 +2774,7 @@ function initDarkMode() {
   updateDarkUI(isDark);
 }
 
+cargarConfig();
 renderHabs();
 calcular();
 initDarkMode();
