@@ -432,19 +432,22 @@ body.dark .info-box{background:#1a2530;border-color:#2a3a4a}
 <div id="panel-resumen" class="panel">
 <div class="card">
   <div class="sec">Resumen para enviar al cliente</div>
-  <div id="resumen-output">Complete la cotización y haga clic en "Generar resumen para cliente" desde la pestaña Cotizar.</div>
   <div style="margin-bottom:10px">
     <label style="font-size:11px;color:var(--texto-suave);margin-bottom:6px;display:block">TONO DEL MENSAJE</label>
-    <div style="display:flex;gap:6px">
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
       <button class="btn btn-sm" id="tono-formal" onclick="setTono('formal')" style="border-color:var(--azul);color:var(--azul)">Formal</button>
       <button class="btn btn-sm" id="tono-amigable" onclick="setTono('amigable')">Amigable</button>
       <button class="btn btn-sm" id="tono-whatsapp" onclick="setTono('whatsapp')">WhatsApp corto</button>
     </div>
   </div>
   <div id="resumen-desc-auto" class="desc-auto-badge"></div>
+  <!-- Contenedor multi-hab o hab única -->
+  <div id="resumen-output-container">
+    <div id="resumen-output" style="background:var(--gris-bg);border:1.5px solid var(--gris-borde);border-radius:10px;padding:1rem;font-size:13px;line-height:1.8;white-space:pre-wrap;min-height:120px;font-family:system-ui;color:var(--texto)">Complete la cotización y haga clic en "Generar resumen para cliente" desde la pestaña Cotizar.</div>
+  </div>
   <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
     <button class="btn btn-primary" onclick="abrirModal()">Regenerar ↗</button>
-    <button class="btn" id="btn-copiar" onclick="copiarResumen()">📋 Copiar</button>
+    <button class="btn" id="btn-copiar" onclick="copiarResumen()">📋 Copiar todo</button>
     <button class="btn btn-wa" onclick="enviarWhatsApp()">💬 WhatsApp</button>
     <button class="btn btn-email" onclick="enviarEmail()">✉️ Correo</button>
     <button class="btn btn-dorado" id="btn-pdf" onclick="exportarPDF()">⬇ PDF</button>
@@ -965,135 +968,108 @@ function calcular(){
 
   // Renderizar desglose: si hay múltiples habitaciones, mostrar sección por habitación
   let html='';
+  let mostrarPorHab=desgloseHabs.length>1;
+  // Para desglose usamos hab 1; si hay varias, mostrar separado
+  let habsParaRender=mostrarPorHab?desgloseHabs:[{idx:0,tipo:habitaciones[0]?.tipo||'ESTANDAR',upgrade:habitaciones[0]?.upgrade||0,noches:nochesDet}];
 
-  desgloseHabs.forEach((habDet, hi)=>{
-    let habNochesLocal = habDet.noches || [];
-    let habTotalBase   = habNochesLocal.reduce((s,nd)=>s+nd.base,0);
-    let habTotalAjuste = habNochesLocal.reduce((s,nd)=>s+nd.ajuste,0);
-    let habUpgTotal    = (habDet.upgrade||0)*n;
-    let habSubtotal    = habTotalBase + habTotalAjuste + habUpgTotal;
-
-    // Huéspedes de esta habitación
-    let h = habitaciones[hi]||{};
-    let habAd  = h.adultos||1, habAdo = h.adolescentes||0, habMen = h.menoresCount||0;
-    let habEdades = h.menoresEdades||[];
-    let mcHabRender = clasifMenores(habEdades, habDet.tipo, habAd, habAdo);
-
-    // Línea de huéspedes
-    let paxParts = [habAd+' adulto'+(habAd>1?'s':'')];
-    if(habAdo>0) paxParts.push(habAdo+' adolescente'+(habAdo>1?'s':''));
-    mcHabRender.forEach((m,mi)=>{
-      let edad = m.edad===''||m.edad===undefined?'?':m.edad;
-      let label = m.tipo==='gratis'
-        ? `Menor ${edad}a (gratis)`
-        : m.tipo==='612'
-        ? `Menor ${edad}a (tarifa)`
-        : `Menor ${edad}a (extra)`;
-      paxParts.push(label);
-    });
-    let paxLine = paxParts.join(' · ');
-
-    // Header de habitación
-    html += `<div style="background:var(--azul);color:#fff;border-radius:10px 10px 0 0;padding:8px 14px;display:flex;justify-content:space-between;align-items:center;margin-top:${hi>0?'18px':'0'}">
-      <div>
-        <span style="font-size:13px;font-weight:700">🛏 Hab ${hi+1} — ${HAB_NOM[habDet.tipo]}</span>
-        ${habDet.upgrade>0?`<span style="font-size:11px;opacity:.85;margin-left:8px">Upgrade +${fmt(habDet.upgrade)}/noche</span>`:''}
-      </div>
-      <button onclick="copiarDesglose(${hi})" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:6px;padding:3px 10px;font-size:11px;cursor:pointer">📋 Copiar</button>
-    </div>
-    <div style="border:1.5px solid var(--azul-mid);border-top:none;border-radius:0 0 10px 10px;padding:10px 14px;margin-bottom:2px" id="hab-desglose-${hi}">
-      <div style="font-size:11px;color:var(--texto-suave);margin-bottom:10px;padding-bottom:8px;border-bottom:1px dashed var(--gris-borde)">
-        👥 ${paxLine}
-      </div>`;
-
-    // Noches
-    habNochesLocal.forEach((nd, i)=>{
-      let esGratis = nd.gratis || false;
-      let tipoDia  = nd.we ? 'Vie/Sáb' : 'Dom-Jue';
-      let blockStyle = esGratis ? 'background:linear-gradient(135deg,#E6F7EE,#fff);border:1.5px solid #5CB85C;border-radius:8px;' : '';
-
-      html += `<div class="noche-block" style="${blockStyle}">`;
-
-      if(esGratis){
-        html += `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-          <h4 style="font-size:11px;font-weight:700;color:#1A7A3F;text-transform:uppercase;letter-spacing:.04em">
-            🎁 Noche ${i+1} — ${nd.fechaLabel} <span style="font-size:10px;background:#1A7A3F;color:#fff;padding:1px 7px;border-radius:10px;margin-left:4px">GRATIS</span>
-          </h4>
-          <span style="font-size:12px;color:#1A7A3F;font-weight:700">Incluida</span>
-        </div>`;
-      } else {
-        html += `<h4 style="font-size:11px;font-weight:700;color:var(--azul);margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em">
-          Noche ${i+1} — ${nd.fechaLabel} · ${nd.tmp} · ${tipoDia}
-        </h4>`;
-      }
-
-      // Items
-      for(let it of nd.items){
-        if(esGratis){
-          html += `<div class="desglose-row" style="color:#888;text-decoration:line-through">
-            <span>${it.l}</span><span>${it.gratis?'Gratis':fmt(it.v)}</span>
-          </div>`;
-        } else {
-          html += `<div class="desglose-row">
-            <span style="color:${it.gratis?'#1A7A3F':'var(--texto)'}">
-              ${it.l}
-              ${it.subtexto?`<span class="desglose-sub" style="display:block;color:var(--texto-suave);font-size:11px;margin-top:1px">${it.subtexto}</span>`:''}
-            </span>
-            <span style="color:${it.gratis?'#1A7A3F':'var(--texto)'};font-weight:${it.subtexto?'700':'400'}">
-              ${it.gratis?'<span style="color:#1A7A3F;font-weight:600">Gratis</span>':fmt(it.v)+' <span class="desglose-sub">/noche</span>'}
-            </span>
-          </div>`;
-        }
-      }
-
-      // Subtotal noche (solo si no es gratis)
-      if(!esGratis){
-        html += `<div class="desglose-row" style="margin-top:4px;padding-top:4px;border-top:1px solid var(--gris-borde)">
-          <span style="color:var(--texto-suave);font-size:11px">Subtotal noche ${i+1}</span>
-          <span style="font-weight:700;color:var(--texto)">${fmt(nd.total)}</span>
-        </div>`;
-        if(nd.ajuste!==0){
-          let ajLabel = nd.ajuste<0?'Descuento aplicado':'Cargo adicional';
-          html += `<div class="desglose-row" style="color:${nd.ajuste<0?'#1A7A3F':'#c0392b'}">
-            <span style="font-size:11px">${ajLabel}</span>
-            <span style="font-size:11px;font-weight:600">${nd.ajuste<0?'-':'+'} ${fmt(Math.abs(nd.ajuste))}</span>
-          </div>`;
-        }
-      }
-      html += `</div>`;
-    });
-
-    // Upgrade si aplica
-    if(habUpgTotal>0){
-      html += `<div class="desglose-row" style="margin-top:6px;padding-top:6px;border-top:1px dashed var(--gris-borde)">
-        <span style="color:var(--texto-suave);font-size:12px">Upgrade habitación (${n} noche${n>1?'s':''})</span>
-        <span style="font-weight:600;color:var(--dorado-dark)">+${fmt(habUpgTotal)}</span>
+  habsParaRender.forEach((habDet,hi)=>{
+    let habNochesLocal=habDet.noches||nochesDet;
+    // Marcar noche gratis solo en hab 1
+    let idxGratisLocal=hi===0?idxNocheGratis:-1;
+    if(mostrarPorHab){
+      html+=`<div style="background:var(--azul);color:#fff;border-radius:8px;padding:6px 12px;margin-bottom:6px;font-size:12px;font-weight:700">
+        🛏 Habitación ${hi+1} — ${HAB_NOM[habDet.tipo]}${habDet.upgrade>0?' · Upgrade +$'+fmt(habDet.upgrade)+'/noche':''}
       </div>`;
     }
+    habNochesLocal.forEach((nd,i)=>{
+    let esGratis=(i===idxGratisLocal);
+    let tipoDia=nd.we?'Vie/Sáb':'Dom-Jue';
+    esGratis=nd.gratis;
+    let blockStyle=esGratis?'background:linear-gradient(135deg,#E6F7EE,#fff);border:2px solid #5CB85C;':'';
+    html+=`<div class="noche-block" style="${blockStyle}">`;
+    // Header de la noche con fecha exacta
+    if(esGratis){
+      html+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <h4 style="font-size:11px;font-weight:700;color:#1A7A3F;text-transform:uppercase;letter-spacing:.04em">
+          🎁 Noche ${i+1} — ${nd.fechaLabel} <span style="font-size:10px;background:#1A7A3F;color:#fff;padding:1px 7px;border-radius:10px;margin-left:4px">GRATIS</span>
+        </h4>
+        <span style="font-size:11px;color:#1A7A3F;font-weight:700">Incluida</span>
+      </div>`;
+    } else {
+      html+=`<h4 style="font-size:11px;font-weight:700;color:var(--azul,#00AEEF);margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em">
+        Noche ${i+1} — ${nd.fechaLabel} · ${nd.tmp} · ${tipoDia}
+      </h4>`;
+    }
+    // Items de la noche
+    for(let it of nd.items){
+      if(esGratis){
+        html+=`<div class="desglose-row" style="color:#888;text-decoration:line-through">
+          <span>${it.l}</span>
+          <span>${it.gratis?'Gratis':fmt(it.v)}</span>
+        </div>`;
+      } else {
+        html+=`<div class="desglose-row">
+          <span style="color:${it.gratis?'#666':'#0D2D3F'}">
+            ${it.l}
+            ${it.subtexto?`<span class="desglose-sub" style="display:block;color:var(--texto-suave);font-size:11px;margin-top:1px">${it.subtexto}</span>`:''}
+          </span>
+          <span style="color:${it.gratis?'#1A7A3F':'#0D2D3F'};font-weight:${it.subtexto?'700':'400'}">${it.gratis?'Gratis':fmt(it.v)+' <span class="desglose-sub">/noche</span>'}</span>
+        </div>`;
+      }
+    }
+    if(!esGratis){
+      html+=`<div class="desglose-row" style="margin-top:2px">
+        <span style="color:#555;font-size:11px">Subtotal noche ${i+1}</span>
+        <span style="font-weight:600">${fmt(nd.base)}</span>
+      </div>`;
+      if(nd.ajuste!==0){
+        html+=`<div class="desglose-row" style="color:${nd.ajuste<0?'#1A7A3F':'#C0392B'};font-size:11px">
+          <span>${nd.ajuste<0?'Descuento':'Incremento'}</span>
+          <span>${nd.ajuste<0?'-':'+'}${fmt(Math.abs(nd.ajuste))}</span>
+        </div>`;
+      }
+    } else {
+      html+=`<div class="desglose-row" style="margin-top:2px;color:#1A7A3F;font-weight:700">
+        <span>🎁 Esta noche va gratis</span><span>-${fmt(nd.base*numHabs)}</span>
+      </div>`;
+    }
+    html+=`</div>`;
+    });// end noches
 
-    // Total por habitación
-    html += `<div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding-top:8px;border-top:2px solid var(--azul-mid);background:var(--azul-light);border-radius:0 0 8px 8px;margin:-10px -14px -10px -14px;padding:8px 14px">
-      <span style="font-weight:700;font-size:13px;color:var(--azul)">Total Hab ${hi+1}</span>
-      <span style="font-weight:800;font-size:15px;color:var(--azul)">${fmt(habSubtotal)}</span>
-    </div>
+    // Subtotal por habitación si hay varias
+    let habTotal=habNochesLocal.reduce((s,nd)=>s+(nd.gratis?0:nd.base+nd.ajuste),0);
+    if(habDet.upgrade>0)habTotal+=habDet.upgrade*n;
+    if(mostrarPorHab){
+      html+=`<div class="desglose-row" style="padding:5px 0;font-weight:700;color:var(--azul);border-top:2px solid var(--azul-mid)">
+        <span>Subtotal Hab. ${hi+1}</span><span>${fmt(habTotal)}</span>
+      </div><br>`;
+    }
+    if(habDet.upgrade>0&&!mostrarPorHab){
+      html+=`<div class="desglose-row" style="padding:6px 0;font-weight:600">
+        <span>Upgrade · ${n} noches</span><span>${fmt(habDet.upgrade*n)}</span>
+      </div>`;
+    }
+  });// end habitaciones
+
+  // Upgrade total si varias habitaciones
+  if(mostrarPorHab&&totalUpg>0){
+    html+=`<div class="desglose-row" style="padding:6px 0;font-weight:600">
+      <span>Upgrades totales · ${numHabs} hab.</span><span>${fmt(totalUpg)}</span>
     </div>`;
-  });
-
-  // Total general si hay más de una habitación
-  if(desgloseHabs.length>1){
-    let totalSinNocheGratis = totalBase+totalAjuste+totalUpg;
-    html += `<div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;background:var(--dorado-light);border:2px solid var(--dorado);border-radius:10px;padding:10px 16px">
-      <span style="font-weight:700;font-size:14px;color:var(--dorado-dark)">TOTAL GENERAL (${desgloseHabs.length} habitaciones)</span>
-      <span style="font-weight:800;font-size:17px;color:var(--dorado-dark)">${fmt(totalSinNocheGratis)}</span>
+  } else if(!mostrarPorHab&&upg>0){
+    html+=`<div class="desglose-row" style="padding:6px 0;font-weight:600">
+      <span>Upgrade habitación · ${n} noches</span>
+      <span>${fmt(totalUpg)}</span>
+    </div>`;
+  }
+  if(totalAjuste!==0){
+    let adjLabel=totalAjuste<0?'Ahorro total por descuento':'Incremento total aplicado';
+    html+=`<div class="desglose-row" style="padding:8px 0;color:${totalAjuste<0?'#1A7A3F':'#C0392B'};font-weight:700;border-top:2px solid var(--azul-mid);margin-top:4px">
+      <span>${adjLabel}</span>
+      <span>${totalAjuste<0?'-':'+'}${fmt(Math.abs(totalAjuste))}</span>
     </div>`;
   }
 
-  if(totalAjuste!==0&&desgloseHabs.length===1){
-    html+=`<div class="desglose-row" style="padding:6px 0;color:#00AEEF;font-weight:600">
-      <span>Descuento total sobre tarifa base</span>
-      <span>-${fmt(Math.abs(totalAjuste))}</span>
-    </div>`;
-  }
   document.getElementById('desglose').innerHTML=html;
   document.getElementById('total-valor').textContent=fmt(totalFinal);
   let habsDesc=habitaciones.map((h,i)=>{
@@ -1704,7 +1680,7 @@ function generarResumen(){
   let nombre=document.getElementById('cli-nombre').value||'[Cliente]';
   let tel=document.getElementById('cli-tel').value;
   let notas=document.getElementById('cli-notas').value;
-  let agente=document.getElementById('cli-agente').value||getCfg('cfg-agente','');
+  let agente=(document.getElementById('cli-agente').value||'').trim()||(document.getElementById('cfg-agente')?.value||'').trim();
   let canal=document.getElementById('cli-canal').value;
   let planLabel=c.plan==='AI'?'Todo Incluido (AI)':'Plan Europeo (EP)';
   let habLabel=HAB_NOM[c.hab]||c.hab;
@@ -1731,8 +1707,9 @@ function generarResumen(){
       if(grats)p.push(grats+' sin costo');
       if(t612)p.push(t612+' tarifa 6-12');
       if(ext)p.push(ext+' extra');
-      menoresTexto='Menores: '+p.join(', ');
+      menoresTexto='\n   Menores: '+p.join(', ');
     }
+  }
 
   let descLinea='';
   if(c.promoActiva&&c.promoNombre){
@@ -1748,17 +1725,10 @@ function generarResumen(){
     descLinea=`\n   Ajuste aplicado: ${dl}`;
   }
 
-  // Desglose por grupos de noches
-  let desgloseLineas='';
-  for(let k in c.grupos){
-    let g=c.grupos[k];
-    let diaLabel=g.we?'Vie/Sáb':'Dom-Jue';
-    let baseUn=g.base/g.noches;
-    desgloseLineas+=`\n   [${g.tmp} — ${diaLabel}] ${g.noches} noche${g.noches>1?'s':''}: ${fmt(baseUn)}/noche × hab.`;
-  }
-
   let upgLineа=c.upg>0?`\n   Upgrade de habitación: +${fmt(c.upg)}/noche`:'';
-  let notasCliente=notas?`\n📝 NOTAS / PETICIONES ESPECIALES:\n   ${notas}\n`:'';
+  let nocheGratisLinea=c.nocheGratisValor>0?`\n   ${c.nocheGratisLabel}`:'';
+  let ahorroTotal=Math.abs(c.totalAjuste)+(c.nocheGratisValor||0);
+  let descTotalLinea=ahorroTotal>0?`\n   💰 Ahorro total: -${fmt(ahorroTotal)}`:'';
   let incluyeAI=c.plan==='AI'?`
 ✅ TODO INCLUIDO INCLUYE:
    • Hospedaje · Desayuno, comida y cena buffet
@@ -1767,24 +1737,135 @@ function generarResumen(){
    • Alberca Solarium (mayores de 21 años)
    • Club de playa`:'';
 
-  let nocheGratisLinea=c.nocheGratisValor>0?`\n   ${c.nocheGratisLabel}`:'';
-  let descTotalLinea=(c.totalAjuste!==0||c.nocheGratisValor>0)?`\n   Ahorro total: -${fmt(Math.abs(c.totalAjuste)+(c.nocheGratisValor||0))}`:'';
+  let notasCliente=notas?`\n📝 NOTAS / PETICIONES ESPECIALES:\n   ${notas}\n`:'';
+
+  // ── Desglose por habitación (para resumen formal completo) ────
+  function buildDesgloseHab(habDet, habIdx, n){
+    let lines='';
+    let habNom=HAB_NOM[habDet.tipo]||habDet.tipo;
+    lines+=`\n\n   ┌─ *Habitación ${habIdx+1}: ${habNom}*`;
+    let adH=habDet.adultos||1,adoH=habDet.adolescentes||0,menH=habDet.menores||0;
+    let hpax=[adH+' adulto'+(adH>1?'s':'')];
+    if(adoH>0)hpax.push(adoH+' adol.');
+    if(menH>0)hpax.push(menH+' menor'+(menH>1?'es':''));
+    lines+=`\n   │  Huéspedes: ${hpax.join(', ')}`;
+    // Agrupar noches por tarifa/tipo
+    let grupos={};
+    (habDet.noches||[]).forEach(nd=>{
+      let key=nd.tmp+(nd.we?'_we':'_wk');
+      if(!grupos[key])grupos[key]={tmp:nd.tmp,we:nd.we,noches:0,base:0,ajuste:0};
+      grupos[key].noches++;
+      grupos[key].base+=nd.base;
+      grupos[key].ajuste+=nd.ajuste;
+    });
+    let habSubtotal=(habDet.noches||[]).reduce((s,nd)=>s+(nd.base+nd.ajuste),0);
+    if(habDet.upgrade>0)habSubtotal+=habDet.upgrade*n;
+    for(let k in grupos){
+      let g=grupos[k];
+      let diaLabel=g.we?'Vie/Sáb':'Dom-Jue';
+      let pn=g.base/g.noches;
+      let totalGrupo=g.base+g.ajuste;
+      if(g.ajuste<0){
+        // Mostrar precio normal y luego precio con descuento
+        let pnConDesc=totalGrupo/g.noches;
+        lines+=`\n   │  ${g.tmp} (${diaLabel}): ${g.noches} noche${g.noches>1?'s':''} × ${fmt(pn)}/noche`;
+        lines+=`\n   │    ↳ Con descuento → ${fmt(pnConDesc)}/noche = *${fmt(totalGrupo)}*`;
+      } else if(g.ajuste>0){
+        let pnConInc=totalGrupo/g.noches;
+        lines+=`\n   │  ${g.tmp} (${diaLabel}): ${g.noches} noche${g.noches>1?'s':''} × ${fmt(pn)}/noche`;
+        lines+=`\n   │    ↳ Con incremento → ${fmt(pnConInc)}/noche = *${fmt(totalGrupo)}*`;
+      } else {
+        lines+=`\n   │  ${g.tmp} (${diaLabel}): ${g.noches} noche${g.noches>1?'s':''} × *${fmt(pn)}/noche* = *${fmt(g.base)}*`;
+      }
+    }
+    if(habDet.upgrade>0)lines+=`\n   │  Upgrade: +${fmt(habDet.upgrade)}/noche × ${n} noches = +${fmt(habDet.upgrade*n)}`;
+    lines+=`\n   └─ *Subtotal hab. ${habIdx+1}: ${fmt(habSubtotal)}*`;
+    return lines;
+  }
+
+  // ── Texto por habitación (bloque individual para copiar) ──────
+  function buildBloqueHab(habDet, habIdx, n, planL, cfgH, cfgT, fi, fo, agente){
+    let habNom=HAB_NOM[habDet.tipo]||habDet.tipo;
+    let adH=habDet.adultos||1,adoH=habDet.adolescentes||0,menH=habDet.menores||0;
+    let hpax=[adH+' adulto'+(adH>1?'s':'')];
+    if(adoH>0)hpax.push(adoH+' adolescente'+(adoH>1?'s':''));
+    if(menH>0)hpax.push(menH+' menor'+(menH>1?'es':''));
+    // Menores detalle
+    let cHab=c.habitaciones[habIdx]||{};
+    let edadesHab=cHab.menoresEdades||[];
+    let mcHab=clasifMenores(edadesHab,habDet.tipo,adH,adoH);
+    let menDet='';
+    if(mcHab.length>0){
+      let grats=mcHab.filter(m=>m.tipo==='gratis').length;
+      let t612=mcHab.filter(m=>m.tipo==='612').length;
+      let ext=mcHab.filter(m=>m.tipo==='extra').length;
+      let mp=[];
+      if(grats)mp.push(grats+' sin costo');
+      if(t612)mp.push(t612+' tarifa 6-12');
+      if(ext)mp.push(ext+' extra');
+      if(mp.length)menDet='\n   Menores: '+mp.join(', ');
+    }
+    // Desglose noches agrupado
+    let grupos={};
+    (habDet.noches||[]).forEach(nd=>{
+      let key=nd.tmp+(nd.we?'_we':'_wk');
+      if(!grupos[key])grupos[key]={tmp:nd.tmp,we:nd.we,noches:0,base:0,ajuste:0};
+      grupos[key].noches++;
+      grupos[key].base+=nd.base;
+      grupos[key].ajuste+=nd.ajuste;
+    });
+    let habSubtotal=(habDet.noches||[]).reduce((s,nd)=>s+(nd.base+nd.ajuste),0);
+    if(habDet.upgrade>0)habSubtotal+=habDet.upgrade*n;
+    let lineasNoches='';
+    for(let k in grupos){
+      let g=grupos[k];
+      let diaLabel=g.we?'Vie/Sáb':'Dom-Jue';
+      let pn=g.base/g.noches;
+      let totalGrupo=g.base+g.ajuste;
+      if(g.ajuste<0){
+        let pnConDesc=totalGrupo/g.noches;
+        lineasNoches+=`\n   ${g.tmp} (${diaLabel}): ${g.noches} noche${g.noches>1?'s':''} × ${fmt(pn)}/noche`;
+        lineasNoches+=`\n   ↳ Con descuento → *${fmt(pnConDesc)}/noche* = *${fmt(totalGrupo)}*`;
+      } else if(g.ajuste>0){
+        let pnConInc=totalGrupo/g.noches;
+        lineasNoches+=`\n   ${g.tmp} (${diaLabel}): ${g.noches} noche${g.noches>1?'s':''} × ${fmt(pn)}/noche`;
+        lineasNoches+=`\n   ↳ Con incremento → *${fmt(pnConInc)}/noche* = *${fmt(totalGrupo)}*`;
+      } else {
+        lineasNoches+=`\n   ${g.tmp} (${diaLabel}): ${g.noches} noche${g.noches>1?'s':''} × *${fmt(pn)}/noche* = *${fmt(g.base)}*`;
+      }
+    }
+    if(habDet.upgrade>0)lineasNoches+=`\n   Upgrade: +${fmt(habDet.upgrade)}/noche × ${n} noches = +${fmt(habDet.upgrade*n)}`;
+
+    let agenteLinea=agente?`\n👤 ${agente}`:'';
+    let bloque='';
+    bloque+=`🏖️ *${cfgH}* — Cotización Hab. ${habIdx+1}\n`;
+    bloque+=`━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+    bloque+=`📅 *${fmtD(fi)}* → *${fmtD(fo)}*   (${n} noche${n>1?'s':''})\n`;
+    bloque+=`🛏️ *${habNom}*   ·   ${planL}\n`;
+    bloque+=`👥 ${hpax.join(', ')}${menDet}\n`;
+    bloque+=`\n💰 *DESGLOSE POR NOCHE*${lineasNoches}\n`;
+    bloque+=`\n💵 *SUBTOTAL HAB. ${habIdx+1}: ${fmt(habSubtotal)} MXN*\n`;
+    bloque+=`━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+    bloque+=`📞 ${cfgT}${agenteLinea}`;
+    return bloque;
+  }
+
+  let multiHab=(c.habitaciones||[]).length>1;
 
   // ── TEXTO SEGÚN TONO ──
   let texto='';
 
   if(_tono==='whatsapp'){
-    // Versión corta para WhatsApp
     texto=`🏖️ *${cfgHotel}* — Cotización\n`;
     texto+=`━━━━━━━━━━━━━━\n`;
     texto+=`👤 ${nombre}\n`;
     texto+=`📅 ${fmtD(c.fi)} → ${fmtD(c.fo)} (${c.n} noche${c.n>1?'s':''})\n`;
-    texto+=`🛏️ ${habLabel}${c.upg>0?' +upgrade':''} · ${planLabel}\n`;
+    texto+=`🛏️ ${habLabel} × ${c.numHabs}${c.upg>0?' +upgrade':''}  ·  ${planLabel}\n`;
     let habDescWA=c.habitaciones.map((h,i)=>{let ad=h.adultos||1,ado=h.adolescentes||0,men=h.menoresCount||0;let p=[ad+' ad.'+(ad>1?'s':'')];if(ado>0)p.push(ado+' adol.');if(men>0)p.push(men+' men.');return 'H'+(i+1)+': '+p.join('+');}).join(' | ');
     texto+=`👥 ${habDescWA}\n`;
     if(c.nocheGratisValor>0)texto+=`🎁 ¡Noche gratis incluida!\n`;
     texto+=`\n💵 *Total: ${fmt(c.totalFinal)} MXN*\n`;
-    texto+=`\n📞 ${cfgTel}${agente?' · '+agente:''}`;
+    texto+=`\n📞 ${cfgTel}${agente?'\n👤 '+agente:''}`;
   } else if(_tono==='amigable'){
     texto=`¡Hola ${nombre}! 😊\n\n`;
     texto+=`Te comparto tu cotización en *${cfgHotel}*, ${cfgCiudad}:\n\n`;
@@ -1793,6 +1874,55 @@ function generarResumen(){
     texto+=`📋 *Plan:* ${planLabel}\n`;
     let habDescAmi=c.habitaciones.map((h,i)=>{let ad=h.adultos||1,ado=h.adolescentes||0,men=h.menoresCount||0;let p=[ad+' adulto'+(ad>1?'s':'')];if(ado>0)p.push(ado+' adolescente'+(ado>1?'s':''));if(men>0)p.push(men+' menor'+(men>1?'es':''));return 'Hab '+(i+1)+': '+p.join(', ');}).join('\n   ');
     texto+=`👥 *Huéspedes:*\n   ${habDescAmi}${menoresTexto?'\n   ('+menoresTexto.trim()+')':''}\n`;
+    if(multiHab){
+      texto+=`\n💰 *Desglose por habitación:*\n`;
+      (c.desgloseHabs||[]).forEach((habDet,hi)=>{
+        let habNom=HAB_NOM[habDet.tipo]||habDet.tipo;
+        let habSub=(habDet.noches||[]).reduce((s,nd)=>s+(nd.base+nd.ajuste),0)+(habDet.upgrade||0)*c.n;
+        let grupos={};
+        (habDet.noches||[]).forEach(nd=>{
+          let key=nd.tmp+(nd.we?'_we':'_wk');
+          if(!grupos[key])grupos[key]={tmp:nd.tmp,we:nd.we,noches:0,base:0,ajuste:0};
+          grupos[key].noches++;grupos[key].base+=nd.base;grupos[key].ajuste+=nd.ajuste;
+        });
+        texto+=`   *Hab ${hi+1} — ${habNom}*\n`;
+        for(let k in grupos){
+          let g=grupos[k];let pn=g.base/g.noches;let totalGrupo=g.base+g.ajuste;
+          if(g.ajuste<0){
+            let pnDesc=totalGrupo/g.noches;
+            texto+=`      ${g.noches} noche${g.noches>1?'s':''} × ${fmt(pn)}/noche\n`;
+            texto+=`      ↳ Con descuento → *${fmt(pnDesc)}/noche* = *${fmt(totalGrupo)}*\n`;
+          } else if(g.ajuste>0){
+            let pnInc=totalGrupo/g.noches;
+            texto+=`      ${g.noches} noche${g.noches>1?'s':''} × ${fmt(pn)}/noche\n`;
+            texto+=`      ↳ Con incremento → *${fmt(pnInc)}/noche* = *${fmt(totalGrupo)}*\n`;
+          } else {
+            texto+=`      ${g.noches} noche${g.noches>1?'s':''} × *${fmt(pn)}/noche* = *${fmt(totalGrupo)}*\n`;
+          }
+        }
+        if(habDet.upgrade>0)texto+=`      Upgrade: +${fmt(habDet.upgrade)}/noche\n`;
+        texto+=`      Subtotal hab. ${hi+1}: *${fmt(habSub)}*\n`;
+      });
+    } else {
+      let grupos={};
+      (c.nochesDet||[]).forEach(nd=>{let key=nd.tmp+(nd.we?'_we':'_wk');if(!grupos[key])grupos[key]={tmp:nd.tmp,we:nd.we,noches:0,base:0,ajuste:0};grupos[key].noches++;grupos[key].base+=nd.base;grupos[key].ajuste+=nd.ajuste;});
+      texto+=`\n💰 *Desglose:*\n`;
+      for(let k in grupos){
+        let g=grupos[k];let diaLabel=g.we?'Vie/Sáb':'Dom-Jue';let pn=g.base/g.noches;let totalGrupo=g.base+g.ajuste;
+        if(g.ajuste<0){
+          let pnDesc=totalGrupo/g.noches;
+          texto+=`   ${g.tmp} (${diaLabel}): ${g.noches} noche${g.noches>1?'s':''} × ${fmt(pn)}/noche\n`;
+          texto+=`   ↳ Con descuento → *${fmt(pnDesc)}/noche* = *${fmt(totalGrupo)}*\n`;
+        } else if(g.ajuste>0){
+          let pnInc=totalGrupo/g.noches;
+          texto+=`   ${g.tmp} (${diaLabel}): ${g.noches} noche${g.noches>1?'s':''} × ${fmt(pn)}/noche\n`;
+          texto+=`   ↳ Con incremento → *${fmt(pnInc)}/noche* = *${fmt(totalGrupo)}*\n`;
+        } else {
+          texto+=`   ${g.tmp} (${diaLabel}): ${g.noches} noche${g.noches>1?'s':''} × *${fmt(pn)}/noche* = *${fmt(totalGrupo)}*\n`;
+        }
+      }
+    }
+    if(ahorroTotal>0)texto+=`💰 *Ahorro total: ${fmt(ahorroTotal)} MXN*\n`;
     if(c.nocheGratisValor>0)texto+=`\n🎁 ¡Tienes una noche gratis! Ahorro de ${fmt(c.nocheGratisValor)}\n`;
     if(c.plan==='AI')texto+=`\n✅ *Incluye:* hospedaje, alimentos buffet, bebidas, actividades y club de playa\n`;
     texto+=`\n💵 *Total estimado: ${fmt(c.totalFinal)} MXN*\n`;
@@ -1802,52 +1932,132 @@ function generarResumen(){
     texto+=`📞 ${cfgTel}${agente?' · '+agente:''}`;
   } else {
     // Formal (default)
-    texto=`🏖️ COTIZACIÓN — ${cfgHotel.toUpperCase()}, TAMPICO
+    let desgloseHabsLineas='';
+    if(multiHab){
+      (c.desgloseHabs||[]).forEach((habDet,hi)=>{
+        desgloseHabsLineas+=buildDesgloseHab(habDet,hi,c.n);
+      });
+    } else {
+      // Una habitación: mostrar desglose de noches
+      let grupos={};
+      (c.nochesDet||[]).forEach(nd=>{let key=nd.tmp+(nd.we?'_we':'_wk');if(!grupos[key])grupos[key]={tmp:nd.tmp,we:nd.we,noches:0,base:0,ajuste:0};grupos[key].noches++;grupos[key].base+=nd.base;grupos[key].ajuste+=nd.ajuste;});
+      for(let k in grupos){
+        let g=grupos[k];let diaLabel=g.we?'Vie/Sáb':'Dom-Jue';let pn=g.base/g.noches;
+        let totalGrupo=g.base+g.ajuste;
+        if(g.ajuste<0){
+          let pnConDesc=totalGrupo/g.noches;
+          desgloseHabsLineas+=`\n   ${g.tmp} (${diaLabel}): ${g.noches} noche${g.noches>1?'s':''} × ${fmt(pn)}/noche`;
+          desgloseHabsLineas+=`\n   ↳ Con descuento → *${fmt(pnConDesc)}/noche* = *${fmt(totalGrupo)}*`;
+        } else if(g.ajuste>0){
+          let pnConInc=totalGrupo/g.noches;
+          desgloseHabsLineas+=`\n   ${g.tmp} (${diaLabel}): ${g.noches} noche${g.noches>1?'s':''} × ${fmt(pn)}/noche`;
+          desgloseHabsLineas+=`\n   ↳ Con incremento → *${fmt(pnConInc)}/noche* = *${fmt(totalGrupo)}*`;
+        } else {
+          desgloseHabsLineas+=`\n   ${g.tmp} (${diaLabel}): ${g.noches} noche${g.noches>1?'s':''} × *${fmt(pn)}/noche* = *${fmt(g.base)}*`;
+        }
+      }
+      if(c.upg>0)desgloseHabsLineas+=`\n   Upgrade: +${fmt(c.upg)}/noche × ${c.n} noches = *+${fmt(c.totalUpg)}*`;
+    }
+
+    let huespedesLineas=c.habitaciones.map((h,idx)=>{let ad=h.adultos||1,ado=h.adolescentes||0,men=h.menoresCount||0;let ln='   Hab '+(idx+1)+' ('+HAB_NOM[h.tipo]+'): '+ad+' adulto'+(ad>1?'s':'');if(ado>0)ln+=', '+ado+' adol.';if(men>0)ln+=', '+men+' menor'+(men>1?'es':'');return ln;}).join('\n');
+
+    let ahorroLinea=ahorroTotal>0?`\n\n   💰 *Ahorro total: ${fmt(ahorroTotal)} MXN*`:'';
+    let upgTotalLinea=multiHab&&c.totalUpg>0?`\n   Upgrades totales: +${fmt(c.totalUpg)}`:'';
+    texto=`🏖️ *COTIZACIÓN — ${cfgHotel.toUpperCase()}*
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Estimado/a ${nombre},
+Estimado/a *${nombre}*,
 
 ${cfgSaludo}
 
-📅 FECHAS
-   Llegada:  ${fmtD(c.fi)}
-   Salida:   ${fmtD(c.fo)}
-   Noches:   ${c.n} noche${c.n>1?'s':''}
+📅 *FECHAS*
+   Llegada:   *${fmtD(c.fi)}*
+   Salida:    *${fmtD(c.fo)}*
+   Noches:    *${c.n} noche${c.n>1?'s':''}*
 
-🛏️ HABITACIÓN Y PLAN
-   Tipo: ${habLabel} × ${c.numHabs} habitación${c.numHabs>1?'es':''}${upgLineа}
-   Plan: ${planLabel}
-   Temporada: ${c.temporada}${descLinea}
+🛏️ *HABITACIÓN Y PLAN*
+   Tipo:       ${habLabel} × ${c.numHabs} habitación${c.numHabs>1?'es':''}${upgLineа}
+   Plan:       *${planLabel}*
+   Temporada:  ${c.temporada}${descLinea}
 
-👥 HUÉSPEDES\n${c.habitaciones.map((h,idx)=>{let ad=h.adultos||1,ado=h.adolescentes||0,men=h.menoresCount||0;let ln='   Hab '+(idx+1)+' ('+HAB_NOM[h.tipo]+'): '+ad+' adulto'+(ad>1?'s':'');if(ado>0)ln+=', '+ado+' adol.';if(men>0)ln+=', '+men+' menor'+(men>1?'es':'');return ln;}).join('\\n')}${menoresTexto}xto}
+👥 *HUÉSPEDES*
+${huespedesLineas}${menoresTexto}
 
-💰 DESGLOSE${desgloseLineas}${nocheGratisLinea}${descTotalLinea}${c.totalUpg>0?'\n   Upgrade: +'+fmt(c.totalUpg):''}
+💰 *DESGLOSE*${desgloseHabsLineas}${nocheGratisLinea}${ahorroLinea}${upgTotalLinea}
 
-💵 TOTAL ESTIMADO
-   ${fmt(c.totalFinal)} MXN
+💵 *TOTAL ESTIMADO: ${fmt(c.totalFinal)} MXN*
    (Incluye impuestos · ${c.n} noches · ${c.numHabs} hab.)
 ${incluyeAI}
 ${notasCliente}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Para confirmar su reservación:
-📞 ${cfgTel}${agente?'\n👤 Atendido por: '+agente:''}
+📞 ${cfgTel}${agente?'\n👤 '+agente:''}
 
-*${cfgCierre}*`;
+_${cfgCierre}_`;
   }
 
-  document.getElementById('resumen-output').textContent=texto;
+  // ── Renderizar en el DOM ──────────────────────────────────────
+  let container=document.getElementById('resumen-output-container');
+
+  if(multiHab&&_tono==='formal'){
+    // Mostrar resumen general + bloque individual por habitación
+    let html='';
+    html+=`<div style="margin-bottom:12px">
+      <div style="font-size:11px;font-weight:700;color:var(--azul);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">📋 Resumen completo</div>
+      <div id="resumen-output" style="background:var(--gris-bg);border:1.5px solid var(--gris-borde);border-radius:10px;padding:1rem;font-size:13px;line-height:1.8;white-space:pre-wrap;font-family:system-ui;color:var(--texto)">${texto.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+    </div>`;
+    // Bloques individuales por habitación
+    html+=`<div style="font-size:11px;font-weight:700;color:var(--azul);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;margin-top:4px">🛏️ Bloques por habitación (para copiar individualmente)</div>`;
+    (c.desgloseHabs||[]).forEach((habDet,hi)=>{
+      let bloque=buildBloqueHab(habDet,hi,c.n,planLabel,cfgHotel,cfgTel,c.fi,c.fo,agente);
+      let escapedBloque=bloque.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      html+=`<div style="margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <span style="font-size:12px;font-weight:700;color:var(--texto)">Habitación ${hi+1} — ${HAB_NOM[habDet.tipo]||habDet.tipo}</span>
+          <button class="btn btn-sm" onclick="copiarBloque('bloque-hab-${hi}')" style="font-size:11px;padding:3px 10px">📋 Copiar hab. ${hi+1}</button>
+        </div>
+        <div id="bloque-hab-${hi}" style="background:var(--gris-bg);border:1.5px solid var(--azul-mid);border-radius:10px;padding:.85rem;font-size:13px;line-height:1.8;white-space:pre-wrap;font-family:system-ui;color:var(--texto)">${escapedBloque}</div>
+      </div>`;
+    });
+    container.innerHTML=html;
+  } else {
+    // Una habitación o tono WA/amigable: mostrar un solo bloque
+    container.innerHTML=`<div id="resumen-output" style="background:var(--gris-bg);border:1.5px solid var(--gris-borde);border-radius:10px;padding:1rem;font-size:13px;line-height:1.8;white-space:pre-wrap;min-height:120px;font-family:system-ui;color:var(--texto)"></div>`;
+    document.getElementById('resumen-output').textContent=texto;
+  }
+
   // Mostrar badge descuento en panel resumen
   let bdg=document.getElementById('resumen-desc-auto');
   if(bdg&&c.nocheGratisValor>0){bdg.style.display='block';bdg.innerHTML=`🎁 Noche gratis aplicada: ahorro de <strong>${fmt(c.nocheGratisValor)}</strong>`;}
   else if(bdg&&c.descAutoPct>0){bdg.style.display='block';bdg.innerHTML=`🏷️ Descuento AI ${c.descAutoPct}% aplicado`;}
   else if(bdg){bdg.style.display='none';}
 }
-
 function copiarResumen(){
-  let txt=document.getElementById('resumen-output').textContent;
+  // Recolectar todo el texto del contenedor (resumen + todos los bloques por hab)
+  let container=document.getElementById('resumen-output-container');
+  let parts=[];
+  container.querySelectorAll('[id^="resumen-output"],[id^="bloque-hab-"]').forEach(el=>{
+    if(el.textContent.trim())parts.push(el.textContent.trim());
+  });
+  let txt=parts.join('\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n');
+  if(!txt)txt=document.getElementById('resumen-output')?.textContent||'';
   let btn=document.getElementById('btn-copiar');
-  navigator.clipboard.writeText(txt).then(()=>{btn.textContent='¡Copiado!';setTimeout(()=>{btn.textContent='Copiar texto';},2000);})
-  .catch(()=>{let ta=document.createElement('textarea');ta.value=txt;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);btn.textContent='¡Copiado!';setTimeout(()=>{btn.textContent='Copiar texto';},2000);});
+  navigator.clipboard.writeText(txt).then(()=>{btn.textContent='¡Copiado!';setTimeout(()=>{btn.textContent='📋 Copiar todo';},2000);})
+  .catch(()=>{let ta=document.createElement('textarea');ta.value=txt;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);btn.textContent='¡Copiado!';setTimeout(()=>{btn.textContent='📋 Copiar todo';},2000);});
+}
+
+function copiarBloque(elementId){
+  let el=document.getElementById(elementId);
+  if(!el)return;
+  let txt=el.textContent;
+  // Find the copy button associated with this block
+  let btn=el.previousElementSibling?.querySelector('button')||el.parentElement?.querySelector('button');
+  navigator.clipboard.writeText(txt).then(()=>{
+    if(btn){let orig=btn.textContent;btn.textContent='¡Copiado!';setTimeout(()=>{btn.textContent=orig;},2000);}
+  }).catch(()=>{
+    let ta=document.createElement('textarea');ta.value=txt;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);
+    if(btn){let orig=btn.textContent;btn.textContent='¡Copiado!';setTimeout(()=>{btn.textContent=orig;},2000);}
+  });
 }
 
 function switchTab(id){
@@ -2059,7 +2269,9 @@ function cerrarModalCap(){document.getElementById('modal-cap-overlay').classList
 
 // ─── WHATSAPP / EMAIL ─────────────────────────────────────────────────────────
 function enviarWhatsApp(){
-  let txt=document.getElementById('resumen-output').textContent;
+  let container=document.getElementById('resumen-output-container');
+  let parts=[];container.querySelectorAll('[id^="resumen-output"],[id^="bloque-hab-"]').forEach(el=>{if(el.textContent.trim())parts.push(el.textContent.trim());});
+  let txt=parts.join('\n\n');if(!txt)txt=document.getElementById('resumen-output')?.textContent||'';
   if(!txt||txt.startsWith('Complete')){alert('Genera el resumen primero.');return;}
   let wa=document.getElementById('cfg-wa')?.value||'528332054100';
   let encoded=encodeURIComponent(txt);
@@ -2068,7 +2280,9 @@ function enviarWhatsApp(){
 
 function enviarEmail(){
   let c=window._cot;
-  let txt=document.getElementById('resumen-output').textContent;
+  let container=document.getElementById('resumen-output-container');
+  let parts=[];container.querySelectorAll('[id^="resumen-output"],[id^="bloque-hab-"]').forEach(el=>{if(el.textContent.trim())parts.push(el.textContent.trim());});
+  let txt=parts.join('\n\n');if(!txt)txt=document.getElementById('resumen-output')?.textContent||'';
   if(!txt||txt.startsWith('Complete')){alert('Genera el resumen primero.');return;}
   let nombre=document.getElementById('cli-nombre').value||'Cliente';
   let emailDest=document.getElementById('cli-email').value||'';
@@ -2497,61 +2711,6 @@ function initDarkMode() {
   let isDark = saved === '1';
   if (isDark) document.body.classList.add('dark');
   updateDarkUI(isDark);
-}
-
-// ── Copiar desglose de una habitación ────────────────────────
-function copiarDesglose(hi){
-  let c=window._cot;
-  if(!c)return;
-  let h=c.habitaciones[hi]||{};
-  let hDet=c.desgloseHabs[hi]||{};
-  let noches=hDet.noches||[];
-  let ad=h.adultos||1,ado=h.adolescentes||0,men=h.menoresCount||0;
-  let edades=h.menoresEdades||[];
-  let mc=clasifMenores(edades,h.tipo,ad,ado);
-
-  let paxParts=[ad+' adulto'+(ad>1?'s':'')];
-  if(ado>0)paxParts.push(ado+' adolescente'+(ado>1?'s':''));
-  mc.forEach(m=>{
-    let edad=m.edad===''||m.edad===undefined?'?':m.edad;
-    paxParts.push('Menor '+edad+'a ('+(m.tipo==='gratis'?'gratis':m.tipo==='612'?'tarifa':'extra')+')');
-  });
-
-  let txt=`🏨 Club Maeva Miramar
-`;
-  txt+=`🛏 Habitación ${hi+1} — ${HAB_NOM[h.tipo]}
-`;
-  txt+=`👥 ${paxParts.join(' · ')}
-`;
-  txt+=`📅 ${fmtD(c.fi)} → ${fmtD(c.fo)} (${c.n} noche${c.n>1?'s':''})
-`;
-  txt+=`📋 Plan: ${c.plan==='AI'?'Todo Incluido':'Plan Europeo'}
-
-`;
-
-  noches.forEach((nd,i)=>{
-    txt+=`— Noche ${i+1}: ${nd.fechaLabel} (${nd.tmp})
-`;
-    for(let it of nd.items){
-      txt+=`   ${it.l}: ${it.gratis?'Gratis':fmt(it.v)}
-`;
-    }
-    txt+=`   Subtotal: ${fmt(nd.total)}
-`;
-  });
-
-  let upg=(h.upgrade||0)*c.n;
-  if(upg>0)txt+=`   Upgrade: +${fmt(upg)}
-`;
-
-  let habTotal=noches.reduce((s,nd)=>s+nd.total,0)+upg;
-  txt+=`
-💵 Total Hab ${hi+1}: *${fmt(habTotal)} MXN*`;
-
-  navigator.clipboard.writeText(txt).then(()=>{
-    let btn=document.querySelector(`[onclick="copiarDesglose(${hi})"]`);
-    if(btn){let orig=btn.textContent;btn.textContent='✅ Copiado';setTimeout(()=>btn.textContent=orig,2000);}
-  });
 }
 
 renderHabs();
