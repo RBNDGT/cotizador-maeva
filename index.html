@@ -473,10 +473,11 @@ body.dark .topbar-agente input:focus{border-color:#0d2535;background:rgba(0,0,0,
 <div class="card">
   <div class="sec">Datos del cliente</div>
 
-  <!-- Fila 1: Nombre + Teléfono -->
-  <div class="grid2" style="margin-bottom:12px">
+  <!-- Fila 1: Nombre + Teléfono + # Reserva -->
+  <div class="grid3" style="margin-bottom:12px">
     <div><label>Nombre completo</label><input type="text" id="cli-nombre" placeholder="Nombre del cliente"></div>
     <div><label>Teléfono / WhatsApp</label><input type="text" id="cli-tel" placeholder="+52 833..."></div>
+    <div><label># de Reserva</label><input type="text" id="cli-num-reserva" placeholder="Ej. RES-2026-0001"></div>
   </div>
 
   <!-- Fila 2: Email + Canal -->
@@ -2560,6 +2561,9 @@ function guardarEnHistorial() {
   let estado    = document.getElementById('cli-estado')?.value || '';
   let ciudad    = document.getElementById('cli-ciudad')?.value || '';
   let direccion = document.getElementById('cli-direccion')?.value || '';
+  let numReserva= document.getElementById('cli-num-reserva')?.value || '';
+  let tel       = document.getElementById('cli-tel')?.value || '';
+  let email     = document.getElementById('cli-email')?.value || '';
   let tipo    = document.getElementById('hist-save-tipo').value;
   let nota    = document.getElementById('hist-save-nota').value || '';
 
@@ -2569,7 +2573,7 @@ function guardarEnHistorial() {
 
   let registro = {
     id:             Date.now(),
-    tipo, cliente, nota,
+    tipo, cliente, nota, numReserva, tel, email,
     factura, tipoOferta, pais, estado, ciudad, direccion,
     fecha_guardado: new Date().toISOString(),
     fi: cot.fi, fo: cot.fo, n: cot.n, plan: cot.plan,
@@ -2612,16 +2616,18 @@ function cambiarTipoRegistro(id, nuevoTipo) {
 
 // ── ELIMINAR ──────────────────────────────────────────────────
 function eliminarRegistro(id) {
-  if (!confirm('¿Eliminar este registro?')) return;
-  lsGuardar(lsCargar().filter(r => r.id !== id));
-  renderHistorial();
+  confirmarAccion('¿Eliminar este registro?', () => {
+    lsGuardar(lsCargar().filter(r => r.id !== id));
+    renderHistorial();
+  });
 }
 
 // ── LIMPIAR TODO ──────────────────────────────────────────────
 function limpiarHistorial() {
-  if (!confirm('¿Borrar TODO el historial permanentemente?')) return;
-  localStorage.removeItem(LS_KEY);
-  renderHistorial();
+  confirmarAccion('¿Borrar TODO el historial permanentemente? Esta acción no se puede deshacer.', () => {
+    localStorage.removeItem(LS_KEY);
+    renderHistorial();
+  });
 }
 
 // ── EXPORTAR CSV ──────────────────────────────────────────────
@@ -2831,6 +2837,9 @@ function renderHistorial() {
             <div class="hist-dato"><span>Temporada</span><p>${reg.temporada||'—'}</p></div>
             ${reg.tipoOferta?`<div class="hist-dato"><span>Tipo de oferta</span><p>${reg.tipoOferta}</p></div>`:''}
             ${reg.factura?`<div class="hist-dato"><span>Factura</span><p>${reg.factura==='si'?'✅ Sí':'No'}</p></div>`:''}
+            ${reg.tel?`<div class="hist-dato"><span>Teléfono</span><p>${reg.tel}</p></div>`:''}
+            ${reg.email?`<div class="hist-dato"><span>Correo</span><p style="font-size:11px">${reg.email}</p></div>`:''}
+            ${reg.numReserva?`<div class="hist-dato"><span># de Reserva</span><p style="font-weight:700;color:var(--azul)">${reg.numReserva}</p></div>`:''}
             ${(reg.ciudad||reg.estado||reg.pais)?`<div class="hist-dato"><span>Ubicación</span><p>${[reg.ciudad,reg.estado,reg.pais].filter(Boolean).join(', ')}</p></div>`:''}
             ${reg.direccion?`<div class="hist-dato" style="grid-column:span 2"><span>Dirección</span><p>${reg.direccion}</p></div>`:''}
           </div>
@@ -2838,6 +2847,7 @@ function renderHistorial() {
           ${menoresStr?`<div style="font-size:11px;color:var(--texto-suave);margin-top:4px">Edades menores: ${menoresStr}</div>`:''}
           ${nochesHtml?`<div class="hist-noches-mini" style="margin-top:8px"><strong style="font-size:11px">Desglose por noche:</strong><br>${nochesHtml}</div>`:''}
           <div class="hist-actions">
+            <button class="btn btn-sm" style="background:#e8f4fd;color:#0077b6;border-color:#b3d9f5" onclick="abrirEditarRegistro(${reg.id})">✏️ Editar</button>
             ${reg.tipo==='cotizacion'
               ?`<button class="btn btn-sm" onclick="cambiarTipoRegistro(${reg.id},'reservacion')">✅ Marcar como reservación</button>`
               :`<button class="btn btn-sm" onclick="cambiarTipoRegistro(${reg.id},'cotizacion')">📄 Revertir a cotización</button>`
@@ -2886,3 +2896,269 @@ initDarkMode();
 </script>
 </body>
 </html>
+
+<!-- ── MODAL EDITAR REGISTRO ─────────────────────────────────── -->
+<div id="modal-editar" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9999;align-items:center;justify-content:center;padding:16px">
+  <div id="modal-editar-inner" style="background:#ffffff;border-radius:14px;box-shadow:0 8px 40px rgba(0,0,0,.4);width:100%;max-width:540px;max-height:90vh;overflow-y:auto;padding:24px 24px 20px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
+      <div style="font-size:16px;font-weight:700;color:var(--azul)">✏️ Editar registro</div>
+      <button onclick="cerrarEditarRegistro()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--texto-suave);line-height:1">✕</button>
+    </div>
+    <input type="hidden" id="edit-id">
+    <div class="grid2" style="margin-bottom:12px">
+      <div><label style="font-size:12px;font-weight:600;margin-bottom:4px;display:block">Tipo</label>
+        <select id="edit-tipo" style="width:100%;padding:7px 10px;border-radius:7px;border:1.5px solid var(--borde);background:var(--fondo);color:var(--texto);font-size:13px">
+          <option value="cotizacion">📄 Cotización</option>
+          <option value="reservacion">✅ Reservación</option>
+        </select>
+      </div>
+      <div><label style="font-size:12px;font-weight:600;margin-bottom:4px;display:block"># de Reserva</label>
+        <input type="text" id="edit-num-reserva" placeholder="Ej. RES-2026-0001" style="width:100%;padding:7px 10px;border-radius:7px;border:1.5px solid var(--borde);background:var(--fondo);color:var(--texto);font-size:13px">
+      </div>
+    </div>
+    <div style="margin-bottom:12px"><label style="font-size:12px;font-weight:600;margin-bottom:4px;display:block">Nombre del cliente</label>
+      <input type="text" id="edit-cliente" placeholder="Nombre completo" style="width:100%;padding:7px 10px;border-radius:7px;border:1.5px solid var(--borde);background:var(--fondo);color:var(--texto);font-size:13px">
+    </div>
+    <div class="grid2" style="margin-bottom:12px">
+      <div><label style="font-size:12px;font-weight:600;margin-bottom:4px;display:block">Teléfono / WhatsApp</label>
+        <input type="text" id="edit-tel" placeholder="+52 833..." style="width:100%;padding:7px 10px;border-radius:7px;border:1.5px solid var(--borde);background:var(--fondo);color:var(--texto);font-size:13px">
+      </div>
+      <div><label style="font-size:12px;font-weight:600;margin-bottom:4px;display:block">Correo electrónico</label>
+        <input type="email" id="edit-email" placeholder="correo@ejemplo.com" style="width:100%;padding:7px 10px;border-radius:7px;border:1.5px solid var(--borde);background:var(--fondo);color:var(--texto);font-size:13px">
+      </div>
+    </div>
+    <div class="grid2" style="margin-bottom:12px">
+      <div><label style="font-size:12px;font-weight:600;margin-bottom:4px;display:block">Tipo de oferta</label>
+        <input type="text" id="edit-tipo-oferta" placeholder="Paquete familiar, Grupo…" style="width:100%;padding:7px 10px;border-radius:7px;border:1.5px solid var(--borde);background:var(--fondo);color:var(--texto);font-size:13px">
+      </div>
+      <div><label style="font-size:12px;font-weight:600;margin-bottom:4px;display:block">¿Requiere factura?</label>
+        <select id="edit-factura" style="width:100%;padding:7px 10px;border-radius:7px;border:1.5px solid var(--borde);background:var(--fondo);color:var(--texto);font-size:13px">
+          <option value="no">No</option>
+          <option value="si">Sí</option>
+        </select>
+      </div>
+    </div>
+    <div style="margin-bottom:12px"><label style="font-size:12px;font-weight:600;margin-bottom:4px;display:block">Dirección</label>
+      <input type="text" id="edit-direccion" placeholder="Calle, número, colonia" style="width:100%;padding:7px 10px;border-radius:7px;border:1.5px solid var(--borde);background:var(--fondo);color:var(--texto);font-size:13px">
+    </div>
+    <div class="grid3" style="margin-bottom:12px">
+      <div><label style="font-size:12px;font-weight:600;margin-bottom:4px;display:block">País</label>
+        <input type="text" id="edit-pais" style="width:100%;padding:7px 10px;border-radius:7px;border:1.5px solid var(--borde);background:var(--fondo);color:var(--texto);font-size:13px">
+      </div>
+      <div><label style="font-size:12px;font-weight:600;margin-bottom:4px;display:block">Estado</label>
+        <input type="text" id="edit-estado" style="width:100%;padding:7px 10px;border-radius:7px;border:1.5px solid var(--borde);background:var(--fondo);color:var(--texto);font-size:13px">
+      </div>
+      <div><label style="font-size:12px;font-weight:600;margin-bottom:4px;display:block">Ciudad</label>
+        <input type="text" id="edit-ciudad" style="width:100%;padding:7px 10px;border-radius:7px;border:1.5px solid var(--borde);background:var(--fondo);color:var(--texto);font-size:13px">
+      </div>
+    </div>
+    <div style="margin-bottom:18px"><label style="font-size:12px;font-weight:600;margin-bottom:4px;display:block">Nota / Referencia</label>
+      <input type="text" id="edit-nota" placeholder="Canal, referencia, comentario…" style="width:100%;padding:7px 10px;border-radius:7px;border:1.5px solid var(--borde);background:var(--fondo);color:var(--texto);font-size:13px">
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end">
+      <button onclick="cerrarEditarRegistro()" style="padding:9px 18px;border-radius:8px;border:1.5px solid var(--borde);background:none;color:var(--texto);cursor:pointer;font-size:13px">Cancelar</button>
+      <button onclick="guardarEdicionRegistro()" style="padding:9px 20px;border-radius:8px;border:none;background:var(--azul);color:#fff;font-weight:700;cursor:pointer;font-size:13px">💾 Guardar cambios</button>
+      <button onclick="descargarRegistroEditado()" style="padding:9px 20px;border-radius:8px;border:none;background:#F5A623;color:#fff;font-weight:700;cursor:pointer;font-size:13px">🖨 Guardar y descargar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function abrirEditarRegistro(id) {
+  let arr = lsCargar();
+  let reg = arr.find(r => r.id === id);
+  if (!reg) return;
+  document.getElementById('edit-id').value         = id;
+  document.getElementById('edit-tipo').value        = reg.tipo || 'cotizacion';
+  document.getElementById('edit-num-reserva').value = reg.numReserva || '';
+  document.getElementById('edit-cliente').value     = reg.cliente || '';
+  document.getElementById('edit-tel').value         = reg.tel || '';
+  document.getElementById('edit-email').value       = reg.email || '';
+  document.getElementById('edit-tipo-oferta').value = reg.tipoOferta || '';
+  document.getElementById('edit-factura').value     = reg.factura || 'no';
+  document.getElementById('edit-direccion').value   = reg.direccion || '';
+  document.getElementById('edit-pais').value        = reg.pais || '';
+  document.getElementById('edit-estado').value      = reg.estado || '';
+  document.getElementById('edit-ciudad').value      = reg.ciudad || '';
+  document.getElementById('edit-nota').value        = reg.nota || '';
+  let modal = document.getElementById('modal-editar');
+  let inner = document.getElementById('modal-editar-inner');
+  let isDark = document.body.classList.contains('dark');
+  inner.style.background = isDark ? '#1a2e3d' : '#ffffff';
+  inner.style.color = isDark ? '#e8f4fb' : '#1a1a2e';
+  // propagate text color to labels and inputs inside
+  inner.querySelectorAll('label').forEach(el => el.style.color = isDark ? '#a8cfe0' : '#374151');
+  inner.querySelectorAll('input, select').forEach(el => {
+    el.style.background = isDark ? '#0d2535' : '#f5fbff';
+    el.style.color      = isDark ? '#e8f4fb' : '#1a1a2e';
+    el.style.borderColor= isDark ? '#2d5a7a' : '#c8dce8';
+  });
+  modal.style.display = 'flex';
+}
+
+function cerrarEditarRegistro() {
+  document.getElementById('modal-editar').style.display = 'none';
+}
+
+function _aplicarEdicion() {
+  let id  = parseInt(document.getElementById('edit-id').value);
+  let arr = lsCargar();
+  let reg = arr.find(r => r.id === id);
+  if (!reg) return null;
+  reg.tipo        = document.getElementById('edit-tipo').value;
+  reg.numReserva  = document.getElementById('edit-num-reserva').value.trim();
+  reg.cliente     = document.getElementById('edit-cliente').value.trim() || 'Sin nombre';
+  reg.tel         = document.getElementById('edit-tel').value.trim();
+  reg.email       = document.getElementById('edit-email').value.trim();
+  reg.tipoOferta  = document.getElementById('edit-tipo-oferta').value.trim();
+  reg.factura     = document.getElementById('edit-factura').value;
+  reg.direccion   = document.getElementById('edit-direccion').value.trim();
+  reg.pais        = document.getElementById('edit-pais').value.trim();
+  reg.estado      = document.getElementById('edit-estado').value.trim();
+  reg.ciudad      = document.getElementById('edit-ciudad').value.trim();
+  reg.nota        = document.getElementById('edit-nota').value.trim();
+  lsGuardar(arr);
+  return reg;
+}
+
+function guardarEdicionRegistro() {
+  let reg = _aplicarEdicion();
+  if (!reg) return;
+  cerrarEditarRegistro();
+  renderHistorial();
+  histMsg('✅ Registro actualizado');
+}
+
+function descargarRegistroEditado() {
+  let reg = _aplicarEdicion();
+  if (!reg) return;
+  cerrarEditarRegistro();
+  renderHistorial();
+  _imprimirRegistro(reg);
+}
+
+function _imprimirRegistro(reg) {
+  let habsDesc = (reg.habitaciones||[]).map((h,i)=>{
+    let ad=h.adultos||1, ado=h.adolescentes||0, men=h.menoresCount||0;
+    let p=[ad+' adult'+(ad>1?'os':'o')];
+    if(ado>0)p.push(ado+' adol.');
+    if(men>0)p.push(men+' menor'+(men>1?'es':''));
+    return 'H'+(i+1)+': '+(HAB_NOM[h.tipo]||h.tipo)+' ('+p.join(', ')+')';
+  }).join('<br>');
+
+  let nochesHtml = (reg.noches_det||[]).map(nd=>
+    `<tr><td>${nd.fechaLabel}</td><td style="text-align:right">${fmt(nd.total)}</td><td style="font-size:10px;color:#666">${nd.tmp}</td></tr>`
+  ).join('');
+
+  let tipoBadge = reg.tipo==='reservacion'
+    ? `<span style="background:#d4f4dd;color:#1a7a3a;padding:3px 10px;border-radius:8px;font-weight:700;font-size:12px">✅ Reservación</span>`
+    : `<span style="background:#e8f4fd;color:#0077b6;padding:3px 10px;border-radius:8px;font-weight:700;font-size:12px">📄 Cotización</span>`;
+
+  let html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <title>Registro — ${reg.cliente}</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:Arial,sans-serif;font-size:12px;color:#1a1a2e;padding:28px}
+    h1{font-size:18px;color:#00AEEF;margin-bottom:2px}
+    .sub{font-size:11px;color:#888;margin-bottom:18px}
+    .section{margin-bottom:16px}
+    .section h2{font-size:13px;font-weight:700;color:#0077b6;border-bottom:1.5px solid #e0f0fa;padding-bottom:4px;margin-bottom:10px}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px}
+    .dato{background:#f5fbff;border-radius:6px;padding:7px 10px}
+    .dato span{font-size:10px;color:#666;display:block}
+    .dato p{font-size:13px;font-weight:600}
+    table{width:100%;border-collapse:collapse;margin-top:6px}
+    th{background:#00AEEF;color:#fff;padding:5px 8px;font-size:11px;text-align:left}
+    td{padding:5px 8px;border-bottom:1px solid #e8f0f5;vertical-align:top}
+    .total-final{font-size:18px;font-weight:700;color:#b8750a;text-align:right;margin-top:14px;padding-top:10px;border-top:2px solid #F5A623}
+    @media print{body{padding:14px}}
+  </style></head><body>
+  <h1>Club Maeva Miramar — Detalle de Registro</h1>
+  <div class="sub">Generado: ${new Date().toLocaleString('es-MX')}</div>
+
+  <div class="section"><h2>Identificación</h2>
+    <div class="grid">
+      <div class="dato"><span>Estado</span><p>${tipoBadge}</p></div>
+      ${reg.numReserva?`<div class="dato"><span># de Reserva</span><p style="color:#0077b6;font-size:15px">${reg.numReserva}</p></div>`:''}
+      <div class="dato"><span>Guardado</span><p>${String(reg.fecha_guardado).slice(0,10)} ${fmtHistTime(reg.fecha_guardado)}</p></div>
+      ${reg.nota?`<div class="dato"><span>Nota / Referencia</span><p>${reg.nota}</p></div>`:''}
+    </div>
+  </div>
+
+  <div class="section"><h2>Datos del cliente</h2>
+    <div class="grid">
+      <div class="dato"><span>Nombre</span><p>${reg.cliente||'—'}</p></div>
+      ${reg.tel?`<div class="dato"><span>Teléfono</span><p>${reg.tel}</p></div>`:''}
+      ${reg.email?`<div class="dato"><span>Correo</span><p style="font-size:11px">${reg.email}</p></div>`:''}
+      ${reg.tipoOferta?`<div class="dato"><span>Tipo de oferta</span><p>${reg.tipoOferta}</p></div>`:''}
+      <div class="dato"><span>Factura</span><p>${reg.factura==='si'?'✅ Sí':'No'}</p></div>
+      ${(reg.ciudad||reg.estado||reg.pais)?`<div class="dato"><span>Ubicación</span><p>${[reg.ciudad,reg.estado,reg.pais].filter(Boolean).join(', ')}</p></div>`:''}
+      ${reg.direccion?`<div class="dato" style="grid-column:span 2"><span>Dirección</span><p>${reg.direccion}</p></div>`:''}
+    </div>
+  </div>
+
+  <div class="section"><h2>Estancia</h2>
+    <div class="grid">
+      <div class="dato"><span>Check-in</span><p>${fmtD(reg.fi)}</p></div>
+      <div class="dato"><span>Check-out</span><p>${fmtD(reg.fo)}</p></div>
+      <div class="dato"><span>Noches</span><p>${reg.n}</p></div>
+      <div class="dato"><span>Plan</span><p>${reg.plan==='AI'?'Todo Incluido':'Plan Europeo'}</p></div>
+      <div class="dato"><span>Temporada</span><p>${reg.temporada||'—'}</p></div>
+    </div>
+  </div>
+
+  <div class="section"><h2>Habitaciones</h2><p style="font-size:12px;line-height:1.8">${habsDesc}</p></div>
+
+  ${nochesHtml?`<div class="section"><h2>Desglose por noche</h2>
+    <table><thead><tr><th>Fecha</th><th>Total</th><th>Temporada</th></tr></thead>
+    <tbody>${nochesHtml}</tbody></table>
+  </div>`:''}
+
+  <div class="total-final">Total final: ${fmt(reg.totalFinal)}</div>
+  <script>window.onload=()=>window.print();<\/script>
+  </body></html>`;
+
+  let w = window.open('', '_blank');
+  w.document.write(html);
+  w.document.close();
+}
+</script>
+
+<!-- ── MODAL CONFIRMACIÓN ──────────────────────────────────── -->
+<div id="modal-confirm" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10000;align-items:center;justify-content:center;padding:16px">
+  <div id="modal-confirm-inner" style="background:#ffffff;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.35);max-width:360px;width:100%;padding:24px 22px 18px">
+    <div style="font-size:14px;font-weight:600;margin-bottom:18px;line-height:1.5" id="modal-confirm-msg"></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button id="modal-confirm-cancel" style="padding:8px 18px;border-radius:8px;border:1.5px solid #c8dce8;background:none;cursor:pointer;font-size:13px">Cancelar</button>
+      <button id="modal-confirm-ok" style="padding:8px 20px;border-radius:8px;border:none;background:#b91c1c;color:#fff;font-weight:700;cursor:pointer;font-size:13px">Eliminar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let _confirmCallback = null;
+
+function confirmarAccion(msg, callback, okLabel) {
+  _confirmCallback = callback;
+  document.getElementById('modal-confirm-msg').textContent = msg;
+  document.getElementById('modal-confirm-ok').textContent = okLabel || 'Confirmar';
+  let modal = document.getElementById('modal-confirm');
+  let inner = document.getElementById('modal-confirm-inner');
+  let isDark = document.body.classList.contains('dark');
+  inner.style.background = isDark ? '#1a2e3d' : '#ffffff';
+  inner.style.color = isDark ? '#e8f4fb' : '#1a1a2e';
+  document.getElementById('modal-confirm-msg').style.color = isDark ? '#e8f4fb' : '#1a1a2e';
+  document.getElementById('modal-confirm-cancel').style.color = isDark ? '#a8cfe0' : '#374151';
+  document.getElementById('modal-confirm-cancel').style.borderColor = isDark ? '#2d5a7a' : '#c8dce8';
+  modal.style.display = 'flex';
+}
+
+document.getElementById('modal-confirm-ok').addEventListener('click', () => {
+  document.getElementById('modal-confirm').style.display = 'none';
+  if (_confirmCallback) { _confirmCallback(); _confirmCallback = null; }
+});
+document.getElementById('modal-confirm-cancel').addEventListener('click', () => {
+  document.getElementById('modal-confirm').style.display = 'none';
+  _confirmCallback = null;
+});
+</script>
