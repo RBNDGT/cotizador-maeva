@@ -1079,14 +1079,7 @@ function calcular(){
   if(plan==='AI'&&descAutoActivo&&n>=4&&n<=4){
     let minVal=Infinity;
     nochesDet.forEach((nd,i)=>{if(nd.base<minVal){minVal=nd.base;idxNocheGratis=i;}});
-    if(idxNocheGratis>=0){
-      // Marcar la noche gratis en TODAS las habitaciones al mismo índice
-      desgloseHabs.forEach(habDet=>{
-        if(habDet.noches&&habDet.noches[idxNocheGratis])
-          habDet.noches[idxNocheGratis].gratis=true;
-      });
-      nochesDet[idxNocheGratis].gratis=true;
-    }
+    if(idxNocheGratis>=0)nochesDet[idxNocheGratis].gratis=true;
   }
 
   // Renderizar desglose: si hay múltiples habitaciones, mostrar sección por habitación
@@ -1097,14 +1090,17 @@ function calcular(){
 
   habsParaRender.forEach((habDet,hi)=>{
     let habNochesLocal=habDet.noches||nochesDet;
-    // Marcar noche gratis según la bandera .gratis de cada noche (ya seteada en todas las habs)
+    // Marcar noche gratis solo en hab 1
+    let idxGratisLocal=hi===0?idxNocheGratis:-1;
     if(mostrarPorHab){
       html+=`<div style="background:var(--azul);color:#fff;border-radius:8px;padding:6px 12px;margin-bottom:6px;font-size:12px;font-weight:700">
         🛏 Habitación ${hi+1} — ${HAB_NOM[habDet.tipo]}${habDet.upgrade>0?' · Upgrade +$'+fmt(habDet.upgrade)+'/noche':''}
       </div>`;
     }
     habNochesLocal.forEach((nd,i)=>{
-    let esGratis=nd.gratis===true;
+    let esGratis=(i===idxGratisLocal);
+    let tipoDia=nd.we?'Vie/Sáb':'Dom-Jue';
+    esGratis=nd.gratis;
     let blockStyle=esGratis?'background:linear-gradient(135deg,#E6F7EE,#fff);border:2px solid #5CB85C;':'';
     html+=`<div class="noche-block" style="${blockStyle}">`;
     // Header de la noche con fecha exacta
@@ -1205,11 +1201,7 @@ function calcular(){
   let nocheGratisValor=0;
   let nocheGratisLabel='';
   if(plan==='AI'&&descAutoActivo&&n===4&&idxNocheGratis>=0){
-    // Sumar el precio base de esa noche en CADA habitación
-    desgloseHabs.forEach(habDet=>{
-      if(habDet.noches&&habDet.noches[idxNocheGratis])
-        nocheGratisValor+=habDet.noches[idxNocheGratis].base;
-    });
+    nocheGratisValor=nochesDet[idxNocheGratis].base*numHabs;
     totalFinal-=nocheGratisValor;
     nocheGratisLabel=`🎁 Noche gratis (${nochesDet[idxNocheGratis].fechaLabel}, menor valor): -${fmt(nocheGratisValor)}`;
     // Actualizar total en pantalla
