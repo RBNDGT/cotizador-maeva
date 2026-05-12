@@ -2889,24 +2889,101 @@ function renderHistorial() {
       let habs   = reg.habitaciones || [];
       let noches = reg.noches_det   || [];
 
-      let habsDesc = habs.map((h,i) => {
-        let ad=h.adultos||1, ado=h.adolescentes||0, men=h.menoresCount||0;
-        let p=[ad+' adult'+(ad>1?'os':'o')];
-        if(ado>0) p.push(ado+' adol.');
-        if(men>0) p.push(men+' menor'+(men>1?'es':''));
-        return 'H'+(i+1)+': '+(HAB_NOM[h.tipo]||h.tipo)+' ('+p.join(', ')+')';
-      }).join(' · ');
-
-      let menoresStr = habs.map((h,hi) => {
-        if(!(h.menoresCount>0)) return '';
+      // ── Habitaciones detalladas ──
+      let habsHtml = habs.map((h, hi) => {
+        let ad  = h.adultos||1, ado = h.adolescentes||0, men = h.menoresCount||0;
         let edades = h.menoresEdades||[];
-        if(!edades.some(e=>e!=='')) return '';
-        return 'H'+(hi+1)+': '+edades.map((e,i)=>`M${i+1}:${e===''?'?':e}a`).join(', ');
-      }).filter(Boolean).join(' · ');
 
-      let nochesHtml = noches.map(nd =>
-        `<span>${nd.fechaLabel}: <strong>${fmt(nd.total)}</strong> <em style="font-size:10px">(${nd.tmp})</em></span>`
-      ).join(' · ');
+        // Adultos
+        let paxHtml = `<span style="display:inline-block;background:var(--azul-light);color:var(--azul);border-radius:4px;padding:1px 7px;font-size:10px;margin:1px">${ad} adulto${ad>1?'s':''}</span>`;
+
+        // Adolescentes
+        if(ado>0) paxHtml += `<span style="display:inline-block;background:#e8f4fd;color:#0077b6;border-radius:4px;padding:1px 7px;font-size:10px;margin:1px">${ado} adolescente${ado>1?'s':''} (13-17 años)</span>`;
+
+        // Menores con edad individual
+        if(men>0) {
+          edades.forEach((e, mi) => {
+            let edad = e===''?'edad ?':`${e} año${e==1?'':'s'}`;
+            paxHtml += `<span style="display:inline-block;background:#fff3cd;color:#856404;border-radius:4px;padding:1px 7px;font-size:10px;margin:1px">Menor ${mi+1}: ${edad}</span>`;
+          });
+        }
+
+        // Upgrade
+        let upgHtml = h.upgrade>0
+          ? `<span style="display:inline-block;background:#fff8e6;color:#b8750a;border-radius:4px;padding:1px 7px;font-size:10px;margin:1px">Upgrade +${fmt(h.upgrade)}/noche</span>`
+          : '';
+
+        return `<div style="background:var(--gris-bg);border-radius:8px;padding:7px 10px;margin-bottom:6px;border-left:3px solid var(--azul)">
+          <div style="font-size:11px;font-weight:700;margin-bottom:4px;color:var(--azul)">Hab. ${hi+1} — ${HAB_NOM[h.tipo]||h.tipo}</div>
+          <div style="line-height:1.8">${paxHtml}${upgHtml}</div>
+        </div>`;
+      }).join('');
+
+      // ── Desglose por noche ──
+      let multiHab = habs.length > 1;
+      let nochesHtml = '';
+
+      if(noches.length) {
+        if(!multiHab) {
+          // Una habitación: lista simple con más detalle
+          nochesHtml = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:6px;margin-top:6px">`;
+          noches.forEach(nd => {
+            let esGratis = nd.gratis;
+            nochesHtml += `<div style="background:${esGratis?'rgba(26,122,63,.08)':'var(--gris-bg)'};border-radius:6px;padding:6px 8px;border-left:3px solid ${esGratis?'#1a7a3a':'var(--azul-light)'}">
+              <div style="font-size:10px;color:var(--texto-suave);font-weight:600">${nd.fechaLabel}</div>
+              <div style="font-size:9px;color:var(--texto-suave);margin-bottom:2px">${nd.tmp||''}</div>
+              <div style="font-size:12px;font-weight:700;color:${esGratis?'#1a7a3a':'var(--texto)'}">
+                ${esGratis?'🎁 GRATIS':fmt(nd.total)}
+              </div>
+            </div>`;
+          });
+          nochesHtml += `</div>`;
+        } else {
+          // Varias habitaciones: tabla con columna por habitación
+          let habHeaders = habs.map((_,hi)=>`<th style="text-align:right;padding:4px 8px;font-size:10px;font-weight:700;color:var(--azul);background:var(--azul-light)">Hab.${hi+1}</th>`).join('');
+          let habTotales = new Array(habs.length).fill(0);
+
+          let tablaRows = noches.map(nd => {
+            let esGratis = nd.gratis;
+            // Calcular proporciones por habitación (si tenemos desgloseHabs en el registro guardado no lo tenemos, usamos el total dividido)
+            let habCols = habs.map((h, hi) => {
+              // Si hay upgrade usar el total/numHabs como aproximación
+              let val = esGratis ? 0 : (nd.total / habs.length);
+              habTotales[hi] += val;
+              return `<td style="text-align:right;padding:4px 8px;font-size:11px;${esGratis?'color:#1a7a3a;font-weight:700':''}">
+                ${esGratis?'🎁':fmt(val)}
+              </td>`;
+            }).join('');
+
+            return `<tr style="background:${esGratis?'rgba(26,122,63,.06)':''}">
+              <td style="padding:4px 8px;font-size:10px;color:var(--texto-suave)">${nd.fechaLabel}</td>
+              <td style="padding:4px 8px;font-size:9px;color:var(--texto-suave)">${nd.tmp||''}</td>
+              ${habCols}
+              <td style="text-align:right;padding:4px 8px;font-weight:700;font-size:11px;color:${esGratis?'#1a7a3a':'var(--dorado-dark)'}">
+                ${esGratis?'GRATIS':fmt(nd.total)}
+              </td>
+            </tr>`;
+          }).join('');
+
+          let totalesRow = `<tr style="border-top:2px solid var(--azul-light);background:var(--gris-bg)">
+            <td colspan="2" style="padding:5px 8px;font-size:10px;font-weight:700;color:var(--texto-suave)">SUBTOTALES</td>
+            ${habTotales.map(t=>`<td style="text-align:right;padding:5px 8px;font-size:11px;font-weight:700;color:var(--azul)">${fmt(t)}</td>`).join('')}
+            <td style="text-align:right;padding:5px 8px;font-weight:700;color:var(--dorado-dark)">${fmt(reg.totalFinal)}</td>
+          </tr>`;
+
+          nochesHtml = `<div style="overflow-x:auto;margin-top:6px">
+            <table style="width:100%;border-collapse:collapse;font-size:11px">
+              <thead><tr>
+                <th style="padding:4px 8px;font-size:10px;text-align:left;background:var(--azul-light);color:var(--azul)">Fecha</th>
+                <th style="padding:4px 8px;font-size:10px;text-align:left;background:var(--azul-light);color:var(--azul)">Temporada</th>
+                ${habHeaders}
+                <th style="text-align:right;padding:4px 8px;font-size:10px;background:var(--azul-light);color:var(--azul)">Total</th>
+              </tr></thead>
+              <tbody>${tablaRows}${totalesRow}</tbody>
+            </table>
+          </div>`;
+        }
+      }
 
       let promoStr = reg.promoActiva && reg.promoNombre
         ? `<span style="background:var(--dorado);color:#fff;border-radius:5px;padding:1px 7px;font-size:10px;margin-left:4px">${reg.promoNombre}</span>`
@@ -2941,9 +3018,21 @@ function renderHistorial() {
             ${(reg.ciudad||reg.estado||reg.pais)?`<div class="hist-dato"><span>Ubicación</span><p>${[reg.ciudad,reg.estado,reg.pais].filter(Boolean).join(', ')}</p></div>`:''}
             ${reg.direccion?`<div class="hist-dato" style="grid-column:span 2"><span>Dirección</span><p>${reg.direccion}</p></div>`:''}
           </div>
-          <div style="margin-top:10px;font-size:12px"><strong>Habitaciones:</strong> ${habsDesc}</div>
-          ${menoresStr?`<div style="font-size:11px;color:var(--texto-suave);margin-top:4px">Edades menores: ${menoresStr}</div>`:''}
-          ${nochesHtml?`<div class="hist-noches-mini" style="margin-top:8px"><strong style="font-size:11px">Desglose por noche:</strong><br>${nochesHtml}</div>`:''}
+
+          <div style="margin-top:12px">
+            <div style="font-size:11px;font-weight:700;color:var(--texto-suave);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">
+              ${habs.length > 1 ? `${habs.length} Habitaciones` : 'Habitación'}
+            </div>
+            ${habsHtml}
+          </div>
+
+          ${nochesHtml?`<div style="margin-top:10px">
+            <div style="font-size:11px;font-weight:700;color:var(--texto-suave);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">
+              Desglose por noche${habs.length>1?' (por habitación)':''}
+            </div>
+            ${nochesHtml}
+          </div>`:''}
+
           <div class="hist-actions">
             <button class="btn btn-sm" style="background:#e8f4fd;color:#0077b6;border-color:#b3d9f5" onclick="abrirEditarRegistro(${reg.id})">✏️ Editar</button>
             ${reg.tipo==='cotizacion'
