@@ -748,6 +748,9 @@ body.dark .topbar-agente input:focus{border-color:#0d2535;background:rgba(0,0,0,
 
 <script>
 // ─── DATOS DE TARIFAS 2026 ───────────────────────────────────────────────────
+// ── Logo base64 para PDFs ─────────────────────────────────────
+const LOGO_B64 = document.querySelector('.topbar-logo img')?.src || '';
+
 const TARIFAS=[
   {nombre:"Ene 01–Mar 12 / Mar 16-28",desde:"2026-01-01",hasta:"2026-03-12",tipo:"baja",
    AI:{s:3780,d:4350,pe:1340,n612:150,ne:885,ad:885},AI_we:{s:3780,d:4350,pe:1340,n612:150,ne:885,ad:885},
@@ -1139,17 +1142,31 @@ function calcular(){
       }
     }
     if(!esGratis){
-      html+=`<div class="desglose-row" style="margin-top:2px">
-        <span style="color:var(--texto-suave);font-size:11px">Subtotal noche ${i+1}</span>
+      // Subtotal sin descuento
+      html+=`<div class="desglose-row" style="margin-top:4px;border-top:1px dashed var(--azul-light);padding-top:4px">
+        <span style="color:var(--texto-suave);font-size:11px">Subtotal tarifas noche ${i+1}</span>
         <span style="font-weight:600;color:var(--texto)">${fmt(nd.base)}</span>
       </div>`;
+      // Descuento / incremento por noche
       if(nd.ajuste!==0){
         html+=`<div class="desglose-row" style="color:${nd.ajuste<0?'#1A7A3F':'#C0392B'};font-size:11px">
-          <span>${nd.ajuste<0?'Descuento':'Incremento'}</span>
+          <span>${nd.ajuste<0?'Descuento aplicado':'Incremento aplicado'}</span>
           <span>${nd.ajuste<0?'-':'+'}${fmt(Math.abs(nd.ajuste))}</span>
         </div>`;
       }
-    } else {
+      // Upgrade por noche (dentro de cada noche, no al final)
+      if(habDet.upgrade>0){
+        html+=`<div class="desglose-row" style="font-size:11px;color:var(--texto-suave)">
+          <span>Upgrade habitación</span>
+          <span>+ ${fmt(habDet.upgrade)}</span>
+        </div>`;
+      }
+      // Total noche (tarifa con descuento + upgrade)
+      let totalNoche = nd.base + nd.ajuste + (habDet.upgrade||0);
+      html+=`<div class="desglose-row" style="padding:5px 0;font-weight:700;color:var(--azul);border-top:1px solid var(--azul-mid);margin-top:3px">
+        <span>Total noche ${i+1}</span>
+        <span>${fmt(totalNoche)}</span>
+      </div>`;
       html+=`<div class="desglose-row" style="margin-top:2px;color:#1A7A3F;font-weight:700">
         <span>🎁 Esta noche va gratis</span><span>-${fmt(nd.base*numHabs)}</span>
       </div>`;
@@ -1158,32 +1175,16 @@ function calcular(){
     });// end noches
 
     // Subtotal por habitación si hay varias
-    let habTotal=habNochesLocal.reduce((s,nd)=>s+(nd.gratis?0:nd.base+nd.ajuste),0);
-    if(habDet.upgrade>0)habTotal+=habDet.upgrade*n;
+    let habTotal=habNochesLocal.reduce((s,nd)=>s+(nd.gratis?0:nd.base+nd.ajuste+(habDet.upgrade||0)),0);
     if(mostrarPorHab){
       html+=`<div class="desglose-row" style="padding:5px 0;font-weight:700;color:var(--azul);border-top:2px solid var(--azul-mid)">
         <span>Subtotal Hab. ${hi+1}</span><span>${fmt(habTotal)}</span>
       </div><br>`;
     }
-    if(habDet.upgrade>0&&!mostrarPorHab){
-      html+=`<div class="desglose-row" style="padding:6px 0;font-weight:600">
-        <span>Upgrade · ${n} noches</span><span>${fmt(habDet.upgrade*n)}</span>
-      </div>`;
-    }
   });// end habitaciones
 
-  // Upgrade total si varias habitaciones
-  if(mostrarPorHab&&totalUpg>0){
-    html+=`<div class="desglose-row" style="padding:6px 0;font-weight:600">
-      <span>Upgrades totales · ${numHabs} hab.</span><span>${fmt(totalUpg)}</span>
-    </div>`;
-  } else if(!mostrarPorHab&&upg>0){
-    html+=`<div class="desglose-row" style="padding:6px 0;font-weight:600">
-      <span>Upgrade habitación · ${n} noches</span>
-      <span>${fmt(totalUpg)}</span>
-    </div>`;
-  }
-  if(totalAjuste!==0){
+  // Resumen global de ajustes solo si una hab
+  if(!mostrarPorHab&&totalAjuste!==0){
     let adjLabel=totalAjuste<0?'Ahorro total por descuento':'Incremento total aplicado';
     html+=`<div class="desglose-row" style="padding:8px 0;color:${totalAjuste<0?'#1A7A3F':'#C0392B'};font-weight:700;border-top:2px solid var(--azul-mid);margin-top:4px">
       <span>${adjLabel}</span>
@@ -2799,9 +2800,12 @@ function exportarHistorialPDF() {
   </style></head><body>
 
   <div class="header">
-    <div>
-      <div class="hotel-name">Club Maeva Miramar</div>
-      <div class="hotel-sub">Tampico, Tamaulipas · México · Historial de ${filtroLabel}</div>
+    <div style="display:flex;align-items:center;gap:14px">
+      ${LOGO_B64?`<img src="${LOGO_B64}" alt="Club Maeva" style="height:48px;width:auto;filter:brightness(0)invert(1)">`:''}
+      <div>
+        <div class="hotel-name">Club Maeva Miramar</div>
+        <div class="hotel-sub">Tampico, Tamaulipas · México · Historial de ${filtroLabel}</div>
+      </div>
     </div>
     <div class="header-right">
       <div style="font-size:12px;font-weight:700">Reporte de ${filtroLabel}</div>
@@ -3243,15 +3247,76 @@ function _imprimirRegistro(reg) {
     </tr>`;
   }).join('');
 
-  // ── Desglose de noches ──
-  const nochesHtml = (reg.noches_det||[]).map(nd=>{
-    const esGratis = nd.gratis;
-    return `<tr${esGratis?' style="background:#e8f9ee"':''}>
-      <td>${nd.fechaLabel}</td>
-      <td style="font-size:10px;color:#555">${nd.tmp||'—'}</td>
-      <td style="text-align:right;font-weight:600${esGratis?';color:#1a7a3a':''}">${esGratis?'🎁 GRATIS':fmt(nd.total)}</td>
-    </tr>`;
-  }).join('');
+  // ── Desglose detallado por noche ──
+  // Si hay desgloseHabs guardado, usarlo; si no, usar noches_det como fallback
+  const desgloseHabsSaved = reg.desgloseHabs || [];
+  const multiRoom = (reg.habitaciones||[]).length > 1;
+
+  let nochesDetalleHtml = '';
+  if(reg.noches_det && reg.noches_det.length) {
+    if(!multiRoom) {
+      // Una habitación: tabla detallada noche por noche
+      const habInfo = (reg.habitaciones||[])[0] || {};
+      const upg = habInfo.upgrade || 0;
+      nochesDetalleHtml = `<table class="tab noches-table"><thead><tr>
+        <th>Fecha</th><th>Temporada</th><th>Día</th>
+        <th style="text-align:right">Tarifa base</th>
+        ${upg?`<th style="text-align:right">Upgrade</th>`:''}
+        <th style="text-align:right">Descuento</th>
+        <th style="text-align:right">Total noche</th>
+      </tr></thead><tbody>`;
+      reg.noches_det.forEach(nd => {
+        const esGratis = nd.gratis;
+        const totalNoche = esGratis ? 0 : nd.base + (nd.ajuste||0) + upg;
+        nochesDetalleHtml += `<tr${esGratis?' style="background:#e8f9ee"':''}>
+          <td style="font-weight:600">${nd.fechaLabel}</td>
+          <td style="font-size:10px">${nd.tmp||'—'}</td>
+          <td style="font-size:10px">${nd.we?'Vie/Sáb':'Dom-Jue'}</td>
+          <td style="text-align:right${esGratis?';text-decoration:line-through;color:#888':''}">${fmt(nd.base)}</td>
+          ${upg?`<td style="text-align:right">+ ${fmt(upg)}</td>`:''}
+          <td style="text-align:right;color:${(nd.ajuste||0)<0?'#1a7a3a':'#b91c1c'}">${esGratis?'—':(nd.ajuste||0)!==0?(((nd.ajuste||0)<0?'-':'+')+''+fmt(Math.abs(nd.ajuste||0))):'—'}</td>
+          <td style="text-align:right;font-weight:700;color:${esGratis?'#1a7a3a':'#b8750a'}">${esGratis?'🎁 GRATIS':fmt(totalNoche)}</td>
+        </tr>`;
+      });
+      nochesDetalleHtml += `</tbody></table>`;
+    } else {
+      // Varias habitaciones: una tabla por habitación
+      (reg.habitaciones||[]).forEach((hab, hi) => {
+        const upg = hab.upgrade || 0;
+        const habNombre = HAB_NOM[hab.tipo] || hab.tipo;
+        const ad = hab.adultos||1, ado = hab.adolescentes||0, men = hab.menoresCount||0;
+        const edades = (hab.menoresEdades||[]).filter(e=>e!=='');
+        const pax = [`${ad} adulto${ad>1?'s':''}`];
+        if(ado) pax.push(`${ado} adolescente${ado>1?'s':''} (13-17)`);
+        if(men) { (hab.menoresEdades||[]).forEach((e,mi)=>{ pax.push(`Menor ${mi+1}: ${e===''?'?':e+' año'+((parseInt(e)||0)===1?'':'s')}`); }); }
+        nochesDetalleHtml += `<div style="margin-bottom:12px">
+          <div style="background:#e8f4fd;padding:5px 8px;border-radius:4px;font-weight:700;font-size:11px;color:#0077b6;margin-bottom:4px">
+            Hab. ${hi+1} — ${habNombre}${upg?` · Upgrade +${fmt(upg)}/noche`:''}<br>
+            <span style="font-weight:400;font-size:10px;color:#555">${pax.join(' · ')}</span>
+          </div>`;
+        nochesDetalleHtml += `<table class="tab noches-table"><thead><tr>
+          <th>Fecha</th><th>Temporada</th>
+          <th style="text-align:right">Tarifa base</th>
+          ${upg?`<th style="text-align:right">Upgrade</th>`:''}
+          <th style="text-align:right">Descuento</th>
+          <th style="text-align:right">Total noche</th>
+        </tr></thead><tbody>`;
+        reg.noches_det.forEach(nd => {
+          const esGratis = nd.gratis;
+          const totalNoche = esGratis ? 0 : nd.base + (nd.ajuste||0) + upg;
+          nochesDetalleHtml += `<tr${esGratis?' style="background:#e8f9ee"':''}>
+            <td style="font-weight:600">${nd.fechaLabel}</td>
+            <td style="font-size:10px">${nd.tmp||'—'}</td>
+            <td style="text-align:right${esGratis?';text-decoration:line-through;color:#888':''}">${fmt(nd.base)}</td>
+            ${upg?`<td style="text-align:right">+ ${fmt(upg)}</td>`:''}
+            <td style="text-align:right;color:${(nd.ajuste||0)<0?'#1a7a3a':'#b91c1c'}">${esGratis?'—':(nd.ajuste||0)!==0?(((nd.ajuste||0)<0?'-':'+')+''+fmt(Math.abs(nd.ajuste||0))):'—'}</td>
+            <td style="text-align:right;font-weight:700;color:${esGratis?'#1a7a3a':'#b8750a'}">${esGratis?'🎁 GRATIS':fmt(totalNoche)}</td>
+          </tr>`;
+        });
+        nochesDetalleHtml += `</tbody></table></div>`;
+      });
+    }
+  }
 
   // ── Resumen financiero ──
   const totalBase    = reg.totalBase    || 0;
@@ -3337,9 +3402,12 @@ function _imprimirRegistro(reg) {
 
   <!-- ENCABEZADO -->
   <div class="header">
-    <div>
-      <div class="hotel-name">Club Maeva Miramar</div>
-      <div class="hotel-sub">Tampico, Tamaulipas · México</div>
+    <div style="display:flex;align-items:center;gap:16px">
+      ${LOGO_B64?`<img src="${LOGO_B64}" alt="Club Maeva" style="height:54px;width:auto;filter:brightness(0)invert(1)">`:''}
+      <div>
+        <div class="hotel-name">Club Maeva Miramar</div>
+        <div class="hotel-sub">Tampico, Tamaulipas · México</div>
+      </div>
     </div>
     <div class="header-right">
       <div style="font-size:13px;font-weight:700">${esReserva?'Confirmación de Reservación':'Cotización de Estancia'}</div>
@@ -3394,12 +3462,9 @@ function _imprimirRegistro(reg) {
     </div>
 
     <!-- DESGLOSE POR NOCHE -->
-    ${nochesHtml?`<div class="section no-break">
-      <div class="section-title">Desglose por noche</div>
-      <table class="tab noches-table">
-        <thead><tr><th>Fecha</th><th>Temporada</th><th style="text-align:right">Total</th></tr></thead>
-        <tbody>${nochesHtml}</tbody>
-      </table>
+    ${nochesDetalleHtml?`<div class="section no-break">
+      <div class="section-title">Desglose por noche${multiRoom?' — por habitación':''}</div>
+      ${nochesDetalleHtml}
     </div>`:''}
 
     <!-- RESUMEN FINANCIERO -->
