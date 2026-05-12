@@ -2670,95 +2670,184 @@ function exportarHistorialCSV() {
   a.click();
 }
 
-// ── EXPORTAR PDF ──────────────────────────────────────────────
+// ── EXPORTAR PDF HISTORIAL GENERAL ────────────────────────────
 function exportarHistorialPDF() {
   let arr = lsCargar();
-  if (!_histFilter || _histFilter !== 'todos') {
-    arr = arr.filter(r => r.tipo === _histFilter);
-  }
-  if (!arr.length) { alert('No hay registros para exportar.'); return; }
+  if (_histFilter && _histFilter !== 'todos') arr = arr.filter(r => r.tipo === _histFilter);
+  if (!arr.length) { confirmarAccion('No hay registros para exportar.', ()=>{}, 'OK'); return; }
 
-  let filtroLabel = _histFilter==='cotizacion'?'Cotizaciones'
-    :_histFilter==='reservacion'?'Reservaciones':'Todos los registros';
-  let hoy = new Date().toLocaleDateString('es-MX',{day:'2-digit',month:'long',year:'numeric'});
+  const agente    = document.getElementById('agente-nombre')?.value || '';
+  const filtroLabel = _histFilter==='cotizacion'?'Cotizaciones':_histFilter==='reservacion'?'Reservaciones':'Todos los registros';
+  const hoy       = new Date().toLocaleDateString('es-MX',{day:'2-digit',month:'long',year:'numeric'});
+  const ahora     = new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
+  const totCot    = arr.filter(r=>r.tipo==='cotizacion').length;
+  const totRes    = arr.filter(r=>r.tipo==='reservacion').length;
+  const totalGral = arr.reduce((s,r)=>s+(parseFloat(r.totalFinal)||0),0);
 
-  // Group by day
+  // Agrupar por día
   let byDay = {};
-  arr.forEach(r => {
-    let dk = dayKey(r.fecha_guardado);
-    if (!byDay[dk]) byDay[dk] = [];
-    byDay[dk].push(r);
-  });
+  arr.forEach(r => { let dk=dayKey(r.fecha_guardado); if(!byDay[dk])byDay[dk]=[]; byDay[dk].push(r); });
 
   let rowsHtml = '';
   Object.keys(byDay).sort((a,b)=>b.localeCompare(a)).forEach(dk => {
-    let dayRecs = byDay[dk];
-    let totCot = dayRecs.filter(r=>r.tipo==='cotizacion').length;
-    let totRes = dayRecs.filter(r=>r.tipo==='reservacion').length;
-    let resumen=[]; if(totCot)resumen.push(totCot+' cot.'); if(totRes)resumen.push(totRes+' res.');
-    rowsHtml += `<tr class="day-header"><td colspan="7">📅 ${fmtHistDate(dk+'T12:00:00')} — ${resumen.join(', ')}</td></tr>`;
-    dayRecs.forEach(r => {
-      let habs=(r.habitaciones||[]).map((h,i)=>{
-        let ad=h.adultos||1,ado=h.adolescentes||0,men=h.menoresCount||0;
-        let p=[ad+'ad'];if(ado)p.push(ado+'adol');if(men)p.push(men+'men');
-        return 'H'+(i+1)+':'+(HAB_NOM[h.tipo]||h.tipo)+' ('+p.join('+')+')';
-      }).join('<br>');
-      let tipoBadge=r.tipo==='reservacion'
-        ?'<span class="badge res">Reservación</span>'
-        :'<span class="badge cot">Cotización</span>';
-      let ubicPDF=[r.ciudad,r.estado,r.pais].filter(Boolean).join(', ');
-      rowsHtml += `<tr>
-        <td>${tipoBadge}</td>
-        <td><strong>${r.cliente||'—'}</strong>${r.nota?'<br><em style="font-size:10px">'+r.nota+'</em>':''}${ubicPDF?'<br><span style="font-size:9px;color:#666">'+ubicPDF+'</span>':''}</td>
-        <td>${String(r.fecha_guardado).slice(0,10)}<br>${fmtHistTime(r.fecha_guardado)}</td>
-        <td>${fmtD(r.fi)}<br>→ ${fmtD(r.fo)}</td>
-        <td>${r.n} noche${r.n>1?'s':''}<br>${r.plan==='AI'?'Todo Inc.':'Plan Eur.'}</td>
-        <td>${r.tipoOferta||'—'}<br>${r.factura==='si'?'✅ Factura':'Sin factura'}</td>
-        <td>${habs}</td>
-        <td style="text-align:right;font-weight:700;color:#b8750a">${fmt(r.totalFinal)}</td>
+    const dayRecs = byDay[dk];
+    const dCot = dayRecs.filter(r=>r.tipo==='cotizacion').length;
+    const dRes = dayRecs.filter(r=>r.tipo==='reservacion').length;
+    const dTotal = dayRecs.reduce((s,r)=>s+(parseFloat(r.totalFinal)||0),0);
+    const resumen=[]; if(dCot)resumen.push(dCot+' cotización'+(dCot>1?'es':'')); if(dRes)resumen.push(dRes+' reservación'+(dRes>1?'es':''));
+    rowsHtml += `<tr class="day-row">
+      <td colspan="7">📅 ${fmtHistDate(dk+'T12:00:00')} — ${resumen.join(' · ')}</td>
+      <td style="text-align:right;font-weight:700;color:#0077b6">${fmt(dTotal)}</td>
+    </tr>`;
+
+    dayRecs.forEach((r,ri) => {
+      // Habitaciones
+      const habs = (r.habitaciones||[]).map((h,i)=>{
+        const ad=h.adultos||1, ado=h.adolescentes||0, men=h.menoresCount||0;
+        const edades=(h.menoresEdades&&h.menoresEdades.length)?` (${h.menoresEdades.join(', ')} años)`:'';
+        const pax=[`${ad}ad`]; if(ado)pax.push(`${ado}adol`); if(men)pax.push(`${men}men${edades}`);
+        const upg=h.upgrade>0?` +upg`:'';
+        return `<div style="margin-bottom:2px"><strong>H${i+1}</strong> ${HAB_NOM[h.tipo]||h.tipo}<br><span style="font-size:9px;color:#555">${pax.join(' · ')}${upg}</span></div>`;
+      }).join('');
+
+      // Descuentos / promo
+      let descInfo = '';
+      if(r.promoActiva && r.promoNombre) descInfo += `<div style="color:#0077b6;font-size:9px">🎁 ${r.promoNombre}</div>`;
+      else if(r.descTipo && r.descTipo!=='ninguno'){
+        const dl = r.descTipo==='pct_desc'?`-${r.descVal}%`:r.descTipo==='monto_desc'?`-${fmt(r.descVal)}`:r.descTipo==='pct_inc'?`+${r.descVal}%`:`+${fmt(r.descVal)}`;
+        descInfo += `<div style="color:#b91c1c;font-size:9px">Desc: ${dl}</div>`;
+      }
+      if(r.nocheGratisValor>0) descInfo += `<div style="color:#1a7a3a;font-size:9px">🎁 Noche gratis</div>`;
+
+      // Contacto
+      const contacto = [r.tel,r.email].filter(Boolean).join('<br>');
+      const ubicPDF  = [r.ciudad,r.estado,r.pais].filter(Boolean).join(', ');
+      const numRes   = r.numReserva ? `<div style="font-size:9px;font-weight:700;color:#0077b6"># ${r.numReserva}</div>` : '';
+
+      const badge = r.tipo==='reservacion'
+        ? '<span class="badge res">✔ Reservación</span>'
+        : '<span class="badge cot">📄 Cotización</span>';
+
+      rowsHtml += `<tr class="${ri%2===0?'row-even':'row-odd'}">
+        <td>${badge}${numRes}</td>
+        <td>
+          <strong style="font-size:11px">${r.cliente||'—'}</strong>
+          ${contacto?`<br><span style="font-size:9px;color:#444">${contacto}</span>`:''}
+          ${ubicPDF?`<br><span style="font-size:9px;color:#888">${ubicPDF}</span>`:''}
+          ${r.nota?`<br><em style="font-size:9px;color:#888">${r.nota}</em>`:''}
+        </td>
+        <td style="font-size:10px">
+          ${String(r.fecha_guardado).slice(0,10)}<br>
+          <span style="color:#888">${fmtHistTime(r.fecha_guardado)}</span>
+        </td>
+        <td style="font-size:10px">
+          <strong>${fmtD(r.fi)}</strong><br>
+          → ${fmtD(r.fo)}<br>
+          <span style="color:#0077b6;font-weight:700">${r.n} noche${r.n>1?'s':''}</span>
+        </td>
+        <td style="font-size:10px">
+          <strong>${r.plan==='AI'?'Todo Incluido':'Plan Europeo'}</strong><br>
+          <span style="color:#888">${r.temporada||'—'}</span>
+        </td>
+        <td style="font-size:10px">
+          ${r.tipoOferta?`<strong>${r.tipoOferta}</strong><br>`:''}
+          ${r.factura==='si'?'<span style="color:#1a7a3a">✔ Factura</span>':'<span style="color:#888">Sin factura</span>'}
+          ${descInfo}
+        </td>
+        <td style="font-size:10px">${habs}</td>
+        <td style="text-align:right;vertical-align:middle">
+          <strong style="font-size:13px;color:#b8750a">${fmt(r.totalFinal)}</strong>
+          ${r.totalBase&&r.totalBase!==r.totalFinal?`<br><span style="font-size:9px;color:#aaa;text-decoration:line-through">${fmt(r.totalBase)}</span>`:''}
+        </td>
       </tr>`;
     });
   });
 
-  let totalGeneral = arr.reduce((s,r)=>s+(parseFloat(r.totalFinal)||0),0);
-
-  let html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
-  <title>Historial Cotizaciones — Club Maeva Miramar</title>
+  const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+  <title>Historial — Club Maeva Miramar</title>
   <style>
     *{margin:0;padding:0;box-sizing:border-box}
-    body{font-family:Arial,sans-serif;font-size:11px;color:#1a1a2e;padding:20px}
-    h1{font-size:16px;color:#00AEEF;margin-bottom:2px}
-    .sub{font-size:11px;color:#666;margin-bottom:14px}
-    table{width:100%;border-collapse:collapse;margin-top:8px}
-    th{background:#00AEEF;color:#fff;padding:6px 8px;text-align:left;font-size:11px}
-    td{padding:5px 8px;border-bottom:1px solid #e8f0f5;vertical-align:top}
-    tr:hover td{background:#f5fbff}
-    tr.day-header td{background:#e8f4fd;font-weight:700;font-size:11px;color:#0077b6;padding:5px 8px;border-top:2px solid #00AEEF}
-    .badge{display:inline-block;padding:2px 7px;border-radius:8px;font-size:10px;font-weight:700}
+    body{font-family:'Segoe UI',Arial,sans-serif;font-size:11px;color:#1a1a2e;background:#fff}
+    /* ENCABEZADO */
+    .header{background:linear-gradient(135deg,#00AEEF,#0077b6);color:#fff;padding:16px 28px;display:flex;justify-content:space-between;align-items:flex-start}
+    .hotel-name{font-size:18px;font-weight:800;letter-spacing:.02em;margin-bottom:2px}
+    .hotel-sub{font-size:10px;opacity:.85}
+    .header-right{text-align:right;font-size:10px;opacity:.9;line-height:1.7}
+    /* STATS BAR */
+    .stats-bar{background:#f0f8ff;border-bottom:3px solid #00AEEF;padding:10px 28px;display:flex;gap:28px;align-items:center;flex-wrap:wrap}
+    .stat{font-size:10px;color:#6b8fa3}
+    .stat strong{font-size:15px;color:#0077b6;display:block}
+    .stat.total strong{color:#b8750a;font-size:17px}
+    /* TABLA */
+    .body{padding:16px 28px}
+    table{width:100%;border-collapse:collapse;font-size:11px}
+    th{background:#0077b6;color:#fff;padding:7px 8px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+    td{padding:6px 8px;border-bottom:1px solid #e8f0f5;vertical-align:top}
+    .row-even td{background:#fff}
+    .row-odd td{background:#fafcff}
+    .day-row td{background:#e8f4fd;font-weight:700;font-size:11px;color:#0077b6;padding:6px 8px;border-top:2px solid #00AEEF;border-bottom:1px solid #b3d9f5}
+    .badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:9px;font-weight:700;white-space:nowrap}
     .badge.res{background:#d4f4dd;color:#1a7a3a}
     .badge.cot{background:#e8f4fd;color:#0077b6}
-    .total-row td{font-weight:700;background:#fff8e6;border-top:2px solid #F5A623}
-    @media print{body{padding:10px}.no-print{display:none}}
-  </style>
-  </head><body>
-  <h1>Club Maeva Miramar — Historial de Cotizaciones</h1>
-  <div class="sub">${filtroLabel} · Generado: ${hoy} · ${arr.length} registro${arr.length>1?'s':''}</div>
-  <table>
-    <thead><tr>
-      <th>Tipo</th><th>Cliente</th><th>Guardado</th>
-      <th>Fechas</th><th>Noches / Plan</th><th>Oferta / Factura</th><th>Habitaciones</th><th>Total</th>
-    </tr></thead>
-    <tbody>${rowsHtml}
-      <tr class="total-row">
-        <td colspan="7" style="text-align:right">TOTAL GENERAL (${arr.length} registros)</td>
-        <td style="text-align:right">${fmt(totalGeneral)}</td>
-      </tr>
-    </tbody>
-  </table>
+    .total-row td{font-weight:700;background:#fff8e6;border-top:3px solid #F5A623;padding:8px}
+    /* PIE */
+    .footer{margin-top:16px;padding:10px 28px;background:#f5fbff;border-top:2px solid #00AEEF;display:flex;justify-content:space-between;font-size:9px;color:#6b8fa3}
+    @media print{
+      body{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+      thead{display:table-header-group}
+    }
+  </style></head><body>
+
+  <div class="header">
+    <div>
+      <div class="hotel-name">Club Maeva Miramar</div>
+      <div class="hotel-sub">Tampico, Tamaulipas · México · Historial de ${filtroLabel}</div>
+    </div>
+    <div class="header-right">
+      <div style="font-size:12px;font-weight:700">Reporte de ${filtroLabel}</div>
+      <div>${hoy} · ${ahora}</div>
+      ${agente?`<div>Agente: <strong>${agente}</strong></div>`:''}
+    </div>
+  </div>
+
+  <div class="stats-bar">
+    <div class="stat"><strong>${arr.length}</strong>Registros totales</div>
+    ${totCot?`<div class="stat"><strong>${totCot}</strong>Cotización${totCot>1?'es':''}</div>`:''}
+    ${totRes?`<div class="stat"><strong>${totRes}</strong>Reservación${totRes>1?'es':''}</div>`:''}
+    <div class="stat total" style="margin-left:auto"><strong>${fmt(totalGral)}</strong>Total general</div>
+  </div>
+
+  <div class="body">
+    <table>
+      <thead><tr>
+        <th style="width:90px">Estado</th>
+        <th>Cliente / Contacto</th>
+        <th style="width:80px">Guardado</th>
+        <th style="width:100px">Fechas</th>
+        <th style="width:90px">Plan</th>
+        <th style="width:110px">Oferta / Desc.</th>
+        <th style="width:130px">Habitaciones</th>
+        <th style="width:70px;text-align:right">Total</th>
+      </tr></thead>
+      <tbody>
+        ${rowsHtml}
+        <tr class="total-row">
+          <td colspan="7" style="text-align:right;font-size:12px">TOTAL GENERAL · ${arr.length} registro${arr.length>1?'s':''}</td>
+          <td style="text-align:right;font-size:14px;color:#b8750a">${fmt(totalGral)}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="footer">
+    <div>Club Maeva Miramar · Cotizador Interno v2026</div>
+    <div>${agente?`Agente: ${agente} · `:''}Generado el ${hoy} a las ${ahora}</div>
+  </div>
+
   <script>window.onload=()=>window.print();<\/script>
   </body></html>`;
 
-  let w = window.open('', '_blank');
+  const w = window.open('', '_blank');
   w.document.write(html);
   w.document.close();
 }
