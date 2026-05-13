@@ -233,7 +233,8 @@ body.dark .div-sep{background:#2d2d2d}
 /* ── Total box ── */
 body.dark .total-box{background:#4dd4ff;color:#0a1a24}
 body.dark .total-label{color:#0a1a24;opacity:.75}
-body.dark .total-sub-txt{color:#0a1a24;opacity:.75}
+body.dark .total-sub-txt{color:#0a1a24 !important;opacity:.7}
+body.dark #notas-resultado{color:#0a1a24}
 
 /* ── Desglose ── */
 body.dark .desglose-row{border-color:#2d2d2d;color:#e8f4fb}
@@ -445,7 +446,7 @@ body.dark .topbar-agente input:focus{border-color:#0d2535;background:rgba(0,0,0,
     <div class="total-box">
       <div class="total-label">Total estimado</div>
       <div id="total-valor" class="total-value"></div>
-      <div id="total-sub-txt" style="font-size:12px;color:var(--texto-suave);margin-top:2px"></div>
+      <div id="total-sub-txt" class="total-sub-txt" style="font-size:12px;margin-top:2px"></div>
       <div id="notas-resultado" style="margin-top:6px"></div>
     </div>
     <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
@@ -1166,9 +1167,6 @@ function calcular(){
       html+=`<div class="desglose-row" style="padding:5px 0;font-weight:700;color:var(--azul);border-top:1px solid var(--azul-mid);margin-top:3px">
         <span>Total noche ${i+1}</span>
         <span>${fmt(totalNoche)}</span>
-      </div>`;
-      html+=`<div class="desglose-row" style="margin-top:2px;color:#1A7A3F;font-weight:700">
-        <span>🎁 Esta noche va gratis</span><span>-${fmt(nd.base*numHabs)}</span>
       </div>`;
     }
     html+=`</div>`;
@@ -2218,196 +2216,291 @@ function exportarPDF(){
   let c=window._cot;
   if(!c){alert('Genera el resumen primero antes de exportar.');return;}
 
-  let nombre=document.getElementById('cli-nombre').value||'Cliente';
-  let tel=document.getElementById('cli-tel').value||'—';
-  let email=document.getElementById('cli-email').value||'—';
-  let notas=document.getElementById('cli-notas').value||'';
-  let agente=document.getElementById('cli-agente').value||document.getElementById('cfg-agente')?.value||'—';
-  let canal=document.getElementById('cli-canal').value||'—';
-  let cfgTel=document.getElementById('cfg-tel')?.value||'833 205 4100';
-  let cfgHotel=document.getElementById('cfg-hotel')?.value||'Club Maeva Miramar';
-  let cfgCiudad=document.getElementById('cfg-ciudad')?.value||'Tampico, Tamaulipas, México';
-  let cfgCierre=document.getElementById('cfg-cierre')?.value||'Tarifas sujetas a disponibilidad. Cotización válida al momento de emisión.';
-  let planLabel=c.plan==='AI'?'Todo Incluido (AI)':'Plan Europeo (EP)';
-  let habLabel=HAB_NOM[c.hab]||c.hab;
+  const nombre   = document.getElementById('cli-nombre')?.value||'Cliente';
+  const tel      = document.getElementById('cli-tel')?.value||'—';
+  const email    = document.getElementById('cli-email')?.value||'—';
+  const notas    = document.getElementById('cli-notas')?.value||'';
+  const agente   = document.getElementById('agente-nombre')?.value||document.getElementById('cfg-agente')?.value||'—';
+  const canal    = document.getElementById('cli-canal')?.value||'—';
+  const numReserva = document.getElementById('cli-num-reserva')?.value||'';
+  const cfgTel   = document.getElementById('cfg-tel')?.value||'833 205 4100';
+  const cfgHotel = document.getElementById('cfg-hotel')?.value||'Club Maeva Miramar';
+  const cfgCiudad= document.getElementById('cfg-ciudad')?.value||'Tampico, Tamaulipas, México';
+  const cfgCierre= document.getElementById('cfg-cierre')?.value||'Tarifas sujetas a disponibilidad. Cotización válida al momento de emisión.';
+  const planLabel= c.plan==='AI'?'Todo Incluido (AI)':'Plan Europeo (EP)';
+  const ahora    = new Date();
+  const fechaEmision = `${pad(ahora.getDate())}/${pad(ahora.getMonth()+1)}/${ahora.getFullYear()} ${pad(ahora.getHours())}:${pad(ahora.getMinutes())}`;
+  const logoSrc  = document.querySelector('.topbar-logo img')?.src||'';
 
-  // Desglose por grupos de noches en HTML
-  let desgloseHTML='';
-  for(let k in c.grupos){
-    let g=c.grupos[k];
-    let diaLabel=g.we?'Vie / Sáb':'Dom – Jue';
-    let baseUn=g.base/g.noches;
-    desgloseHTML+=`
-    <tr class="grupo-header"><td colspan="2">${g.tmp} — ${diaLabel} &nbsp;·&nbsp; ${g.noches} noche${g.noches>1?'s':''}</td></tr>`;
-    for(let it of g.items){
-      desgloseHTML+=`<tr>
-        <td style="padding-left:16px;color:${it.gratis?'#1A7A3F':'#222'}">
-          ${it.l}
-          ${it.subtexto?`<br><span style='font-size:10px;color:#007DBF'>${it.subtexto}</span>`:''}
+  // ── Habitaciones detalle ──────────────────────────────────────
+  const habsRows = (c.habitaciones||[]).map((h,i)=>{
+    const ad=h.adultos||1, ado=h.adolescentes||0, men=h.menoresCount||0;
+    const edades=h.menoresEdades||[];
+    let pax=`${ad} adulto${ad>1?'s':''}`;
+    if(ado) pax+=`, ${ado} adolescente${ado>1?'s':''} (13-17 años)`;
+    if(men){
+      edades.forEach((e,mi)=>{ pax+=`, Menor ${mi+1}: ${e===''?'edad ?':e+' año'+((parseInt(e)||0)===1?'':'s')}`; });
+    }
+    const upg=h.upgrade>0?`<span style="color:#b8750a"> + Upgrade +${fmt(h.upgrade)}/noche</span>`:'';
+    return `<tr><td><strong>Hab. ${i+1}</strong></td><td>${HAB_NOM[h.tipo]||h.tipo}${upg}</td><td>${pax}</td></tr>`;
+  }).join('');
+
+  // ── Desglose noche a noche ─────────────────────────────────────
+  // Usamos nochesDet que tiene info por habitación 1 (tarifas son las mismas para todas las habs del mismo tipo/config)
+  // Para multi-hab mostramos el total de todas
+  const multiHab = (c.habitaciones||[]).length > 1;
+  let nochesDesglose = '';
+
+  if(c.nochesDet && c.nochesDet.length){
+    // Encabezado de tabla
+    nochesDesglose += `<table style="width:100%;border-collapse:collapse;font-size:11px;margin-top:8px">
+      <thead>
+        <tr style="background:#0077b6;color:#fff">
+          <th style="padding:6px 8px;text-align:left">Fecha</th>
+          <th style="padding:6px 8px;text-align:left">Día</th>
+          <th style="padding:6px 8px;text-align:left">Temporada</th>
+          <th style="padding:6px 8px;text-align:right">Tarifa base${multiHab?` (×${(c.habitaciones||[]).length} hab.)`:''}  </th>
+          ${c.upg>0?`<th style="padding:6px 8px;text-align:right">Upgrade${multiHab?` (×${(c.habitaciones||[]).length})`:''}  </th>`:''}
+          <th style="padding:6px 8px;text-align:right">Descuento / Promo</th>
+          <th style="padding:6px 8px;text-align:right;background:#005a8e">Total noche</th>
+        </tr>
+      </thead><tbody>`;
+
+    let totalBase_sum=0, totalUpg_sum=0, totalDesc_sum=0, totalFinal_sum=0;
+
+    c.nochesDet.forEach((nd,i)=>{
+      const esGratis = nd.gratis;
+      const numH = (c.habitaciones||[]).length || 1;
+      // Base = tarifa sin descuento × número de habitaciones
+      const baseTotal = nd.base * numH;
+      // Ajuste (descuento) × número de habitaciones
+      const ajusteTotal = (nd.ajuste||0) * numH;
+      // Upgrade × número de habitaciones
+      const upgTotal = (c.upg>0 ? (c.habitaciones||[]).reduce((s,h)=>s+(h.upgrade||0),0) : 0);
+      // Total noche completo
+      const totalNoche = esGratis ? 0 : baseTotal + ajusteTotal + upgTotal;
+
+      if(!esGratis){
+        totalBase_sum  += baseTotal;
+        totalUpg_sum   += upgTotal;
+        totalDesc_sum  += ajusteTotal;
+        totalFinal_sum += totalNoche;
+      }
+
+      const rowBg = esGratis ? '#e8f9ee' : (i%2===0?'#fff':'#f8fbff');
+      const diasSem=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+      const d = parseD(nd.fecha);
+      const diaNombre = diasSem[d.getDay()];
+
+      nochesDesglose += `<tr style="background:${rowBg}">
+        <td style="padding:5px 8px;font-weight:600">${nd.fechaLabel}</td>
+        <td style="padding:5px 8px;font-size:10px;color:#555">${diaNombre} ${nd.we?'(Vie/Sáb)':'(Dom-Jue)'}</td>
+        <td style="padding:5px 8px;font-size:10px;color:#0077b6">${nd.tmp||'—'}</td>
+        <td style="padding:5px 8px;text-align:right${esGratis?';text-decoration:line-through;color:#aaa':''}">${fmt(baseTotal)}</td>
+        ${c.upg>0?`<td style="padding:5px 8px;text-align:right;color:#b8750a">${esGratis?'—':`+ ${fmt(upgTotal)}`}</td>`:''}
+        <td style="padding:5px 8px;text-align:right;color:${ajusteTotal<0?'#1a7a3a':ajusteTotal>0?'#b91c1c':'#aaa'}">
+          ${esGratis?'🎁 GRATIS':ajusteTotal!==0?((ajusteTotal<0?'-':'+')+fmt(Math.abs(ajusteTotal))):'—'}
         </td>
-        <td style="text-align:right;color:${it.gratis?'#1A7A3F':'#222'};font-weight:${it.subtexto?'700':'400'}">${it.gratis?'Gratis':fmt(it.v)+' / noche'}</td>
+        <td style="padding:5px 8px;text-align:right;font-weight:700;color:${esGratis?'#1a7a3a':'#b8750a'};background:${esGratis?'#e8f9ee':'#fff8e6'}">
+          ${esGratis?'🎁 GRATIS':fmt(totalNoche)}
+        </td>
       </tr>`;
-    }
-    desgloseHTML+=`
-    <tr class="subtotal-row"><td>Subtotal por noche</td><td style="text-align:right">${fmt(baseUn)}</td></tr>
-    <tr class="subtotal-row"><td>Subtotal ${g.noches} noche${g.noches>1?'s':''} × ${c.numHabs} hab.</td><td style="text-align:right">${fmt(g.base*c.numHabs)}</td></tr>`;
-    if(g.ajuste!==0){
-      desgloseHTML+=`<tr style="color:${g.ajuste<0?'#3B6D11':'#A32D2D'}">
-        <td>${g.ajuste<0?'Descuento aplicado':'Incremento aplicado'} × ${c.numHabs} hab.</td>
-        <td style="text-align:right">${g.ajuste<0?'-':'+'}${fmt(Math.abs(g.ajuste)*c.numHabs)}</td>
-      </tr>`;
-    }
-  }
-  if(c.upg>0){
-    desgloseHTML+=`<tr class="subtotal-row">
-      <td>Upgrade habitación · ${c.n} noches · ${c.numHabs} hab.</td>
-      <td style="text-align:right">${fmt(c.totalUpg)}</td>
+    });
+
+    // Fila de totales
+    nochesDesglose += `<tr style="background:#e8f4fd;font-weight:700;border-top:2px solid #0077b6">
+      <td colspan="3" style="padding:6px 8px;color:#0077b6">TOTALES (${c.n} noche${c.n>1?'s':''})</td>
+      <td style="padding:6px 8px;text-align:right">${fmt(totalBase_sum)}</td>
+      ${c.upg>0?`<td style="padding:6px 8px;text-align:right;color:#b8750a">+ ${fmt(totalUpg_sum)}</td>`:''}
+      <td style="padding:6px 8px;text-align:right;color:${totalDesc_sum<0?'#1a7a3a':totalDesc_sum>0?'#b91c1c':'#aaa'}">${totalDesc_sum!==0?((totalDesc_sum<0?'-':'+')+fmt(Math.abs(totalDesc_sum))):'—'}</td>
+      <td style="padding:6px 8px;text-align:right;font-weight:800;color:#b8750a;background:#fff8e6">${fmt(c.totalFinal)}</td>
     </tr>`;
-  }
-  if(c.totalAjuste!==0){
-    desgloseHTML+=`<tr style="color:#00AEEF;font-weight:600">
-      <td>Ajuste total (sobre tarifa base)</td>
-      <td style="text-align:right">${c.totalAjuste<0?'-':'+'}${fmt(Math.abs(c.totalAjuste))}</td>
-    </tr>`;
+
+    nochesDesglose += `</tbody></table>`;
   }
 
-  let _pdfAllMc=[];
-  (c.habitaciones||[]).forEach(h=>{let mc=clasifMenores(h.menoresEdades||[],h.tipo,h.adultos||1,h.adolescentes||0);mc.forEach(m=>_pdfAllMc.push(m));});
-  let menoresTexto='—';
-  if(_pdfAllMc.length>0){
-    let p=[];
-    let grats=_pdfAllMc.filter(m=>m.tipo==='gratis').length;
-    let t612=_pdfAllMc.filter(m=>m.tipo==='612').length;
-    let ext=_pdfAllMc.filter(m=>m.tipo==='extra').length;
-    if(grats)p.push(`${grats} sin costo`);
-    if(t612)p.push(`${t612} tarifa 6-12`);
-    if(ext)p.push(`${ext} extra`);
-    menoresTexto=p.join(', ');
+  // ── Desglose de personas (detalle de qué compone la tarifa) ────
+  let personasHTML = '';
+  if(c.nochesDet && c.nochesDet[0] && c.nochesDet[0].items){
+    // Tomamos la primera noche no-gratis como ejemplo representativo
+    const ndRef = c.nochesDet.find(nd=>!nd.gratis) || c.nochesDet[0];
+    if(ndRef && ndRef.items && ndRef.items.length){
+      personasHTML = `<div style="margin-top:16px">
+        <div class="sec-titulo">Composición de tarifa (por habitación · por noche)</div>
+        <table style="width:100%;border-collapse:collapse;font-size:11px">
+          <thead><tr style="background:#e8f4fd">
+            <th style="padding:5px 8px;text-align:left;color:#0077b6">Concepto</th>
+            <th style="padding:5px 8px;text-align:right;color:#0077b6">Precio / noche</th>
+          </tr></thead><tbody>`;
+      ndRef.items.forEach(it=>{
+        personasHTML += `<tr style="border-bottom:1px solid #e8f4f9">
+          <td style="padding:5px 8px;color:${it.gratis?'#1a7a3a':'#222'}">
+            ${it.l}
+            ${it.subtexto?`<br><span style="font-size:10px;color:#0077b6">${it.subtexto}</span>`:''}
+          </td>
+          <td style="padding:5px 8px;text-align:right;color:${it.gratis?'#1a7a3a':'#222'};font-weight:${it.subtexto?700:400}">
+            ${it.gratis?'Incluido (Gratis)':fmt(it.v)+' / noche'}
+          </td>
+        </tr>`;
+      });
+      // Subtotal base
+      personasHTML += `<tr style="background:#f0f8ff;font-weight:700">
+        <td style="padding:5px 8px;color:#0077b6">Subtotal tarifa base (1 hab.)</td>
+        <td style="padding:5px 8px;text-align:right;color:#0077b6">${fmt(ndRef.base)} / noche</td>
+      </tr>`;
+      if(c.upg>0){
+        personasHTML += `<tr style="background:#fff8e6">
+          <td style="padding:5px 8px;color:#b8750a">Upgrade habitación</td>
+          <td style="padding:5px 8px;text-align:right;color:#b8750a">+ ${fmt((c.habitaciones||[])[0]?.upgrade||0)} / noche</td>
+        </tr>`;
+      }
+      personasHTML += `</tbody></table></div>`;
+    }
   }
 
+  // ── Descuento / promo info ─────────────────────────────────────
   let descTexto='Ninguno';
   if(c.descTipo!=='ninguno'&&c.descVal>0){
     descTexto={pct_desc:`Descuento ${c.descVal}%`,monto_desc:`Descuento ${fmt(c.descVal)}/noche`,pct_inc:`Incremento ${c.descVal}%`,monto_inc:`Incremento ${fmt(c.descVal)}/noche`}[c.descTipo];
   }
+  let promoStr = c.promoActiva&&c.promoNombre ? ` + 🎁 Promo: ${c.promoNombre}` : '';
 
-  let incluyeAI=c.plan==='AI'?`
+  // ── Resumen financiero ─────────────────────────────────────────
+  let resumenFinanciero = `
+    <tr><td>Subtotal tarifas (sin descuento)</td><td style="text-align:right">${fmt(c.totalBase)}</td></tr>
+    ${c.totalUpg>0?`<tr style="color:#b8750a"><td>Upgrades (${c.n} noches × ${(c.habitaciones||[]).length} hab.)</td><td style="text-align:right">+ ${fmt(c.totalUpg)}</td></tr>`:''}
+    ${c.totalAjuste!==0?`<tr style="color:${c.totalAjuste<0?'#1a7a3a':'#b91c1c'}"><td>${c.totalAjuste<0?'Descuento total aplicado':'Incremento total aplicado'}</td><td style="text-align:right">${c.totalAjuste<0?'-':'+'}${fmt(Math.abs(c.totalAjuste))}</td></tr>`:''}
+    ${c.nocheGratisValor>0?`<tr style="color:#1a7a3a"><td>🎁 Noche gratis (${c.nocheGratisLabel?.replace('🎁 Noche gratis','')||''})</td><td style="text-align:right">- ${fmt(c.nocheGratisValor)}</td></tr>`:''}
+    ${c.promoActiva&&c.promoNombre?`<tr style="color:#0077b6"><td>Promoción: ${c.promoNombre}</td><td style="text-align:right">Incluida</td></tr>`:''}
+  `;
+
+  let incluyeAI = c.plan==='AI' ? `
   <div class="seccion">
-    <div class="sec-titulo">Plan Todo Incluido — Servicios</div>
-    <ul class="incluye-lista">
-      <li>Hospedaje</li>
-      <li>Alimentos buffet: desayuno, comida y cena</li>
-      <li>Bebidas nacionales con vinos de la casa</li>
-      <li>Actividades recreativas</li>
-      <li>Cancha de tenis</li>
-      <li>Alberca Solarium (mayores de 21 años)</li>
+    <div class="sec-titulo">Plan Todo Incluido — Servicios incluidos</div>
+    <ul style="margin-left:16px;line-height:1.9;font-size:11px;color:#444;columns:2">
+      <li>Hospedaje</li><li>Alimentos buffet (desayuno, comida y cena)</li>
+      <li>Bebidas nacionales con vinos de la casa</li><li>Actividades recreativas</li>
+      <li>Cancha de tenis</li><li>Alberca Solarium (mayores de 21 años)</li>
       <li>Club de playa</li>
     </ul>
-  </div>`:'';
+  </div>` : '';
 
-  let notasHTML=notas?`<div class="seccion"><div class="sec-titulo">Notas / Peticiones especiales</div><p style="font-size:12px;color:#444">${notas}</p></div>`:'';
+  let notasHTML = notas ? `<div class="seccion"><div class="sec-titulo">Notas / Peticiones especiales</div><p style="font-size:11px;color:#444;line-height:1.6">${notas}</p></div>` : '';
 
-  let ahora=new Date();
-  let fechaEmision=`${pad(ahora.getDate())}/${pad(ahora.getMonth()+1)}/${ahora.getFullYear()}`;
-
-  let html=`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
-  <title>Cotización Maeva — ${nombre}</title>
+  const html=`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+  <title>Cotización — ${nombre}</title>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:Arial,sans-serif;font-size:12px;color:#222;padding:0;background:#fff}
-    .page{max-width:720px;margin:0 auto;padding:32px 36px}
-    .header{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:16px;border-bottom:3px solid #00AEEF;margin-bottom:20px}.hotel-accent{color:#F5A623;font-weight:700}
-    .hotel-nombre{font-size:20px;font-weight:700;color:#00AEEF}
-    .hotel-sub{font-size:11px;color:#4A7A92;margin-top:2px}
-    .folio{text-align:right;font-size:11px;color:#4A7A92}
-    .folio strong{color:#00AEEF;font-size:14px;display:block}
+    body{font-family:'Segoe UI',Arial,sans-serif;font-size:12px;color:#1a1a2e;background:#fff}
+    .page{max-width:760px;margin:0 auto}
+    .header-band{background:linear-gradient(135deg,#00AEEF,#0077b6);color:#fff;padding:18px 32px;display:flex;justify-content:space-between;align-items:center}
+    .hotel-nombre{font-size:18px;font-weight:800;letter-spacing:.02em}
+    .hotel-sub{font-size:10px;opacity:.85;margin-top:2px}
+    .folio-box{text-align:right;font-size:10px;opacity:.9;line-height:1.7}
+    .folio-box strong{font-size:14px;display:block}
+    .body{padding:20px 32px}
     .seccion{margin-bottom:18px}
-    .sec-titulo{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#4A7A92;border-bottom:0.5px solid #ddd;padding-bottom:4px;margin-bottom:8px}
-    .datos-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 20px}
-    .dato{font-size:12px}<br>    .dato span{color:#4A7A92;display:block;font-size:10px;margin-bottom:1px}
-    table{width:100%;border-collapse:collapse;font-size:12px}
-    td{padding:5px 8px;border-bottom:0.5px solid #E6F7FE}
-    .grupo-header td{background:#E6F7FE;color:#007DBF;font-weight:700;font-size:11px;padding:5px 8px}
-    .subtotal-row td{background:#F2FAFE;font-weight:600}
-    .total-box{background:linear-gradient(135deg,#00AEEF 0%,#007DBF 100%);color:#fff;border-radius:8px;padding:14px 18px;margin-top:16px;display:flex;justify-content:space-between;align-items:center}
+    .sec-titulo{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#0077b6;border-bottom:2px solid #00AEEF;padding-bottom:4px;margin-bottom:10px}
+    .datos-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 24px}
+    .dato{font-size:11px;padding:5px 8px;background:#f5fbff;border-radius:4px}
+    .dato span{color:#6b8fa3;display:block;font-size:9px;text-transform:uppercase;letter-spacing:.04em;margin-bottom:1px}
+    .fin-table{width:100%;border-collapse:collapse;font-size:11px}
+    .fin-table td{padding:5px 8px;border-bottom:1px solid #e8f4f9}
+    .fin-table td:last-child{text-align:right;font-weight:600}
+    .total-box{background:linear-gradient(135deg,#0077b6,#005a8e);color:#fff;border-radius:8px;padding:14px 20px;margin-top:14px;display:flex;justify-content:space-between;align-items:center}
     .total-label{font-size:11px;opacity:.8}
-    .total-valor{font-size:24px;font-weight:700}
-    .total-sub{font-size:11px;opacity:.8;margin-top:2px}
-    .incluye-lista{margin-left:16px;line-height:1.9;font-size:12px;color:#444}
-    .badge{display:inline-block;font-size:10px;padding:2px 8px;border-radius:4px;font-weight:600;margin-left:6px}
-    .badge-azul{background:#E6F1FB;color:#007DBF}
-    .badge-dorado{background:#FAEEDA;color:#633806}
-    .badge-rojo{background:#FCEBEB;color:#791F1F}
-    .footer{margin-top:28px;padding-top:12px;border-top:0.5px solid #C8EAF8;font-size:10px;color:#aaa;display:flex;justify-content:space-between}
-    @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+    .total-valor{font-size:26px;font-weight:800;letter-spacing:.01em}
+    .footer{margin-top:20px;padding:10px 32px;background:#f0f8ff;border-top:2px solid #00AEEF;display:flex;justify-content:space-between;font-size:9px;color:#6b8fa3}
+    @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}thead{display:table-header-group}}
   </style></head><body><div class="page">
 
-  <div class="header">
-    <div>
-      <div class="hotel-nombre">${cfgHotel}</div>
-      <div class="hotel-sub">${cfgCiudad} &nbsp;·&nbsp; 📞 ${cfgTel}</div>
-    </div>
-    <div class="folio">
-      <span>Cotización</span>
-      <strong>${nombre.toUpperCase()}</strong>
-      <span>Emitida: ${fechaEmision}</span>
-    </div>
-  </div>
-
-  <div class="seccion">
-    <div class="sec-titulo">Datos del cliente</div>
-    <div class="datos-grid">
-      <div class="dato"><span>Nombre</span>${nombre}</div>
-      <div class="dato"><span>Teléfono / WhatsApp</span>${tel}</div>
-      <div class="dato"><span>Correo electrónico</span>${email}</div>
-      <div class="dato"><span>Canal de contacto</span>${canal}</div>
-    </div>
-  </div>
-
-  <div class="seccion">
-    <div class="sec-titulo">Detalles de la estancia</div>
-    <div class="datos-grid">
-      <div class="dato"><span>Fecha de llegada</span>${fmtD(c.fi)}</div>
-      <div class="dato"><span>Fecha de salida</span>${fmtD(c.fo)}</div>
-      <div class="dato"><span>Noches</span>${c.n} noche${c.n>1?'s':''}</div>
-      <div class="dato"><span>Habitaciones</span>${c.numHabs} × ${habLabel}${c.upg>0?' (+upgrade)':''}</div>
-      <div class="dato"><span>Plan</span>${planLabel}</div>
-      <div class="dato"><span>Temporada</span>${c.temporada} <span class="badge badge-${getTarifa(c.fi)?getTarifa(c.fi).tipo:'baja'}">${{baja:'Baja',media:'Media',alta:'Alta'}[getTarifa(c.fi)?getTarifa(c.fi).tipo:'baja']}</span></div>
-      ${c.habitaciones.map((h,i)=>{let ad=h.adultos||1,ado=h.adolescentes||0,men=h.menoresCount||0;let txt=ad+' adulto'+(ad>1?'s':'');if(ado>0)txt+=', '+ado+' adol.';if(men>0)txt+=', '+men+' menor'+(men>1?'es':'');return '<div class="dato"><span>Hab '+(i+1)+' — '+HAB_NOM[h.tipo]+'</span>'+txt+'</div>';}).join('')}
-      <div class="dato"><span>Descuento / Ajuste</span>${descTexto}</div>
-    </div>
-  </div>
-
-  <div class="seccion">
-    <div class="sec-titulo">Desglose de precios por persona por noche</div>
-    <table><tbody>${desgloseHTML}</tbody></table>
-    <div class="total-box">
+  <div class="header-band">
+    <div style="display:flex;align-items:center;gap:14px">
+      ${logoSrc?`<img src="${logoSrc}" alt="Club Maeva" style="height:52px;width:auto;filter:brightness(0)invert(1)">`:''}
       <div>
-        <div class="total-label">Total estimado</div>
-        <div class="total-sub-txt">${c.n} noche${c.n>1?'s':''} · ${c.numHabs} hab. · Incluye impuestos</div>
+        <div class="hotel-nombre">${cfgHotel}</div>
+        <div class="hotel-sub">${cfgCiudad} &nbsp;·&nbsp; 📞 ${cfgTel}</div>
       </div>
-      <div class="total-valor">${fmt(c.totalFinal)} MXN</div>
+    </div>
+    <div class="folio-box">
+      <span>Cotización de estancia</span>
+      <strong>${nombre.toUpperCase()}</strong>
+      ${numReserva?`<span style="font-size:12px;font-weight:700"># ${numReserva}</span>`:''}
+      <span>Emitida: ${fechaEmision}</span>
+      ${agente!=='—'?`<span>Agente: ${agente}</span>`:''}
     </div>
   </div>
 
-  ${incluyeAI}
-  ${notasHTML}
+  <div class="body">
 
-  ${c.nocheGratisValor>0?`<div style="background:#E6F7EE;border:1px solid #5CB85C;border-radius:6px;padding:8px 12px;margin-bottom:12px;font-size:12px;color:#1A7A3F">🎁 <strong>${c.nocheGratisLabel}</strong> — ¡Beneficio por 4+ noches!</div>`:''}
+    <div class="seccion">
+      <div class="sec-titulo">Datos del cliente</div>
+      <div class="datos-grid">
+        <div class="dato"><span>Nombre</span>${nombre}</div>
+        <div class="dato"><span>Teléfono / WhatsApp</span>${tel}</div>
+        <div class="dato"><span>Correo electrónico</span>${email}</div>
+        <div class="dato"><span>Canal de contacto</span>${canal}</div>
+      </div>
+    </div>
+
+    <div class="seccion">
+      <div class="sec-titulo">Detalles de la estancia</div>
+      <div class="datos-grid">
+        <div class="dato"><span>Check-in</span><strong style="font-size:13px;color:#0077b6">${fmtD(c.fi)}</strong></div>
+        <div class="dato"><span>Check-out</span><strong style="font-size:13px;color:#0077b6">${fmtD(c.fo)}</strong></div>
+        <div class="dato"><span>Noches</span><strong style="font-size:16px">${c.n}</strong></div>
+        <div class="dato"><span>Plan</span>${planLabel}</div>
+        <div class="dato"><span>Temporada</span>${c.temporada||'—'}</div>
+        <div class="dato"><span>Descuento / Ajuste</span>${descTexto}${promoStr}</div>
+      </div>
+    </div>
+
+    <div class="seccion">
+      <div class="sec-titulo">Habitaciones</div>
+      <table style="width:100%;border-collapse:collapse;font-size:11px">
+        <thead><tr style="background:#e8f4fd">
+          <th style="padding:5px 8px;text-align:left;color:#0077b6">#</th>
+          <th style="padding:5px 8px;text-align:left;color:#0077b6">Tipo</th>
+          <th style="padding:5px 8px;text-align:left;color:#0077b6">Huéspedes</th>
+        </tr></thead>
+        <tbody>${habsRows}</tbody>
+      </table>
+    </div>
+
+    <div class="seccion">
+      <div class="sec-titulo">Desglose de precios por noche</div>
+      ${nochesDesglose}
+      ${personasHTML}
+    </div>
+
+    <div class="seccion">
+      <div class="sec-titulo">Resumen financiero</div>
+      <table class="fin-table"><tbody>${resumenFinanciero}</tbody></table>
+      <div class="total-box">
+        <div>
+          <div class="total-label">TOTAL A PAGAR</div>
+          <div style="font-size:10px;opacity:.75;margin-top:2px">${c.n} noche${c.n>1?'s':''} · ${(c.habitaciones||[]).length} hab. · Incluye impuestos</div>
+        </div>
+        <div class="total-valor">${fmt(c.totalFinal)} <span style="font-size:14px;font-weight:400">MXN</span></div>
+      </div>
+    </div>
+
+    ${incluyeAI}
+    ${notasHTML}
+    ${c.nocheGratisValor>0?`<div style="background:#e8f9ee;border:1.5px solid #5CB85C;border-radius:6px;padding:10px 14px;margin-bottom:14px;font-size:11px;color:#1a7a3a">🎁 <strong>Beneficio incluido:</strong> ${c.nocheGratisLabel}</div>`:''}
+
+  </div>
+
   <div class="footer">
-    <span>Atendido por: ${agente} &nbsp;·&nbsp; ${cfgHotel}</span>
+    <span>Atendido por: <strong>${agente}</strong> · ${cfgHotel}</span>
     <span>${cfgCierre}</span>
   </div>
 
-</div></body></html>`;
+</div><script>window.onload=()=>window.print();<\/script></body></html>`;
 
-  // Abrir en ventana nueva e imprimir
-  let win=window.open('','_blank','width=800,height=700');
+  const win = window.open('','_blank','width=820,height=750');
   win.document.write(html);
   win.document.close();
-  win.onload=function(){
-    win.focus();
-    win.print();
-  };
 }
 
 // ─── MODAL CAPACIDAD ─────────────────────────────────────────────────────────
@@ -2605,7 +2698,9 @@ function guardarEnHistorial() {
       upgrade: h.upgrade||0
     })),
     noches_det: (cot.nochesDet||[]).map(nd => ({
-      fechaLabel: nd.fechaLabel, total: nd.total, tmp: nd.tmp, gratis: nd.gratis||false
+      fecha: nd.fecha, fechaLabel: nd.fechaLabel, total: nd.total,
+      base: nd.base, ajuste: nd.ajuste||0, tmp: nd.tmp,
+      we: nd.we||false, gratis: nd.gratis||false
     }))
   };
 
