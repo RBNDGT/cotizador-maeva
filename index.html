@@ -31,7 +31,7 @@ body{font-family:system-ui,-apple-system,sans-serif;font-size:14px;color:var(--t
 .topbar-info{background:#4dd4ff;padding:10px 20px;display:flex;flex-direction:column;justify-content:center}
 .topbar-title{color:#fff;font-size:15px;font-weight:700;letter-spacing:.02em}
 .topbar-sub{color:rgba(255,255,255,.8);font-size:11px;margin-top:2px}
-.topbar-agente{background:rgba(0,0,0,.12);padding:8px 16px;display:flex;align-items:center;gap:8px;margin-left:auto}
+.topbar-agente{background:rgba(255,255,255,.22);padding:8px 16px;display:flex;align-items:center;gap:8px;margin-left:auto;border-left:1px solid rgba(255,255,255,.3)}
 .topbar-agente label{color:#fff;font-size:11px;white-space:nowrap;font-weight:700;text-shadow:0 1px 3px rgba(0,0,0,.2)}
 .topbar-agente input{font-size:12px;padding:4px 10px;border:2px solid rgba(255,255,255,.6);border-radius:6px;background:rgba(255,255,255,.25);color:#fff;width:170px;outline:none;font-weight:600;text-shadow:0 1px 2px rgba(0,0,0,.2)}
 .topbar-agente input::placeholder{color:rgba(255,255,255,.6);font-weight:400}
@@ -318,7 +318,7 @@ body.dark .topbar-logo{background:#4dd4ff}
 body.dark .topbar-info{background:#4dd4ff}
 body.dark .topbar-info .topbar-title{color:#0d2535}
 body.dark .topbar-info .topbar-sub{color:rgba(13,37,53,.7)}
-body.dark .topbar-agente{background:rgba(0,0,0,.15)}
+body.dark .topbar-agente{background:rgba(255,255,255,.18);border-left:1px solid rgba(255,255,255,.2)}
 body.dark .topbar-agente label{color:#0d2535;text-shadow:none}
 body.dark .topbar-agente input{background:rgba(0,0,0,.2);border-color:rgba(13,37,53,.4);color:#0d2535;text-shadow:none}
 body.dark .topbar-agente input::placeholder{color:rgba(13,37,53,.5)}
@@ -381,12 +381,12 @@ body.dark .topbar-agente input:focus{border-color:#0d2535;background:rgba(0,0,0,
 </div>
 
 <div class="tabs">
-  <div class="tab active" onclick="switchTab('cotizar')">Cotizar</div>
-  <div class="tab" onclick="switchTab('comparar')">Comparar opciones</div>
-  <div class="tab" onclick="switchTab('cliente')">Datos del cliente</div>
-  <div class="tab" onclick="switchTab('resumen')">Resumen para cliente</div>
-  <div class="tab" onclick="switchTab('config')">⚙ Configuración</div>
-  <div class="tab" onclick="switchTab('historial')">📋 Historial</div>
+  <div class="tab active" onclick="switchTab('cotizar')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="14" x2="8" y2="14" stroke-width="3"/><line x1="12" y1="14" x2="16" y2="14"/><line x1="8" y1="18" x2="8" y2="18" stroke-width="3"/><line x1="12" y1="18" x2="16" y2="18"/></svg>Cotizar</div>
+  <div class="tab" onclick="switchTab('comparar')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px"><rect x="2" y="3" width="9" height="18" rx="1.5"/><rect x="13" y="3" width="9" height="18" rx="1.5"/></svg>Comparar opciones</div>
+  <div class="tab" onclick="switchTab('cliente')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Datos del cliente</div>
+  <div class="tab" onclick="switchTab('resumen')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>Resumen para cliente</div>
+  <div class="tab" onclick="switchTab('config')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Configuración</div>
+  <div class="tab" onclick="switchTab('historial')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px"><polyline points="12 8 12 12 14 14"/><path d="M3.05 11a9 9 0 1 1 .5 4m-.5 5v-5h5"/></svg>Historial</div>
 </div>
 
 <!-- ═══════════════ COTIZAR ═══════════════ -->
@@ -660,10 +660,10 @@ body.dark .topbar-agente input:focus{border-color:#0d2535;background:rgba(0,0,0,
 <div class="card">
   <div class="sec">Información del hotel</div>
   <div class="config-row"><label>Nombre del hotel</label><input type="text" id="cfg-hotel" value="Club Maeva Miramar" oninput="guardarConfig()"></div>
-  <div class="config-row"><label>Ciudad / Ubicación</label><input type="text" id="cfg-ciudad" value="Tampico, Tamaulipas, México" oninput="guardarConfig()"></div>
-  <div class="config-row"><label>Teléfono de reservas</label><input type="text" id="cfg-tel" value="833 205 4100" oninput="guardarConfig()"></div>
-  <div class="config-row"><label>WhatsApp (con código)</label><input type="text" id="cfg-wa" value="528332054100" placeholder="52XXXXXXXXXX" oninput="guardarConfig()"></div>
-  <div class="config-row"><label>Correo de reservas</label><input type="text" id="cfg-email" value="" placeholder="reservas@maeva.com" oninput="guardarConfig()"></div>
+  <div class="config-row"><label>Ciudad / Ubicación</label><input type="text" id="cfg-ciudad" value="Ciudad Madero, Tamaulipas, México" oninput="guardarConfig()"></div>
+  <div class="config-row"><label>Teléfono de reservas</label><input type="text" id="cfg-tel" value="833 230 0234" oninput="guardarConfig()"></div>
+  <div class="config-row"><label>WhatsApp (con código)</label><input type="text" id="cfg-wa" value="528331001285" placeholder="52XXXXXXXXXX" oninput="guardarConfig()"></div>
+  <div class="config-row"><label>Correo de reservas</label><input type="text" id="cfg-email" value="reservaciones@maevamiramar.com" placeholder="reservas@maeva.com" oninput="guardarConfig()"></div>
 </div>
 <div class="card">
   <div class="sec">Textos del resumen</div>
@@ -672,7 +672,7 @@ body.dark .topbar-agente input:focus{border-color:#0d2535;background:rgba(0,0,0,
 </div>
 <div class="card">
   <div class="sec">Agente predeterminado</div>
-  <div class="config-row"><label>Nombre del agente</label><input type="text" id="cfg-agente" value="" placeholder="Nombre que aparece en el resumen" oninput="guardarConfig()"></div>
+  <div class="config-row"><label>Nombre del agente</label><input type="text" id="cfg-agente" value="Rubén Chávez" placeholder="Nombre que aparece en el resumen" oninput="guardarConfig()"></div>
 </div>
 
 <!-- DESCUENTOS: AI + PROMO EVENTUAL en una sola card -->
@@ -2623,25 +2623,42 @@ function guardarConfig(){
 function cargarConfig(){
   try{
     let saved=localStorage.getItem('maeva_config');
-    if(!saved)return;
-    let cfgData=JSON.parse(saved);
-    Object.entries(cfgData).forEach(([id,val])=>{
-      let el=document.getElementById(id);
-      if(el&&val)el.value=val;
+    // Defaults
+    const DEFAULTS = {
+      'cfg-hotel':'Club Maeva Miramar',
+      'cfg-ciudad':'Ciudad Madero, Tamaulipas, México',
+      'cfg-tel':'833 230 0234',
+      'cfg-wa':'528331001285',
+      'cfg-email':'reservaciones@maevamiramar.com',
+      'cfg-saludo':'Con gusto le comparto la cotización de su estancia:',
+      'cfg-cierre':'Tarifas sujetas a disponibilidad. Cotización válida al momento de emisión.',
+      'cfg-agente':'Rubén Chávez'
+    };
+    let cfgData = saved ? JSON.parse(saved) : {};
+    // Apply saved or default values
+    Object.entries(DEFAULTS).forEach(([id, def]) => {
+      let el = document.getElementById(id);
+      if (el) el.value = cfgData[id] || def;
     });
-    // Actualizar topbar
-    let hotel=cfgData['cfg-hotel']||'Club Maeva Miramar';
-    let ciudad=cfgData['cfg-ciudad']||'Tampico, Tamaulipas, México';
-    let tel=cfgData['cfg-tel']||'833 205 4100';
+    // Any extra saved keys not in defaults
+    if(saved) Object.entries(cfgData).forEach(([id,val])=>{
+      let el=document.getElementById(id);
+      if(el&&val&&!DEFAULTS[id])el.value=val;
+    });
+    let hotel  = cfgData['cfg-hotel']  || DEFAULTS['cfg-hotel'];
+    let ciudad = cfgData['cfg-ciudad'] || DEFAULTS['cfg-ciudad'];
+    let tel    = cfgData['cfg-tel']    || DEFAULTS['cfg-tel'];
+    let agente = cfgData['cfg-agente'] || DEFAULTS['cfg-agente'];
     let topSub=document.querySelector('.topbar-sub');
     if(topSub)topSub.textContent=`${ciudad} · 📞 ${tel}`;
-    // Pre-fill agente en todos los campos
-    let cfgAgente=(cfgData['cfg-agente']||'').trim();
-    if(cfgAgente){
+    // Pre-fill agente
+    if(agente){
       let agenteInput=document.getElementById('cli-agente');
-      if(agenteInput)agenteInput.value=cfgAgente;
-      let globalInput=document.getElementById('agente-global');
-      if(globalInput)globalInput.value=cfgAgente;
+      if(agenteInput)agenteInput.value=agente;
+      let globalInput=document.getElementById('agente-nombre');
+      if(globalInput)globalInput.value=agente;
+      let globalInput2=document.getElementById('agente-global');
+      if(globalInput2)globalInput2.value=agente;
     }
   }catch(e){}
 }
@@ -2649,13 +2666,13 @@ function cargarConfig(){
 function resetConfig(){
   let defs={
     'cfg-hotel':'Club Maeva Miramar',
-    'cfg-ciudad':'Tampico, Tamaulipas, México',
-    'cfg-tel':'833 205 4100',
-    'cfg-wa':'528332054100',
-    'cfg-email':'',
+    'cfg-ciudad':'Ciudad Madero, Tamaulipas, México',
+    'cfg-tel':'833 230 0234',
+    'cfg-wa':'528331001285',
+    'cfg-email':'reservaciones@maevamiramar.com',
     'cfg-saludo':'Con gusto le comparto la cotización de su estancia:',
     'cfg-cierre':'Tarifas sujetas a disponibilidad. Cotización válida al momento de emisión.',
-    'cfg-agente':''
+    'cfg-agente':'Rubén Chávez'
   };
   for(let[id,val]of Object.entries(defs)){
     let el=document.getElementById(id);
