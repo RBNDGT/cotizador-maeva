@@ -398,14 +398,102 @@ body.dark .topbar-agente input:focus{border-color:#0d2535;background:rgba(0,0,0,
     <div><label>Fecha de llegada</label><input type="date" id="fecha-in" onchange="calcular()"></div>
     <div><label>Fecha de salida</label><input type="date" id="fecha-out" onchange="calcular()"></div>
   </div>
-  <div style="max-width:300px">
-    <label>Plan</label>
-    <select id="plan" onchange="calcular()">
-      <option value="AI">Todo Incluido (AI)</option>
-      <option value="EP">Plan Europeo (EP)</option>
-    </select>
+  <div class="grid2" style="align-items:start">
+    <!-- Plan -->
+    <div>
+      <label>Plan</label>
+      <select id="plan" onchange="calcular()">
+        <option value="AI">Todo Incluido (AI)</option>
+        <option value="EP">Plan Europeo (EP)</option>
+      </select>
+    </div>
+    <!-- Descuentos / Promo inline -->
+    <div>
+      <label>Descuentos y promociones</label>
+      <div style="border:1.5px solid var(--azul-mid);border-radius:9px;overflow:hidden">
+
+        <!-- Toggle pill -->
+        <div style="display:flex;padding:6px;gap:4px;background:var(--gris-bg);border-bottom:1px solid var(--azul-light)">
+          <button id="cot-btn-auto" onclick="seleccionarModoPromo('auto')"
+            style="flex:1;padding:5px 8px;border-radius:6px;border:none;cursor:pointer;font-size:11px;font-weight:700;transition:.15s;background:var(--azul);color:#fff">
+            Promociones 2026
+          </button>
+          <button id="cot-btn-eventual" onclick="seleccionarModoPromo('eventual')"
+            style="flex:1;padding:5px 8px;border-radius:6px;border:none;cursor:pointer;font-size:11px;font-weight:700;transition:.15s;background:transparent;color:var(--texto-suave)">
+            Promoción eventual
+          </button>
+        </div>
+
+        <!-- Panel A: Promociones 2026 -->
+        <div id="cot-panel-auto" style="padding:8px 12px;display:flex;align-items:center;gap:10px">
+          <input type="checkbox" id="cot-desc-auto-chk" checked
+            onchange="sincDescAutoDesde('cot');calcular()"
+            style="width:16px;height:16px;cursor:pointer;flex-shrink:0;accent-color:var(--azul)">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:12px;font-weight:700">Activar Promociones 2026</div>
+            <div style="font-size:10px;color:var(--texto-suave)">Descuentos automáticos AI todo el año</div>
+          </div>
+        </div>
+
+        <!-- Panel B: Promoción eventual -->
+        <div id="cot-panel-eventual" style="padding:8px 12px;display:none">
+          <div style="display:flex;align-items:center;gap:10px">
+            <input type="checkbox" id="cot-promo-chk"
+              onchange="sincPromoDesde('cot');calcular()"
+              style="width:16px;height:16px;cursor:pointer;flex-shrink:0;accent-color:var(--azul)">
+            <div style="flex:1;min-width:0">
+              <div style="font-size:12px;font-weight:700">
+                Activar promoción eventual
+                <span id="cot-promo-badge" style="display:none;background:var(--dorado);color:#fff;font-size:9px;padding:1px 6px;border-radius:8px;margin-left:4px;font-weight:700">ACTIVA</span>
+              </div>
+              <div id="cot-promo-nombre-txt" style="font-size:10px;color:var(--texto-suave);overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>
+            </div>
+          </div>
+          <!-- Campos expandibles de promo -->
+          <div id="cot-promo-block" style="display:none;margin-top:10px;padding-top:10px;border-top:1px dashed var(--azul-light)">
+            <div style="margin-bottom:8px">
+              <label style="font-size:11px">Nombre de la promoción</label>
+              <input type="text" id="cot-promo-nombre" placeholder="Ej. Mayo: 2a noche al 50%"
+                oninput="sincPromoNombreDesde('cot');calcular()" style="font-size:12px;padding:5px 8px">
+            </div>
+            <div class="grid2" style="margin-bottom:8px">
+              <div>
+                <label style="font-size:11px">Vigencia inicio</label>
+                <input type="date" id="cot-promo-fi" onchange="sincPromoFechasDesde('cot');calcular()" style="font-size:12px;padding:5px 8px">
+              </div>
+              <div>
+                <label style="font-size:11px">Vigencia fin</label>
+                <input type="date" id="cot-promo-ff" onchange="sincPromoFechasDesde('cot');calcular()" style="font-size:12px;padding:5px 8px">
+              </div>
+            </div>
+            <div style="margin-bottom:8px">
+              <label style="font-size:11px">Tipo de beneficio</label>
+              <select id="cot-promo-tipo" onchange="sincPromoTipoDesde('cot');togglePromoBeneficio();calcular()" style="font-size:12px;padding:5px 8px">
+                <option value="pct">% descuento (todas las noches)</option>
+                <option value="noche_gratis">Noche gratis (menor valor)</option>
+                <option value="pct_noche">% descuento + noche gratis</option>
+                <option value="monto">Monto fijo por noche ($)</option>
+                <option value="noches_especificas">Descuento por noche específica</option>
+              </select>
+            </div>
+            <div id="cot-promo-val-pct-wrap" style="margin-bottom:6px">
+              <label style="font-size:11px">% de descuento</label>
+              <input type="number" id="cot-promo-val-pct" min="0" max="100" value="0"
+                onchange="sincPromoValsDesde('cot');calcular()" style="font-size:12px;padding:5px 8px">
+            </div>
+            <div id="cot-promo-val-monto-wrap" style="display:none;margin-bottom:6px">
+              <label style="font-size:11px">Monto de descuento por noche ($)</label>
+              <input type="number" id="cot-promo-val-monto" min="0" value="0"
+                onchange="sincPromoValsDesde('cot');calcular()" style="font-size:12px;padding:5px 8px">
+            </div>
+          </div><!-- /cot-promo-block -->
+        </div><!-- /cot-panel-eventual -->
+
+      </div>
+    </div>
   </div>
   <div id="info-temporada" style="margin-top:10px"></div>
+  <div id="desc-auto-info" class="desc-auto-badge" style="display:block;margin-top:6px"></div>
 </div>
 
 <div class="card">
@@ -416,28 +504,7 @@ body.dark .topbar-agente input:focus{border-color:#0d2535;background:rgba(0,0,0,
 
 
 
-<!-- DESCUENTOS Y TARIFAS EXTRAORDINARIAS -->
-<div class="card">
-  <div class="sec">Ajustes de tarifa extraordinarios</div>
-  <div class="grid2" style="margin-bottom:10px">
-    <div>
-      <label>Tipo de ajuste manual</label>
-      <select id="desc-tipo" onchange="toggleDescuento()">
-        <option value="ninguno">Sin ajuste manual</option>
-        <option value="pct_inc">% de incremento (alta demanda)</option>
-        <option value="monto_inc">Monto fijo de incremento (por noche)</option>
-        <option value="pct_desc">% de descuento adicional</option>
-        <option value="monto_desc">Monto fijo de descuento (por noche)</option>
-      </select>
-    </div>
-    <div id="desc-valor-wrapper" style="display:none">
-      <label id="desc-valor-label">Valor</label>
-      <input type="number" id="desc-valor" min="0" value="0" onchange="calcular()" placeholder="0">
-    </div>
-  </div>
-  <div id="desc-auto-info" class="desc-auto-badge" style="display:block"></div>
-  <div style="font-size:11px;color:var(--texto-suave);margin-top:6px">Los descuentos automáticos AI aplican sobre la tarifa base. Ajustes manuales se suman.</div>
-</div>
+
 
 <div id="resultado" style="display:none">
   <div class="card card-resultado">
@@ -946,20 +1013,20 @@ function calcular(){
   let numHabs=habitaciones.length;
   let hab=habitaciones[0]?.tipo||'ESTANDAR';
   let upg=habitaciones[0]?.upgrade||0;
-  let descTipo=document.getElementById('desc-tipo').value;
-  let descVal=parseFloat(document.getElementById('desc-valor').value)||0;
+  let descTipo='ninguno';
+  let descVal=0;
 
-  // ── Promo eventual ──
-  let promoActiva=document.getElementById('promo-eventual-activa')?.checked||false;
-  let promoNombre=document.getElementById('promo-nombre')?.value||'';
-  let promoFechaIni=document.getElementById('promo-fecha-ini')?.value||'';
-  let promoFechaFin=document.getElementById('promo-fecha-fin')?.value||'';
-  let promoTipo=document.getElementById('promo-tipo')?.value||'pct';
-  let promoValPct=parseFloat(document.getElementById('promo-val-pct')?.value)||0;
-  let promoValMonto=parseFloat(document.getElementById('promo-val-monto')?.value)||0;
+  // ── Promo eventual — leer del panel inline (fuente de verdad) ──
+  let promoActiva=document.getElementById('cot-promo-chk')?.checked||document.getElementById('promo-eventual-activa')?.checked||false;
+  let promoNombre=document.getElementById('cot-promo-nombre')?.value||document.getElementById('promo-nombre')?.value||'';
+  let promoFechaIni=document.getElementById('cot-promo-fi')?.value||document.getElementById('promo-fecha-ini')?.value||'';
+  let promoFechaFin=document.getElementById('cot-promo-ff')?.value||document.getElementById('promo-fecha-fin')?.value||'';
+  let promoTipo=document.getElementById('cot-promo-tipo')?.value||document.getElementById('promo-tipo')?.value||'pct';
+  let promoValPct=parseFloat(document.getElementById('cot-promo-val-pct')?.value)||parseFloat(document.getElementById('promo-val-pct')?.value)||0;
+  let promoValMonto=parseFloat(document.getElementById('cot-promo-val-monto')?.value)||parseFloat(document.getElementById('promo-val-monto')?.value)||0;
 
-  // ── Descuento automático AI ──
-  let descAutoActivo=!promoActiva&&(document.getElementById('cfg-desc-auto')?.checked!==false);
+  // ── Descuento automático AI — leer del panel inline ──
+  let descAutoActivo=!promoActiva&&(document.getElementById('cot-desc-auto-chk')?.checked!==false)&&(document.getElementById('cfg-desc-auto')?.checked!==false);
   let descAutoPct=0;
   let descAutoLabel='';
   let nTemp=(!fi||!fo)?0:noches(fi,fo);
@@ -2719,7 +2786,133 @@ function cambiarTipoRegistro(id, nuevoTipo) {
   if (reg) { reg.tipo = nuevoTipo; lsGuardar(arr); renderHistorial(); }
 }
 
-// ── ELIMINAR ──────────────────────────────────────────────────
+function seleccionarModoPromo(modo) {
+  const btnAuto     = document.getElementById('cot-btn-auto');
+  const btnEventual = document.getElementById('cot-btn-eventual');
+  const panelAuto   = document.getElementById('cot-panel-auto');
+  const panelEvent  = document.getElementById('cot-panel-eventual');
+
+  const esAuto = modo === 'auto';
+
+  // Estilo activo/inactivo botones
+  btnAuto.style.background     = esAuto ? 'var(--azul)' : 'transparent';
+  btnAuto.style.color          = esAuto ? '#fff' : 'var(--texto-suave)';
+  btnEventual.style.background = !esAuto ? 'var(--azul)' : 'transparent';
+  btnEventual.style.color      = !esAuto ? '#fff' : 'var(--texto-suave)';
+
+  // Mostrar panel correspondiente
+  panelAuto.style.display  = esAuto  ? 'flex' : 'none';
+  panelEvent.style.display = !esAuto ? 'block' : 'none';
+
+  // Al cambiar a auto: desactivar promo eventual
+  if (esAuto) {
+    document.getElementById('cot-promo-chk').checked = false;
+    sincPromoDesde('cot');
+  } else {
+    // Al cambiar a eventual: desactivar desc auto
+    document.getElementById('cot-desc-auto-chk').checked = false;
+    sincDescAutoDesde('cot');
+  }
+  calcular();
+}
+
+// ── SINCRONIZACIÓN controles inline ↔ configuración ──────────
+function sincDescAutoDesde(origen) {
+  let val = document.getElementById('cot-desc-auto-chk').checked;
+  let cfg = document.getElementById('cfg-desc-auto');
+  if (cfg) cfg.checked = val;
+  // Si se activa desc-auto, desactivar promo
+  if (val) {
+    document.getElementById('cot-promo-chk').checked = false;
+    sincPromoDesde('cot');
+  }
+}
+
+function sincPromoDesde(origen) {
+  let chk = document.getElementById('cot-promo-chk').checked;
+  // Sync con config panel
+  let cfgChk = document.getElementById('promo-eventual-activa');
+  if (cfgChk) { cfgChk.checked = chk; togglePromoEventual(cfgChk); }
+  // Mostrar/ocultar bloque inline
+  document.getElementById('cot-promo-block').style.display = chk ? 'block' : 'none';
+  document.getElementById('cot-promo-badge').style.display = chk ? 'inline' : 'none';
+  // Si se activa promo, desactivar desc-auto
+  if (chk) {
+    document.getElementById('cot-desc-auto-chk').checked = false;
+    let cfg = document.getElementById('cfg-desc-auto');
+    if (cfg) cfg.checked = false;
+  }
+  actualizarCotPromoNombreTxt();
+}
+
+function sincPromoNombreDesde(origen) {
+  let val = document.getElementById('cot-promo-nombre').value;
+  let cfg = document.getElementById('promo-nombre');
+  if (cfg) cfg.value = val;
+  actualizarCotPromoNombreTxt();
+}
+
+function sincPromoFechasDesde(origen) {
+  let fi = document.getElementById('cot-promo-fi').value;
+  let ff = document.getElementById('cot-promo-ff').value;
+  let cfi = document.getElementById('promo-fecha-ini');
+  let cff = document.getElementById('promo-fecha-fin');
+  if (cfi) cfi.value = fi;
+  if (cff) cff.value = ff;
+}
+
+function sincPromoTipoDesde(origen) {
+  let val = document.getElementById('cot-promo-tipo').value;
+  let cfg = document.getElementById('promo-tipo');
+  if (cfg) cfg.value = val;
+  // Mostrar/ocultar campos pct / monto
+  let pctW   = document.getElementById('cot-promo-val-pct-wrap');
+  let montoW = document.getElementById('cot-promo-val-monto-wrap');
+  let showPct   = ['pct','pct_noche'].includes(val);
+  let showMonto = val === 'monto';
+  if (pctW)   pctW.style.display   = showPct   ? 'block' : 'none';
+  if (montoW) montoW.style.display = showMonto ? 'block' : 'none';
+}
+
+function sincPromoValsDesde(origen) {
+  let pct   = document.getElementById('cot-promo-val-pct').value;
+  let monto = document.getElementById('cot-promo-val-monto').value;
+  let cp = document.getElementById('promo-val-pct');
+  let cm = document.getElementById('promo-val-monto');
+  if (cp) cp.value = pct;
+  if (cm) cm.value = monto;
+}
+
+function actualizarCotPromoNombreTxt() {
+  let txt = document.getElementById('cot-promo-nombre')?.value || '';
+  let el  = document.getElementById('cot-promo-nombre-txt');
+  if (el) el.textContent = txt || 'Sin nombre';
+}
+
+// Sincronizar también en la dirección opuesta: cuando se cambia en config
+// Llamar desde togglePromoEventual y toggleDescAuto existentes
+const _origTogglePromoEventual = window.togglePromoEventual;
+window.togglePromoEventual = function(el) {
+  if (_origTogglePromoEventual) _origTogglePromoEventual(el);
+  // Sync al panel inline
+  let cotChk = document.getElementById('cot-promo-chk');
+  if (cotChk && el) {
+    cotChk.checked = el.checked;
+    document.getElementById('cot-promo-block').style.display = el.checked ? 'block' : 'none';
+    document.getElementById('cot-promo-badge').style.display = el.checked ? 'inline' : 'none';
+    if (el.checked) {
+      document.getElementById('cot-desc-auto-chk').checked = false;
+    }
+  }
+};
+
+const _origToggleDescAuto = window.toggleDescAuto;
+window.toggleDescAuto = function(el) {
+  if (_origToggleDescAuto) _origToggleDescAuto(el);
+  let cotChk = document.getElementById('cot-desc-auto-chk');
+  if (cotChk && el) cotChk.checked = el.checked;
+};
+
 function eliminarRegistro(id) {
   confirmarAccion('¿Eliminar este registro?', () => {
     lsGuardar(lsCargar().filter(r => r.id !== id));
