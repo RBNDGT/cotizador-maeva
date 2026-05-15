@@ -622,7 +622,24 @@ body.dark .topbar-agente input:focus{border-color:#0d2535;background:rgba(0,0,0,
 <div id="panel-resumen" class="panel">
 <div class="card">
   <div class="sec">Resumen para enviar al cliente</div>
-  <div style="margin-bottom:10px">
+
+  <!-- Modo: Cotización / Reservación -->
+  <div style="margin-bottom:12px">
+    <label style="font-size:11px;color:var(--texto-suave);margin-bottom:6px;display:block">TIPO DE MENSAJE</label>
+    <div style="display:flex;gap:4px;background:var(--gris-bg);border-radius:9px;padding:4px;width:fit-content">
+      <button id="modo-cotizacion" onclick="setModo('cotizacion')"
+        style="padding:6px 18px;border-radius:7px;border:none;cursor:pointer;font-size:12px;font-weight:700;transition:.15s;background:var(--azul);color:#fff">
+        📄 Cotización
+      </button>
+      <button id="modo-reservacion" onclick="setModo('reservacion')"
+        style="padding:6px 18px;border-radius:7px;border:none;cursor:pointer;font-size:12px;font-weight:700;transition:.15s;background:transparent;color:var(--texto-suave)">
+        ✅ Reservación
+      </button>
+    </div>
+  </div>
+
+  <!-- Tono -->
+  <div style="margin-bottom:12px">
     <label style="font-size:11px;color:var(--texto-suave);margin-bottom:6px;display:block">TONO DEL MENSAJE</label>
     <div style="display:flex;gap:6px;flex-wrap:wrap">
       <button class="btn btn-sm" id="tono-formal" onclick="setTono('formal')" style="border-color:var(--azul);color:var(--azul)">Formal</button>
@@ -630,6 +647,7 @@ body.dark .topbar-agente input:focus{border-color:#0d2535;background:rgba(0,0,0,
       <button class="btn btn-sm" id="tono-whatsapp" onclick="setTono('whatsapp')">WhatsApp corto</button>
     </div>
   </div>
+
   <div id="resumen-desc-auto" class="desc-auto-badge"></div>
   <!-- Contenedor multi-hab o hab única -->
   <div id="resumen-output-container">
@@ -1856,6 +1874,16 @@ function confirmarYGenerar(){cerrarModal();generarResumen();switchTab('resumen')
 
 // ─── GENERAR RESUMEN ─────────────────────────────────────────────────────────
 let _tono='formal';
+let _modo='cotizacion';
+
+function setModo(m){
+  _modo=m;
+  const btnCot=document.getElementById('modo-cotizacion');
+  const btnRes=document.getElementById('modo-reservacion');
+  if(btnCot){btnCot.style.background=m==='cotizacion'?'var(--azul)':'transparent';btnCot.style.color=m==='cotizacion'?'#fff':'var(--texto-suave)';}
+  if(btnRes){btnRes.style.background=m==='reservacion'?'var(--azul)':'transparent';btnRes.style.color=m==='reservacion'?'#fff':'var(--texto-suave)';}
+  generarResumen();
+}
 function setTono(t){
   _tono=t;
   ['formal','amigable','whatsapp'].forEach(id=>{
@@ -2208,6 +2236,100 @@ Para confirmar su reservación:
 📞 ${cfgTel}${agente?'\n👤 '+agente:''}
 
 _${cfgCierre}_`;
+  }
+
+  // ── TEXTOS DE RESERVACIÓN ─────────────────────────────────────
+  if(_modo==='reservacion'){
+    let numRes=document.getElementById('cli-num-reserva')?.value||'';
+    let cfgEmail=getCfg('cfg-email','reservaciones@maevamiramar.com');
+    let cfgWa=getCfg('cfg-wa','528331001285');
+    let habResDesc=c.habitaciones.map((h,i)=>{
+      let ad=h.adultos||1,ado=h.adolescentes||0,men=h.menoresCount||0;
+      let edades=h.menoresEdades||[];
+      let p=[ad+' adulto'+(ad>1?'s':'')];
+      if(ado>0)p.push(ado+' adolescente'+(ado>1?'s':'')+' (13-17)');
+      if(men>0){edades.forEach((e,mi)=>{p.push('Menor '+(mi+1)+': '+(e===''?'edad no especificada':e+' año'+((parseInt(e)||0)===1?'':'s')));});}
+      return '   Hab '+(i+1)+' — '+(HAB_NOM[h.tipo]||h.tipo)+':\n      '+p.join(' · ');
+    }).join('\n');
+
+    if(_tono==='whatsapp'){
+      texto=`✅ *RESERVACIÓN CONFIRMADA*\n`;
+      texto+=`*${cfgHotel}*\n`;
+      texto+=`━━━━━━━━━━━━━━\n`;
+      texto+=`👤 *${nombre}*\n`;
+      if(numRes)texto+=`📌 Reserva #${numRes}\n`;
+      texto+=`📅 ${fmtD(c.fi)} → ${fmtD(c.fo)} (${c.n} noche${c.n>1?'s':''})\n`;
+      texto+=`🛏️ ${habLabel} × ${c.numHabs}  ·  ${planLabel}\n`;
+      texto+=`💵 *Total: ${fmt(c.totalFinal)} MXN*\n\n`;
+      let emailCliente=document.getElementById('cli-email')?.value||cfgEmail;
+      texto+=`📧 Te enviamos un correo de confirmación a *${emailCliente}*.\n\n`;
+      texto+=`Por favor confírmanos:\n`;
+      texto+=`   ✔ ¿Recibiste el correo de confirmación?\n`;
+      texto+=`   ✔ ¿Los datos de tu reserva son correctos?\n\n`;
+      texto+=`📞 ${cfgTel}${agente?'\n👤 '+agente:''}`;
+    } else if(_tono==='amigable'){
+      texto=`¡Hola ${nombre}! 😊🎉\n\n`;
+      texto+=`¡Tu reservación en *${cfgHotel}* está confirmada! 🏖️\n\n`;
+      if(numRes)texto+=`📌 *Número de reserva: ${numRes}*\n\n`;
+      texto+=`📅 *Fechas:* ${fmtD(c.fi)} al ${fmtD(c.fo)} (${c.n} noche${c.n>1?'s':''})\n`;
+      texto+=`🛏️ *Habitación:* ${habLabel} × ${c.numHabs}${c.upg>0?' (con upgrade)':''}\n`;
+      texto+=`📋 *Plan:* ${planLabel}\n\n`;
+      texto+=`👥 *Huéspedes:*\n${habResDesc}\n\n`;
+      texto+=`💵 *Total reservado: ${fmt(c.totalFinal)} MXN*\n`;
+      texto+=`   (${c.n} noches · ${c.numHabs} hab. · incluye impuestos)\n\n`;
+      if(c.plan==='AI')texto+=`✅ *Incluye:* hospedaje, alimentos buffet, bebidas, actividades y club de playa\n\n`;
+      if(notas)texto+=`📝 *Peticiones especiales registradas:* ${notas}\n\n`;
+      texto+=`📧 Te enviamos un correo de confirmación. Por favor haznos saber:\n`;
+      texto+=`   ✔ ¿Recibiste el correo de confirmación?\n`;
+      texto+=`   ✔ ¿Todos los datos de tu reserva están correctos?\n\n`;
+      texto+=`Si hay algo que corregir, avísanos a la brevedad 😊\n`;
+      texto+=`📞 ${cfgTel}${agente?'\n👤 '+agente:''}`;
+    } else {
+      // Formal reservación
+      texto=`✅ *CONFIRMACIÓN DE RESERVACIÓN — ${cfgHotel.toUpperCase()}*\n`;
+      texto+=`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+      texto+=`Estimado/a *${nombre}*,\n\n`;
+      texto+=`Nos complace confirmar su reservación en *${cfgHotel}*, ${cfgCiudad}. `;
+      texto+=`A continuación encontrará el resumen de su estancia:\n\n`;
+      if(numRes)texto+=`📌 *NÚMERO DE RESERVACIÓN: ${numRes}*\n\n`;
+      texto+=`📅 *FECHAS DE ESTANCIA*\n`;
+      texto+=`   Llegada:   *${fmtD(c.fi)}*\n`;
+      texto+=`   Salida:    *${fmtD(c.fo)}*\n`;
+      texto+=`   Noches:    *${c.n} noche${c.n>1?'s':''}*\n\n`;
+      texto+=`🛏️ *HABITACIÓN Y PLAN*\n`;
+      texto+=`   Tipo:      ${habLabel} × ${c.numHabs} habitación${c.numHabs>1?'es':''}`;
+      if(c.upg>0)texto+=`\n   Upgrade:   +${fmt(c.upg)}/noche`;
+      texto+=`\n   Plan:      *${planLabel}*\n`;
+      texto+=`   Temporada: ${c.temporada}\n\n`;
+      texto+=`👥 *HUÉSPEDES REGISTRADOS*\n${habResDesc}\n\n`;
+      texto+=`💵 *TOTAL DE LA RESERVACIÓN: ${fmt(c.totalFinal)} MXN*\n`;
+      texto+=`   (Incluye impuestos · ${c.n} noches · ${c.numHabs} hab.)\n`;
+      if(ahorroTotal>0)texto+=`   💰 Beneficio aplicado: -${fmt(ahorroTotal)} MXN\n`;
+      texto+=`\n`;
+      if(c.plan==='AI'){
+        texto+=`✅ *SU PLAN TODO INCLUIDO CONTEMPLA:*\n`;
+        texto+=`   • Hospedaje · Desayuno, comida y cena buffet\n`;
+        texto+=`   • Bebidas nacionales con vinos de la casa\n`;
+        texto+=`   • Actividades recreativas · Cancha de tenis\n`;
+        texto+=`   • Alberca Solarium (mayores de 21 años) · Club de playa\n\n`;
+      }
+      if(notas)texto+=`📝 *PETICIONES ESPECIALES REGISTRADAS:*\n   ${notas}\n\n`;
+      texto+=`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+      texto+=`📧 *CONFIRMACIÓN DE RECEPCIÓN*\n\n`;
+      texto+=`Hemos enviado un correo de confirmación con los detalles de su reservación. `;
+      texto+=`Le pedimos amablemente confirmar los siguientes puntos:\n\n`;
+      texto+=`   ✔ ¿Recibió el correo de confirmación de su reservación?\n`;
+      texto+=`   ✔ ¿Los datos de huéspedes, fechas y habitación son correctos?\n`;
+      texto+=`   ✔ ¿Las peticiones especiales quedaron registradas correctamente?\n\n`;
+      texto+=`En caso de requerir algún ajuste, comuníquese con nosotros a la brevedad `;
+      texto+=`para realizar las correcciones antes de su llegada.\n\n`;
+      texto+=`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+      texto+=`📞 ${cfgTel}\n`;
+      if(cfgEmail)texto+=`📧 ${cfgEmail}\n`;
+      if(cfgWa)texto+=`💬 WhatsApp: +${cfgWa}\n`;
+      if(agente)texto+=`👤 ${agente}\n`;
+      texto+=`\n_${cfgCierre}_`;
+    }
   }
 
   // ── Renderizar en el DOM ──────────────────────────────────────
