@@ -539,7 +539,13 @@ body.dark .topbar-agente input:focus{border-color:#0d2535;background:rgba(0,0,0,
 <!-- ═══════════════ CLIENTE ═══════════════ -->
 <div id="panel-cliente" class="panel">
 <div class="card">
-  <div class="sec">Datos del cliente</div>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+    <div class="sec" style="margin-bottom:0">Datos del cliente</div>
+    <button onclick="limpiarDatosCliente()" style="display:flex;align-items:center;gap:6px;padding:6px 14px;border-radius:8px;border:1.5px solid #f5b4b4;background:#fde8e8;color:#b91c1c;font-size:12px;font-weight:700;cursor:pointer">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+      Limpiar datos
+    </button>
+  </div>
 
   <!-- Fila 1: Nombre + Teléfono + # Reserva -->
   <div class="grid3" style="margin-bottom:12px">
@@ -1803,11 +1809,9 @@ function abrirModal(){
   let fi=document.getElementById('fecha-in').value;
   let fo=document.getElementById('fecha-out').value;
   let plan=document.getElementById('plan').value;
-  let desc=document.getElementById('desc-tipo').value;
-  let descVal=document.getElementById('desc-valor').value;
   let numHabs=habitaciones.length;
 
-  // Resumen de huespedes por habitacion
+  // Resumen de huéspedes por habitación
   let huespedesDesc=habitaciones.map(function(h,i){
     var ad=h.adultos||1,ado=h.adolescentes||0,men=h.menoresCount||0;
     var partes=[ad+' adulto'+(ad>1?'s':'')];
@@ -1822,29 +1826,28 @@ function abrirModal(){
   checks.push('✅ Habitaciones: <strong>'+numHabs+'</strong> — '+huespedesDesc);
   checks.push(`✅ Plan: <strong>${plan==='AI'?'Todo Incluido':'Plan Europeo'}</strong>`);
 
-  // Descuento automático AI
-  let autoActivo=document.getElementById('cfg-desc-auto')?.checked!==false;
-  let nochesCount=c?c.n:0;
-  if(c&&c.plan==='AI'&&autoActivo){
-    if(nochesCount===1)checks.push(`🏷️ Descuento automático AI: <strong>10% (1 noche)</strong>`);
-    else if(nochesCount===2)checks.push(`🏷️ Descuento automático AI: <strong>15% (2 noches)</strong>`);
-    else if(nochesCount===3)checks.push(`🏷️ Descuento automático AI: <strong>20% (3 noches)</strong>`);
-    else if(nochesCount>=4)checks.push(`🎁 Descuento automático AI: <strong>Noche gratis incluida (4+ noches)</strong>`);
+  // Descuentos automáticos (leer del control inline)
+  let autoActivo=document.getElementById('cot-desc-auto-chk')?.checked!==false;
+  let nochesCount=c.n||0;
+  if(c.plan==='AI'&&autoActivo){
+    if(nochesCount===1)       checks.push(`🏷️ Promociones 2026: <strong>10% (1 noche)</strong>`);
+    else if(nochesCount===2)  checks.push(`🏷️ Promociones 2026: <strong>15% (2 noches)</strong>`);
+    else if(nochesCount===3)  checks.push(`🏷️ Promociones 2026: <strong>20% (3 noches)</strong>`);
+    else if(nochesCount>=4)   checks.push(`🎁 Promociones 2026: <strong>Noche gratis incluida (${nochesCount} noches)</strong>`);
   }
-  // Promo eventual o descuento manual
-  let promoActMsg=document.getElementById('promo-eventual-activa')?.checked;
-  let promoNom=document.getElementById('promo-nombre')?.value;
-  if(promoActMsg&&promoNom){
+
+  // Promo eventual (leer del control inline)
+  let promoActiva=document.getElementById('cot-promo-chk')?.checked;
+  let promoNom=document.getElementById('cot-promo-nombre')?.value||document.getElementById('promo-nombre')?.value||'';
+  if(promoActiva&&promoNom){
     checks.push(`🎁 Promoción eventual activa: <strong>${promoNom}</strong> — ¿confirmado?`);
-  } else if(desc!=='ninguno'&&parseFloat(descVal)>0){
-    let descLabel={pct_desc:'Descuento adicional '+descVal+'%',monto_desc:'Descuento adicional '+fmt(descVal)+'/noche',pct_inc:'Incremento '+descVal+'%',monto_inc:'Incremento '+fmt(descVal)+'/noche'}[desc];
-    checks.push(`🏷️ Ajuste manual: <strong>${descLabel}</strong> — ¿confirmado?`);
+  } else if(promoActiva){
+    checks.push(`🎁 Promoción eventual activa — ¿confirmado?`);
   }
 
-  let t0=getTarifa(fi);
-  if(t0&&t0.promo&&plan==='AI') checks.push(`🎁 Promoción vigente: <strong>${t0.promo}</strong>`);
+  checks.push(`💰 Total estimado: <strong>${fmt(c.totalFinal)} MXN</strong>`);
 
-  document.getElementById('modal-checklist').innerHTML=checks.map(c=>`<li>${c}</li>`).join('');
+  document.getElementById('modal-checklist').innerHTML=checks.map(ch=>`<li>${ch}</li>`).join('');
   document.getElementById('modal-overlay').classList.add('active');
 }
 
@@ -2929,6 +2932,19 @@ window.toggleDescAuto = function(el) {
   let cotChk = document.getElementById('cot-desc-auto-chk');
   if (cotChk && el) cotChk.checked = el.checked;
 };
+
+function limpiarDatosCliente() {
+  confirmarAccion('¿Limpiar todos los datos del cliente? Esto no afecta la cotización actual.', () => {
+    const campos = ['cli-nombre','cli-tel','cli-num-reserva','cli-email',
+      'cli-tipo-oferta','cli-direccion','cli-pais','cli-estado','cli-ciudad',
+      'cli-notas','cli-agente'];
+    campos.forEach(id => { let el=document.getElementById(id); if(el) el.value=''; });
+    let canal=document.getElementById('cli-canal'); if(canal) canal.selectedIndex=0;
+    let factNo=document.getElementById('cli-factura-no'); if(factNo) factNo.checked=true;
+    let fecha=document.getElementById('cli-fecha-contacto'); if(fecha) fecha.value='';
+    histMsg('🗑 Datos del cliente limpiados');
+  }, 'Limpiar');
+}
 
 function eliminarRegistro(id) {
   confirmarAccion('¿Eliminar este registro?', () => {
