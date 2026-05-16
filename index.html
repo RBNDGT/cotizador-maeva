@@ -1312,17 +1312,27 @@ function calcular(){
   if(promoActiva && _promoCapas.length>0){
     let result=aplicarPromoStack(nochesDet, totalFinal);
     promoStackDesc=result.descuentoTotal;
+    let descPorCapa=result.descPorCapa||[];
     totalFinal-=promoStackDesc;
-    // Construir descripción de capas para el desglose
+
+    // Subtotal antes de promo (para mostrar en desglose)
+    let subtotalAntePromo=totalFinal+promoStackDesc;
+
+    // Construir detalle de capas con montos reales
     _promoCapas.forEach((capa,ci)=>{
-      let desc='';
-      if(capa.tipo==='pct_todas')       desc=`Capa ${ci+1}: -${capa.val}% todas las noches (base: ${capa.base==='original'?'precio original':'precio descontado'})`;
-      else if(capa.tipo==='pct_noches') desc=`Capa ${ci+1}: -${capa.val}% noches ${(capa.noches||[]).map(n=>'N'+n).join(',')} (base: ${capa.base==='original'?'precio original':'precio descontado'})`;
-      else if(capa.tipo==='monto_noche')desc=`Capa ${ci+1}: -${fmt(capa.val)}/noche`;
-      else if(capa.tipo==='monto_total')desc=`Capa ${ci+1}: -${fmt(capa.val)} al total`;
-      else if(capa.tipo==='noche_gratis')desc=`Capa ${ci+1}: noche gratis (menor valor, base: ${capa.base==='original'?'precio original':'precio descontado'})`;
-      promoStackDetalle.push(desc);
+      let tipoLabel='';
+      if(capa.tipo==='pct_todas')       tipoLabel=`-${capa.val}% todas las noches`;
+      else if(capa.tipo==='pct_noches') tipoLabel=`-${capa.val}% noches ${(capa.noches||[]).map(n=>'N'+n).join(', ')}`;
+      else if(capa.tipo==='monto_noche')tipoLabel=`-${fmt(capa.val)}/noche`;
+      else if(capa.tipo==='monto_total')tipoLabel=`-${fmt(capa.val)} al total`;
+      else if(capa.tipo==='noche_gratis')tipoLabel=`Noche gratis (menor valor)`;
+      let baseLabel=capa.base==='original'?'sobre precio original':'sobre precio descontado';
+      let montoDesc=descPorCapa[ci]||0;
+      promoStackDetalle.push({label:tipoLabel, base:baseLabel, monto:montoDesc});
     });
+
+    // Guardar subtotalAntePromo para el desglose visual
+    window._promoSubtotalAntes=subtotalAntePromo;
     document.getElementById('total-valor').textContent=fmt(totalFinal);
   }
 
@@ -1355,16 +1365,39 @@ if(hab==='MASTER_SUITE'&&_msHasMenores){
     document.getElementById('total-valor').textContent=fmt(totalFinal);
   }
 
-  // Mostrar capas de promo stack en desglose
+  // Mostrar capas de promo stack en desglose con precio antes/después
   if(promoActiva && promoStackDesc>0){
     let ngEl=document.getElementById('desglose');
-    ngEl.innerHTML+=`<div style="border-top:1px dashed var(--dorado);margin-top:6px;padding-top:6px">
-      <div style="font-size:11px;font-weight:700;color:var(--dorado-dark);margin-bottom:4px">
-        🎁 ${promoNombre||'Promoción eventual'} — Capas aplicadas:
+    let subtotalAntes=window._promoSubtotalAntes||0;
+    let acumulado=subtotalAntes;
+
+    let capasHtml=promoStackDetalle.map((det,ci)=>{
+      let despues=acumulado-(det.monto||0);
+      let html=`<div style="margin-bottom:6px;padding:6px 8px;background:rgba(245,166,35,.07);border-radius:6px;border-left:2px solid var(--dorado)">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:3px">
+          <span style="font-size:11px;font-weight:700;color:var(--dorado-dark)">Capa ${ci+1}: ${det.label}</span>
+          <span style="font-size:12px;font-weight:700;color:#b91c1c">-${fmt(det.monto)}</span>
+        </div>
+        <div style="font-size:10px;color:var(--texto-suave);margin-bottom:2px">${det.base}</div>
+        <div style="display:flex;justify-content:space-between;font-size:11px;margin-top:4px;padding-top:4px;border-top:1px dashed rgba(245,166,35,.3)">
+          <span style="color:var(--texto-suave)">Antes: <span style="text-decoration:line-through">${fmt(acumulado)}</span></span>
+          <span style="color:#1A7A3F;font-weight:700">Después: ${fmt(despues)}</span>
+        </div>
+      </div>`;
+      acumulado=despues;
+      return html;
+    }).join('');
+
+    ngEl.innerHTML+=`<div style="border-top:2px solid var(--dorado);margin-top:10px;padding-top:10px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <span style="font-size:12px;font-weight:700;color:var(--dorado-dark)">🎁 ${promoNombre||'Promoción eventual'}</span>
+        <span style="font-size:10px;color:var(--texto-suave)">${_promoCapas.length} capa${_promoCapas.length>1?'s':''}</span>
       </div>
-      ${promoStackDetalle.map(d=>`<div class="desglose-row" style="color:var(--dorado-dark);font-size:11px"><span>${d}</span></div>`).join('')}
-      <div class="desglose-row" style="color:var(--dorado-dark);font-weight:700;padding-top:4px;border-top:1px solid var(--dorado)">
-        <span>Total descuento promo</span><span>-${fmt(promoStackDesc)}</span>
+      <div style="font-size:11px;color:var(--texto-suave);margin-bottom:8px">Subtotal antes de promo: <strong style="color:var(--texto)">${fmt(subtotalAntes)}</strong></div>
+      ${capasHtml}
+      <div class="desglose-row" style="color:#1A7A3F;font-weight:700;font-size:13px;padding:8px 0;border-top:2px solid var(--dorado);margin-top:4px">
+        <span>💰 Ahorro total de promoción</span>
+        <span>-${fmt(promoStackDesc)}</span>
       </div>
     </div>`;
     document.getElementById('total-valor').textContent=fmt(totalFinal);
@@ -3283,39 +3316,35 @@ function toggleNocheCapaPromo(idx, noche, activa) {
 
 // ── APLICAR STACK EN CALCULAR ─────────────────────────────────
 function aplicarPromoStack(nochesDet, totalBaseConUpg) {
-  // Clona los totales base noche a noche para trackear el precio "acumulado"
-  let preciosNoche = nochesDet.map(nd => nd.base + (nd.ajuste||0)); // base ya con desc auto si aplica
-
+  let preciosNoche = nochesDet.map(nd => nd.base + (nd.ajuste||0));
   let descuentoTotal = 0;
   let nocheGratisStack = false;
+  let descPorCapa = []; // monto descontado por cada capa
 
   _promoCapas.forEach((capa, ci) => {
+    let descCapa = 0;
     if (capa.tipo === 'noche_gratis') {
-      // Noche de menor valor del precio actual
       let minVal = Infinity, minIdx = -1;
       preciosNoche.forEach((p,i)=>{ if(!nochesDet[i].gratis && p < minVal){ minVal=p; minIdx=i; } });
       if (minIdx >= 0) {
-        let desc = capa.base === 'original'
-          ? nochesDet[minIdx].base
-          : preciosNoche[minIdx];
-        descuentoTotal += desc;
-        preciosNoche[minIdx] = capa.base === 'acumulado' ? 0 : preciosNoche[minIdx] - desc;
+        descCapa = capa.base === 'original' ? nochesDet[minIdx].base : preciosNoche[minIdx];
+        preciosNoche[minIdx] = capa.base === 'acumulado' ? 0 : preciosNoche[minIdx] - descCapa;
         nocheGratisStack = true;
       }
     } else if (capa.tipo === 'monto_total') {
-      descuentoTotal += capa.val || 0;
+      descCapa = capa.val || 0;
     } else if (capa.tipo === 'pct_todas') {
       nochesDet.forEach((nd, i) => {
         if (nd.gratis) return;
         let base = capa.base === 'original' ? nd.base : preciosNoche[i];
-        let desc = base * (capa.val / 100);
-        descuentoTotal += desc;
-        preciosNoche[i] -= desc;
+        let d = base * (capa.val / 100);
+        descCapa += d;
+        preciosNoche[i] -= d;
       });
     } else if (capa.tipo === 'monto_noche') {
       nochesDet.forEach((nd, i) => {
         if (nd.gratis) return;
-        descuentoTotal += capa.val || 0;
+        descCapa += capa.val || 0;
         preciosNoche[i] -= capa.val || 0;
       });
     } else if (capa.tipo === 'pct_noches') {
@@ -3323,14 +3352,16 @@ function aplicarPromoStack(nochesDet, totalBaseConUpg) {
         let i = n - 1;
         if (i < 0 || i >= nochesDet.length || nochesDet[i].gratis) return;
         let base = capa.base === 'original' ? nochesDet[i].base : preciosNoche[i];
-        let desc = base * (capa.val / 100);
-        descuentoTotal += desc;
-        preciosNoche[i] -= desc;
+        let d = base * (capa.val / 100);
+        descCapa += d;
+        preciosNoche[i] -= d;
       });
     }
+    descuentoTotal += descCapa;
+    descPorCapa.push(descCapa);
   });
 
-  return { descuentoTotal, preciosNoche, nocheGratisStack };
+  return { descuentoTotal, preciosNoche, nocheGratisStack, descPorCapa };
 }
 
 function sincPromoDesde(origen) {
