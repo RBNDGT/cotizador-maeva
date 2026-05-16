@@ -74,8 +74,9 @@ textarea{resize:vertical;min-height:70px}
 .desglose-sub{font-size:11px;color:var(--texto-suave)}
 .total-box{background:linear-gradient(135deg,var(--azul) 0%,var(--azul-dark) 100%);border-radius:10px;padding:1rem 1.25rem;margin-top:12px;color:var(--blanco)}
 .total-label{font-size:11px;opacity:.85;margin-bottom:2px}
-.total-value{font-size:26px;font-weight:700;letter-spacing:-.02em}
+.total-value{font-size:26px;font-weight:800;letter-spacing:-.02em}
 .total-sub-txt{font-size:12px;opacity:.8;margin-top:2px}
+#total-sin-desc{color:rgba(255,255,255,.65)}
 #resumen-output{background:var(--gris-bg);border:1.5px solid var(--gris-borde);border-radius:10px;padding:1rem;font-size:13px;line-height:1.8;white-space:pre-wrap;min-height:120px;font-family:system-ui;color:var(--texto)}
 .tabs{display:flex;gap:6px;margin-bottom:1.25rem;flex-wrap:wrap;background:var(--blanco);padding:6px;border-radius:12px;border:1.5px solid var(--gris-borde);box-shadow:0 1px 4px rgba(0,174,239,.07)}
 .tab{padding:7px 18px;border-radius:8px;font-size:13px;cursor:pointer;border:none;background:transparent;color:var(--texto-suave);font-weight:500;transition:all .15s;font-family:inherit}
@@ -234,6 +235,7 @@ body.dark .div-sep{background:#2d2d2d}
 body.dark .total-box{background:#4dd4ff;color:#0a1a24}
 body.dark .total-label{color:#0a1a24;opacity:.75}
 body.dark .total-sub-txt{color:#0a1a24 !important;opacity:.7}
+body.dark #total-sin-desc{color:rgba(10,26,36,.55)}
 body.dark #notas-resultado{color:#0a1a24}
 
 /* ── Desglose ── */
@@ -500,6 +502,7 @@ body.dark .topbar-agente input:focus{border-color:#0d2535;background:rgba(0,0,0,
     <div id="desglose"></div>
     <div class="total-box">
       <div class="total-label">Total estimado</div>
+      <div id="total-sin-desc" style="display:none;font-size:14px;opacity:.7;text-decoration:line-through;margin-bottom:2px"></div>
       <div id="total-valor" class="total-value"></div>
       <div id="total-sub-txt" class="total-sub-txt" style="font-size:12px;margin-top:2px"></div>
       <div id="notas-resultado" style="margin-top:6px"></div>
@@ -1291,6 +1294,18 @@ function calcular(){
   }).join(' · ');
   let totalPax=habitaciones.reduce((s,h)=>(s+(h.adultos||1)+(h.adolescentes||0)+(h.menoresCount||0)),0);
   document.getElementById('total-sub-txt').textContent=`${n} noche${n>1?'s':''} · ${numHabs} hab. · ${totalPax} persona${totalPax>1?'s':''} · ${habsDesc}`;
+
+  // Precio sin descuento tachado
+  let sinDescEl = document.getElementById('total-sin-desc');
+  let hayDesc = totalBase > 0 && totalFinal < (totalBase + totalUpg);
+  if(sinDescEl){
+    if(hayDesc){
+      sinDescEl.textContent = fmt(totalBase + totalUpg);
+      sinDescEl.style.display = 'block';
+    } else {
+      sinDescEl.style.display = 'none';
+    }
+  }
   document.getElementById('resultado').style.display='block';
 
   // ── Noche gratis para exactamente 4 noches AI ──
