@@ -36,7 +36,28 @@ body{font-family:system-ui,-apple-system,sans-serif;font-size:14px;color:var(--t
 .topbar-agente input{font-size:12px;padding:4px 10px;border:2px solid rgba(255,255,255,.6);border-radius:6px;background:rgba(255,255,255,.25);color:#fff;width:170px;outline:none;font-weight:600;text-shadow:0 1px 2px rgba(0,0,0,.2)}
 .topbar-agente input::placeholder{color:rgba(255,255,255,.6);font-weight:400}
 .topbar-agente input:focus{border-color:#fff;background:rgba(255,255,255,.35)}
-.container{max-width:920px;margin:0 auto;padding:1.25rem 1rem 2rem}
+.container{max-width:1100px;margin:0 auto;padding:1.25rem 1rem 2rem}
+/* ── BOTONES FLOTANTES ─────────────────────────────────────── */
+.fab-wrap{position:fixed;bottom:80px;z-index:800;display:flex;flex-direction:column;gap:10px}
+.fab-wrap.fab-left{left:max(14px,calc(50vw - 730px))}
+.fab-wrap.fab-right{right:max(14px,calc(50vw - 730px));display:none}
+.fab{display:flex;flex-direction:row;align-items:center;gap:9px;padding:13px 22px;border-radius:50px;border:2px solid transparent;cursor:pointer;font-size:13px;font-weight:700;letter-spacing:.02em;white-space:nowrap;transition:transform .15s,box-shadow .15s;box-shadow:0 4px 18px rgba(0,0,0,.22)}
+.fab:hover{transform:translateY(-3px);box-shadow:0 8px 28px rgba(0,0,0,.3)}
+.fab:active{transform:translateY(0) scale(.97)}
+.fab-guardar{background:var(--azul);color:#fff;border-color:rgba(255,255,255,.25)}
+.fab-nueva{background:#F5A623;color:#fff;border-color:rgba(255,255,255,.2)}
+body.dark .fab-guardar{background:#4dd4ff;color:#0a1a24;border-color:rgba(0,0,0,.2)}
+body.dark .fab-nueva{background:#F5A623;color:#fff;border-color:rgba(255,255,255,.15)}
+/* Cuando no hay espacio lateral (ventana ≤ 1500px): barra inferior centrada */
+@media(max-width:1500px){
+  .fab-wrap.fab-left{
+    bottom:18px;
+    left:50%;
+    transform:translateX(-50%);
+    flex-direction:row;
+    gap:10px
+  }
+}
 h2{font-size:15px;font-weight:600;margin-bottom:.75rem}
 label{font-size:12px;color:var(--texto-suave);display:block;margin-bottom:3px;font-weight:500}
 input,select,textarea{width:100%;font-size:13px;padding:7px 10px;border:1.5px solid var(--gris-borde);border-radius:8px;background:var(--blanco);color:var(--texto);font-family:inherit;transition:border-color .15s}
@@ -78,8 +99,9 @@ textarea{resize:vertical;min-height:70px}
 .total-sub-txt{font-size:12px;opacity:.8;margin-top:2px}
 #total-sin-desc{color:rgba(255,255,255,.65)}
 #resumen-output{background:var(--gris-bg);border:1.5px solid var(--gris-borde);border-radius:10px;padding:1rem;font-size:13px;line-height:1.8;white-space:pre-wrap;min-height:120px;font-family:system-ui;color:var(--texto)}
-.tabs{display:flex;gap:6px;margin-bottom:1.25rem;flex-wrap:wrap;background:var(--blanco);padding:6px;border-radius:12px;border:1.5px solid var(--gris-borde);box-shadow:0 1px 4px rgba(0,174,239,.07)}
-.tab{padding:7px 18px;border-radius:8px;font-size:13px;cursor:pointer;border:none;background:transparent;color:var(--texto-suave);font-weight:500;transition:all .15s;font-family:inherit}
+.tabs{display:flex;gap:4px;margin-bottom:1.25rem;flex-wrap:nowrap;background:var(--blanco);padding:6px;border-radius:12px;border:1.5px solid var(--gris-borde);box-shadow:0 1px 4px rgba(0,174,239,.07)}
+.tabs::-webkit-scrollbar{display:none}
+.tab{flex:1;padding:8px 6px;border-radius:8px;font-size:12px;cursor:pointer;border:none;background:transparent;color:var(--texto-suave);font-weight:500;transition:all .15s;font-family:inherit;white-space:nowrap;text-align:center;display:flex;align-items:center;justify-content:center;gap:5px}
 .tab:hover{background:var(--azul-light);color:var(--azul-dark)}
 .tab.active{background:var(--azul);color:var(--blanco);font-weight:600;box-shadow:0 2px 8px rgba(0,174,239,.3)}
 .panel{display:none}.panel.active{display:block}
@@ -840,6 +862,65 @@ body.dark .topbar-agente input:focus{border-color:#0d2535;background:rgba(0,0,0,
 </div><!-- /panel-historial -->
 
 </div><!-- /container -->
+
+<!-- ── BOTONES FLOTANTES ─────────────────────────────────────── -->
+<!-- Lado izquierdo: Guardar -->
+<div class="fab-wrap fab-left">
+  <button class="fab fab-guardar" onclick="fabGuardar()" title="Guardar en historial">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+      <polyline points="17 21 17 13 7 13 7 21"/>
+      <polyline points="7 3 7 8 15 8"/>
+    </svg>
+    Guardar
+  </button>
+  <button class="fab fab-nueva" onclick="fabNuevaCotizacion()" title="Nueva cotización">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="1 4 1 10 7 10"/>
+      <path d="M3.51 15a9 9 0 1 0 .49-3.5"/>
+    </svg>
+    Nueva
+  </button>
+</div>
+
+<!-- Modal de validación para guardar -->
+<div id="modal-fab-guardar" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9998;align-items:center;justify-content:center;padding:16px">
+  <div id="modal-fab-inner" style="background:#fff;border-radius:14px;box-shadow:0 8px 40px rgba(0,0,0,.3);max-width:480px;width:100%;padding:24px">
+    <!-- Modo: faltan datos -->
+    <div id="fab-modo-faltan">
+      <div style="font-size:16px;font-weight:700;margin-bottom:10px;color:#b91c1c">⚠️ Faltan datos</div>
+      <div id="fab-faltan-lista" style="font-size:13px;line-height:1.8;margin-bottom:16px;color:#374151"></div>
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button onclick="cerrarFabModal()" style="padding:8px 18px;border-radius:8px;border:1.5px solid #d1d5db;background:#f3f4f6;color:#374151;cursor:pointer;font-size:13px;font-weight:600">Cancelar</button>
+        <button id="fab-ir-btn" style="padding:8px 20px;border-radius:8px;border:none;background:var(--azul);color:#fff;font-weight:700;cursor:pointer;font-size:13px">Ir a completar datos</button>
+      </div>
+    </div>
+    <!-- Modo: todo OK, seleccionar tipo -->
+    <div id="fab-modo-ok" style="display:none">
+      <div style="font-size:16px;font-weight:700;margin-bottom:6px;color:var(--azul)">💾 Guardar en historial</div>
+      <div style="font-size:12px;color:#6b7280;margin-bottom:16px">¿Con qué estado deseas guardar esta cotización?</div>
+      <div style="display:flex;gap:10px;margin-bottom:14px">
+        <button id="fab-tipo-cot" onclick="selFabTipo('cotizacion')"
+          style="flex:1;padding:12px;border-radius:10px;border:2px solid var(--azul);background:var(--azul);color:#fff;font-weight:700;cursor:pointer;font-size:13px">
+          📄 Cotización
+        </button>
+        <button id="fab-tipo-res" onclick="selFabTipo('reservacion')"
+          style="flex:1;padding:12px;border-radius:10px;border:2px solid #d1d5db;background:#fff;color:#374151;font-weight:700;cursor:pointer;font-size:13px">
+          ✅ Reservación
+        </button>
+      </div>
+      <div style="margin-bottom:14px">
+        <label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px">Nota / referencia (opcional)</label>
+        <input type="text" id="fab-nota" placeholder="Canal, referencia, comentario…"
+          style="width:100%;padding:8px 10px;border-radius:8px;border:1.5px solid #d1d5db;font-size:13px">
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button onclick="cerrarFabModal()" style="padding:8px 18px;border-radius:8px;border:1.5px solid #d1d5db;background:#f3f4f6;color:#374151;cursor:pointer;font-size:13px;font-weight:600">Cancelar</button>
+        <button onclick="confirmarFabGuardar()" style="padding:8px 22px;border-radius:8px;border:none;background:var(--azul);color:#fff;font-weight:700;cursor:pointer;font-size:13px">💾 Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 
 <script>
@@ -3185,8 +3266,154 @@ function cambiarTipoRegistro(id, nuevoTipo) {
   if (reg) { reg.tipo = nuevoTipo; lsGuardar(arr); renderHistorial(); }
 }
 
+// ── BOTONES FLOTANTES ─────────────────────────────────────────
+let _fabTipo = 'cotizacion';
+let _fabIrTab = 'cotizar';
+
+function fabGuardar() {
+  let c = window._cot;
+  let faltanItems = [];
+  let irTab = 'cotizar';
+
+  // Validar cotización
+  if (!c) {
+    faltanItems.push('• Genera la cotización primero (selecciona fechas y habitaciones)');
+  } else {
+    if (!document.getElementById('fecha-in').value) faltanItems.push('• Fecha de llegada');
+    if (!document.getElementById('fecha-out').value) faltanItems.push('• Fecha de salida');
+  }
+
+  // Validar datos del cliente
+  let nombre = document.getElementById('cli-nombre')?.value?.trim();
+  if (!nombre) {
+    faltanItems.push('• Nombre del cliente (pestaña Datos del cliente)');
+    irTab = 'cliente';
+  }
+
+  let isDark = document.body.classList.contains('dark');
+  let inner = document.getElementById('modal-fab-inner');
+  // Apply theme colors
+  inner.style.background = isDark ? '#1a2e3d' : '#ffffff';
+  inner.style.color       = isDark ? '#e8f4fb' : '#1a1a2e';
+  // Style cancel buttons
+  inner.querySelectorAll('button[onclick="cerrarFabModal()"]').forEach(btn => {
+    btn.style.background   = isDark ? '#0d2535' : '#f3f4f6';
+    btn.style.color        = isDark ? '#a8cfe0' : '#374151';
+    btn.style.borderColor  = isDark ? '#2d5a7a' : '#d1d5db';
+  });
+  // Style labels/text inside
+  inner.querySelectorAll('label, p, div').forEach(el => {
+    if (!el.style.color) el.style.color = isDark ? '#e8f4fb' : '';
+  });
+
+  if (faltanItems.length > 0) {
+    _fabIrTab = irTab;
+    document.getElementById('fab-modo-faltan').style.display = 'block';
+    document.getElementById('fab-modo-ok').style.display = 'none';
+    document.getElementById('fab-faltan-lista').style.color = isDark ? '#e8f4fb' : '#374151';
+    document.getElementById('fab-faltan-lista').innerHTML =
+      `<p style="margin-bottom:8px;color:${isDark?'#a8cfe0':'#6b7280'}">Para guardar en el historial se necesita:</p>` +
+      faltanItems.map(f => `<div style="padding:3px 0;color:${isDark?'#e8f4fb':'#374151'}">${f}</div>`).join('');
+    document.getElementById('fab-ir-btn').style.background = 'var(--azul)';
+    document.getElementById('fab-ir-btn').style.color = isDark ? '#0a1a24' : '#fff';
+    document.getElementById('fab-ir-btn').onclick = () => {
+      cerrarFabModal();
+      switchTab(_fabIrTab);
+    };
+    document.getElementById('modal-fab-guardar').style.display = 'flex';
+  } else {
+    _fabTipo = 'cotizacion';
+    document.getElementById('fab-modo-faltan').style.display = 'none';
+    document.getElementById('fab-modo-ok').style.display = 'block';
+    document.getElementById('fab-nota').value = '';
+    document.getElementById('fab-nota').style.background  = isDark ? '#0d2535' : '#fff';
+    document.getElementById('fab-nota').style.color       = isDark ? '#e8f4fb' : '#1a1a2e';
+    document.getElementById('fab-nota').style.borderColor = isDark ? '#2d5a7a' : '#d1d5db';
+    // Subtitle text
+    let sub = document.querySelector('#fab-modo-ok > div:nth-child(2)');
+    if (sub) sub.style.color = isDark ? '#a8cfe0' : '#6b7280';
+    selFabTipo('cotizacion');
+    document.getElementById('modal-fab-guardar').style.display = 'flex';
+  }
+}
+
+function selFabTipo(tipo) {
+  _fabTipo = tipo;
+  let btnCot = document.getElementById('fab-tipo-cot');
+  let btnRes = document.getElementById('fab-tipo-res');
+  let isDark = document.body.classList.contains('dark');
+  let bgInactivo = isDark ? '#0d2535' : '#fff';
+  let colorInactivo = isDark ? '#a8cfe0' : '#374151';
+  btnCot.style.background = tipo === 'cotizacion' ? 'var(--azul)' : bgInactivo;
+  btnCot.style.color = tipo === 'cotizacion' ? '#fff' : colorInactivo;
+  btnCot.style.borderColor = tipo === 'cotizacion' ? 'var(--azul)' : '#d1d5db';
+  btnRes.style.background = tipo === 'reservacion' ? '#1a7a3a' : bgInactivo;
+  btnRes.style.color = tipo === 'reservacion' ? '#fff' : colorInactivo;
+  btnRes.style.borderColor = tipo === 'reservacion' ? '#1a7a3a' : '#d1d5db';
+}
+
+function confirmarFabGuardar() {
+  // Sincronizar tipo y nota al select del historial y guardar
+  let tipoSel = document.getElementById('hist-save-tipo');
+  let notaSel = document.getElementById('hist-save-nota');
+  if (tipoSel) tipoSel.value = _fabTipo;
+  if (notaSel) notaSel.value = document.getElementById('fab-nota').value;
+  cerrarFabModal();
+  guardarEnHistorial();
+  // Navegar al historial
+  setTimeout(() => switchTab('historial'), 200);
+}
+
+function cerrarFabModal() {
+  document.getElementById('modal-fab-guardar').style.display = 'none';
+}
+
+function fabNuevaCotizacion() {
+  confirmarAccion(
+    '¿Iniciar una nueva cotización? Se borrarán los datos actuales de habitaciones y cliente.',
+    () => {
+      // Reset habitaciones de forma segura
+      habitaciones = [{tipo:'ESTANDAR',upgrade:0,adultos:1,adolescentes:0,adolescentesEdades:[],menoresCount:0,menoresEdades:[],id:Date.now()}];
+      // Reset promo stack
+      _promoCapas = [{id:Date.now(),tipo:'pct_todas',base:'original',val:0,noches:[]}];
+      window._cot = null;
+      window._promoSubtotalAntes = 0;
+      // Reset fechas primero (antes de calcular)
+      let fechaIn = document.getElementById('fecha-in');
+      let fechaOut = document.getElementById('fecha-out');
+      if (fechaIn) fechaIn.value = '';
+      if (fechaOut) fechaOut.value = '';
+      // Render habitaciones y calcular con fechas vacías (early return seguro)
+      renderHabs();
+      calcular();
+      // Limpiar cliente
+      ['cli-nombre','cli-tel','cli-num-reserva','cli-email','cli-tipo-oferta',
+       'cli-direccion','cli-pais','cli-estado','cli-ciudad','cli-notas','cli-agente']
+        .forEach(id => { let el=document.getElementById(id); if(el) el.value=''; });
+      document.querySelectorAll('.cli-hab-nombre,.cli-hab-tel,.cli-hab-email,.cli-hab-num-reserva')
+        .forEach(el => el.value='');
+      let factNo = document.getElementById('cli-factura-no');
+      if (factNo) factNo.checked = true;
+      let canal = document.getElementById('cli-canal');
+      if (canal) canal.selectedIndex = 0;
+      // Reset promo UI
+      let promoChk = document.getElementById('cot-promo-chk');
+      if (promoChk) { promoChk.checked = false; sincPromoDesde('cot'); }
+      let descAutoChk = document.getElementById('cot-desc-auto-chk');
+      if (descAutoChk) descAutoChk.checked = true;
+      // Ir a cotizar
+      switchTab('cotizar');
+    },
+    'Nueva cotización'
+  );
+}
+
+// Cerrar modal fab al hacer click fuera
+document.getElementById('modal-fab-guardar').addEventListener('click', function(e) {
+  if (e.target === this) cerrarFabModal();
+});
+
 function seleccionarModoPromo(modo) {
-  const btnAuto     = document.getElementById('cot-btn-auto');
   const btnEventual = document.getElementById('cot-btn-eventual');
   const panelAuto   = document.getElementById('cot-panel-auto');
   const panelEvent  = document.getElementById('cot-panel-eventual');
