@@ -2747,20 +2747,31 @@ function exportarPDF(){
   const habsRows = (c.habitaciones||[]).map((h,i)=>{
     const ad=h.adultos||1, ado=h.adolescentes||0, men=h.menoresCount||0;
     const adoEdades=h.adolescentesEdades||[];
-    const edades=h.menoresEdades||[];
-    let pax=`${ad} adulto${ad>1?'s':''}`;
+    const menEdades=h.menoresEdades||[];
+    const paxLines=[`${ad} adulto${ad>1?'s':''}`];
     if(ado){
       if(adoEdades.some(e=>e!=='')){
-        adoEdades.forEach((e,ai)=>{ pax+=`, Adol. ${ai+1}: ${e===''?'edad ?':e+' año'+((parseInt(e)||0)===1?'':'s')}`; });
+        adoEdades.forEach((e,ai)=>{ paxLines.push(`Adol. ${ai+1}: ${e===''?'edad ?':e+' año'+((parseInt(e)||0)===1?'':'s')} (13-17)`); });
       } else {
-        pax+=`, ${ado} adolescente${ado>1?'s':''} (13-17 años)`;
+        paxLines.push(`${ado} adolescente${ado>1?'s':''} (13-17 años)`);
       }
     }
     if(men){
-      edades.forEach((e,mi)=>{ pax+=`, Menor ${mi+1}: ${e===''?'edad ?':e+' año'+((parseInt(e)||0)===1?'':'s')}`; });
+      const mcHab = clasifMenores(menEdades, h.tipo, ad, ado);
+      menEdades.forEach((e,mi)=>{
+        const edadLabel = e===''?'edad ?':e+' año'+((parseInt(e)||0)===1?'':'s');
+        const mc = mcHab[mi];
+        let tipoLabel='', tipoColor='#222';
+        if(mc){
+          if(mc.tipo==='gratis'){tipoLabel=' — Gratis';tipoColor='#1a7a3a';}
+          else if(mc.tipo==='612'){tipoLabel=' — Tarifa niño (6-12)';tipoColor='#856404';}
+          else{tipoLabel=' — Extra';tipoColor='#b91c1c';}
+        }
+        paxLines.push(`<span>Menor ${mi+1}: <strong>${edadLabel}</strong><span style="color:${tipoColor};font-size:10px">${tipoLabel}</span></span>`);
+      });
     }
     const upg=h.upgrade>0?`<span style="color:#b8750a"> + Upgrade +${fmt(h.upgrade)}/noche</span>`:'';
-    return `<tr><td><strong>Hab. ${i+1}</strong></td><td>${HAB_NOM[h.tipo]||h.tipo}${upg}</td><td>${pax}</td></tr>`;
+    return `<tr><td style="vertical-align:top"><strong>Hab. ${i+1}</strong></td><td style="vertical-align:top">${HAB_NOM[h.tipo]||h.tipo}${upg}</td><td style="vertical-align:top;line-height:1.8">${paxLines.join('<br>')}</td></tr>`;
   }).join('');
 
   // ── Desglose noche a noche ─────────────────────────────────────
@@ -4397,15 +4408,48 @@ function _imprimirRegistro(reg) {
   // ── Habitaciones ──
   const habRows = (reg.habitaciones||[]).map((h,i)=>{
     const ad=h.adultos||1, ado=h.adolescentes||0, men=h.menoresCount||0;
-    const edades=(h.menoresEdades&&h.menoresEdades.length)?` (edades: ${h.menoresEdades.join(', ')} años)`:'';
+    const adoEdades=h.adolescentesEdades||[];
+    const menEdades=h.menoresEdades||[];
     const pax=[`${ad} adulto${ad>1?'s':''}`];
-    if(ado>0)pax.push(`${ado} adolescente${ado>1?'s':''}`);
-    if(men>0)pax.push(`${men} menor${men>1?'es':''}${edades}`);
+    // Adolescentes: mostrar edad individual si está disponible
+    if(ado>0){
+      if(adoEdades.some(e=>e!=='')){
+        adoEdades.forEach((e,ai)=>{
+          pax.push(`Adol. ${ai+1}: ${e===''?'edad ?':e+' año'+((parseInt(e)||0)===1?'':'s')} (13-17)`);
+        });
+      } else {
+        pax.push(`${ado} adolescente${ado>1?'s':''} (13-17 años)`);
+      }
+    }
+    // Menores: mostrar cada uno con edad y clasificación
+    if(men>0){
+      const mcHab = clasifMenores(menEdades, h.tipo, ad, ado);
+      menEdades.forEach((e,mi)=>{
+        const edadNum = e==='' ? null : parseInt(e);
+        const edadLabel = e==='' ? 'edad ?' : e+' año'+((parseInt(e)||0)===1?'':'s');
+        const mc = mcHab[mi];
+        let tipoLabel = '';
+        let tipoColor = '#222';
+        if(mc){
+          if(mc.tipo==='gratis'){
+            tipoLabel=' — Gratis';
+            tipoColor='#1a7a3a';
+          } else if(mc.tipo==='612'){
+            tipoLabel=' — Tarifa niño (6-12)';
+            tipoColor='#856404';
+          } else {
+            tipoLabel=' — Extra';
+            tipoColor='#b91c1c';
+          }
+        }
+        pax.push(`<span>Menor ${mi+1}: <strong>${edadLabel}</strong><span style="color:${tipoColor};font-size:10px">${tipoLabel}</span></span>`);
+      });
+    }
     const upg=h.upgrade>0?`<span style="color:#b8750a"> + Upgrade $${fmt(h.upgrade)}/noche</span>`:'';
     return `<tr>
-      <td style="font-weight:600">Hab. ${i+1}</td>
-      <td>${HAB_NOM[h.tipo]||h.tipo}${upg}</td>
-      <td>${pax.join(' · ')}</td>
+      <td style="font-weight:600;vertical-align:top">Hab. ${i+1}</td>
+      <td style="vertical-align:top">${HAB_NOM[h.tipo]||h.tipo}${upg}</td>
+      <td style="vertical-align:top;line-height:1.8">${pax.join('<br>')}</td>
     </tr>`;
   }).join('');
 
