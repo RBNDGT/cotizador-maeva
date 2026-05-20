@@ -1570,9 +1570,11 @@ function calcular(){
       else if(capa.tipo==='noche_gratis')tipoLabel=`Noche gratis (menor valor)`;
       let sobre = capa.aplicaSobre || 'total';
       let sobreLabel = _SOBRE_LABEL[sobre] || sobre;
+      let cantStr = (capa.cantidadItems !== null && capa.cantidadItems !== undefined && sobre !== 'total')
+        ? ` (${capa.cantidadItems} de las existentes)` : '';
       let baseLabel = capa.base==='original'?'precio original':'precio descontado';
       if(sobre !== 'total' && !['monto_total','noche_gratis'].includes(capa.tipo))
-        baseLabel = `sobre ${sobreLabel}`;
+        baseLabel = `sobre ${sobreLabel}${cantStr}`;
       else
         baseLabel = `sobre ${baseLabel}`;
       let montoDesc=descPorCapa[ci]||0;
@@ -3663,16 +3665,17 @@ function sincDescAutoDesde(origen) {
 }
 
 // ── PROMO STACK ───────────────────────────────────────────────
-// Cada capa: { id, tipo, base, val, noches, aplicaSobre }
+// Cada capa: { id, tipo, base, val, noches, aplicaSobre, cantidadItems }
 // tipo: 'pct_todas' | 'pct_noches' | 'monto_noche' | 'noche_gratis' | 'monto_total'
 // base: 'original' | 'acumulado'
 // aplicaSobre: 'total' | 'sencillo' | 'doble' | 'adulto_extra' | 'adolescente' | 'nino_612' | 'nino_extra'
+// cantidadItems: null = todas, número = cuántas instancias del concepto aplica
 let _promoCapas = [
-  { id: Date.now(), tipo: 'pct_todas', base: 'original', val: 0, noches: [], aplicaSobre: 'total' }
+  { id: Date.now(), tipo: 'pct_todas', base: 'original', val: 0, noches: [], aplicaSobre: 'total', cantidadItems: null }
 ];
 
 function agregarCapaPromo() {
-  _promoCapas.push({ id: Date.now(), tipo: 'pct_todas', base: 'acumulado', val: 0, noches: [], aplicaSobre: 'total' });
+  _promoCapas.push({ id: Date.now(), tipo: 'pct_todas', base: 'acumulado', val: 0, noches: [], aplicaSobre: 'total', cantidadItems: null });
   renderPromoCapas();
   calcular();
 }
@@ -3740,12 +3743,20 @@ function renderPromoCapas() {
       <div style="margin-bottom:6px">
         <label style="font-size:10px">Aplicar descuento sobre</label>
         <select ${sobreDisabled?'disabled style="font-size:11px;padding:4px 6px;opacity:.5"':'style="font-size:11px;padding:4px 6px"'}
-          onchange="_promoCapas[${idx}].aplicaSobre=this.value;calcular()">
-          ${SOBRE_OPTS.map(o=>`<option value="${o.v}" ${sobreActual===o.v?'selected':''}>${sobreDisabled&&o.v!=='total'?'':o.l}</option>`).filter((_,i)=>!sobreDisabled||i===0).join('')}
+          onchange="_promoCapas[${idx}].aplicaSobre=this.value;_promoCapas[${idx}].cantidadItems=null;if(['monto_total','noche_gratis'].includes(this.value))_promoCapas[${idx}].aplicaSobre='total';renderPromoCapas();calcular()">
+          ${SOBRE_OPTS.map(o=>`<option value="${o.v}" ${sobreActual===o.v?'selected':''}>${o.l}</option>`).filter((_,i)=>!sobreDisabled||i===0).join('')}
         </select>
-        ${sobreActual!=='total'&&!sobreDisabled
-          ? `<div style="font-size:9px;color:var(--azul-dark);margin-top:3px">⚑ El descuento se calcula solo sobre este concepto, no sobre el total de la noche.</div>`
-          : ''}
+        ${sobreActual !== 'total' && !sobreDisabled ? `
+        <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
+          <label style="font-size:10px;white-space:nowrap">¿Cuántas instancias?</label>
+          <select onchange="_promoCapas[${idx}].cantidadItems=this.value==='todas'?null:parseInt(this.value);calcular()" style="font-size:11px;padding:3px 6px;width:auto">
+            <option value="todas" ${capa.cantidadItems===null?'selected':''}>Todas</option>
+            ${[1,2,3,4,5,6].map(n=>`<option value="${n}" ${capa.cantidadItems===n?'selected':''}>${n}</option>`).join('')}
+          </select>
+          <span style="font-size:9px;color:var(--texto-suave)">de las que existan en la noche</span>
+        </div>
+        <div style="font-size:9px;color:var(--azul-dark);margin-top:3px">⚑ El descuento se calcula solo sobre este concepto.</div>
+        ` : ''}
       </div>`;
 
     if (tieneVal) {
@@ -3806,7 +3817,10 @@ function _baseConcepto(capa, nd, precioNocheActual) {
   let fn = _SOBRE_ITEM_MAP[sobre];
   if (!fn) return capa.base === 'original' ? nd.base : precioNocheActual;
   let items = fn(nd);
-  // Suma de los valores de los items que corresponden al concepto
+  // Limitar a cantidadItems si está definido
+  if (capa.cantidadItems !== null && capa.cantidadItems !== undefined) {
+    items = items.slice(0, capa.cantidadItems);
+  }
   return items.reduce((s, it) => s + (it.v || 0), 0);
 }
 
