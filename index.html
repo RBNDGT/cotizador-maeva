@@ -1833,6 +1833,22 @@ function renderHabs(){
           let h=habitaciones.find(x=>x.id===id);
           if(h&&h.menoresEdades){
             let v=this.value===''?'':parseInt(this.value);
+            // Validar rango 0-12
+            let errTag=this.parentElement.querySelector('.edad-error');
+            if(errTag)errTag.remove();
+            if(this.value!==''&&(isNaN(v)||v<0||v>12)){
+              this.style.borderColor='#b91c1c';this.style.background='#fff0f0';
+              let errEl=document.createElement('span');
+              errEl.className='edad-error';
+              errEl.style.cssText='font-size:9px;color:#b91c1c;font-weight:700;display:block;margin-top:2px;white-space:nowrap';
+              errEl.textContent=v>12?'Máx 12 años':'Edad inválida';
+              this.parentElement.appendChild(errEl);
+              h.menoresEdades[idx]='';
+              let tag=this.parentElement.querySelector('.menor-edad-tag');if(tag)tag.remove();
+              return;
+            } else {
+              this.style.borderColor='';this.style.background='';
+            }
             h.menoresEdades[idx]=v;
             // Update tag
             let tag=this.parentElement.querySelector('.menor-edad-tag');
@@ -1895,6 +1911,23 @@ function renderHabs(){
         eInp.onchange=(()=>{let id=hab.id;let idx=ai;return function(){
           let h=habitaciones.find(x=>x.id===id);
           if(h&&h.adolescentesEdades){
+            let v=this.value===''?'':parseInt(this.value);
+            // Validar rango 13-17
+            let errTag=this.parentElement.querySelector('.edad-error');
+            if(errTag)errTag.remove();
+            if(this.value!==''&&(isNaN(v)||v<13||v>17)){
+              this.style.borderColor='#b91c1c';this.style.background='#fff0f0';
+              let errEl=document.createElement('span');
+              errEl.className='edad-error';
+              errEl.style.cssText='font-size:9px;color:#b91c1c;font-weight:700;display:block;margin-top:2px;white-space:nowrap';
+              errEl.textContent=v<13?'Mín 13 años':v>17?'Máx 17 años':'Edad inválida';
+              this.parentElement.appendChild(errEl);
+              h.adolescentesEdades[idx]='';
+              let tag=this.parentElement.querySelector('.menor-edad-tag');if(tag)tag.remove();
+              return;
+            } else {
+              this.style.borderColor='';this.style.background='';
+            }
             h.adolescentesEdades[idx]=this.value===''?'':parseInt(this.value);
             // Update tag
             let tag=this.parentElement.querySelector('.menor-edad-tag');
@@ -2934,11 +2967,11 @@ function exportarPDF(){
     .dato{font-size:11px;padding:5px 8px;background:#f5fbff;border-radius:4px}
     .dato span{color:#6b8fa3;display:block;font-size:9px;text-transform:uppercase;letter-spacing:.04em;margin-bottom:1px}
     .fin-table{width:100%;border-collapse:collapse;font-size:11px}
-    .fin-table td{padding:5px 8px;border-bottom:1px solid #e8f4f9}
-    .fin-table td:last-child{text-align:right;font-weight:600}
+    .fin-table td{padding:5px 8px;border-bottom:1px solid #e8f4f9;font-size:11px}
+    .fin-table td:last-child{text-align:right;font-weight:600;font-size:11px}
     .total-box{background:linear-gradient(135deg,#0077b6,#005a8e);color:#fff;border-radius:8px;padding:14px 20px;margin-top:14px;display:flex;justify-content:space-between;align-items:center}
     .total-label{font-size:11px;opacity:.8}
-    .total-valor{font-size:26px;font-weight:800;letter-spacing:.01em}
+    .total-valor{font-size:20px;font-weight:800;letter-spacing:.01em}
     .footer{margin-top:20px;padding:10px 32px;background:#f0f8ff;border-top:2px solid #00AEEF;display:flex;justify-content:space-between;font-size:9px;color:#6b8fa3}
     @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}thead{display:table-header-group}}
   </style></head><body><div class="page">
@@ -2975,9 +3008,9 @@ function exportarPDF(){
     <div class="seccion">
       <div class="sec-titulo">Detalles de la estancia</div>
       <div class="datos-grid">
-        <div class="dato"><span>Check-in</span><strong style="font-size:13px;color:#0077b6">${fmtD(c.fi)}</strong></div>
-        <div class="dato"><span>Check-out</span><strong style="font-size:13px;color:#0077b6">${fmtD(c.fo)}</strong></div>
-        <div class="dato"><span>Noches</span><strong style="font-size:16px">${c.n}</strong></div>
+        <div class="dato"><span>Check-in</span><strong style="color:#0077b6">${fmtD(c.fi)}</strong></div>
+        <div class="dato"><span>Check-out</span><strong style="color:#0077b6">${fmtD(c.fo)}</strong></div>
+        <div class="dato"><span>Noches</span><strong>${c.n}</strong></div>
         <div class="dato"><span>Plan</span>${planLabel}</div>
         <div class="dato"><span>Temporada</span>${c.temporada||'—'}</div>
         <div class="dato"><span>Descuento / Ajuste</span>${descTexto}${promoStr}</div>
@@ -3010,7 +3043,7 @@ function exportarPDF(){
           <div class="total-label">TOTAL A PAGAR</div>
           <div style="font-size:10px;opacity:.75;margin-top:2px">${c.n} noche${c.n>1?'s':''} · ${(c.habitaciones||[]).length} hab. · Incluye impuestos</div>
         </div>
-        <div class="total-valor">${fmt(c.totalFinal)} <span style="font-size:14px;font-weight:400">MXN</span></div>
+        <div class="total-valor">${fmt(c.totalFinal)} <span style="font-size:11px;font-weight:400;opacity:.85">MXN</span></div>
       </div>
     </div>
 
@@ -4570,7 +4603,7 @@ function _imprimirRegistro(reg) {
     .header-right{text-align:right;font-size:11px;opacity:.9;line-height:1.6}
     /* ── ESTADO ── */
     .status-bar{background:#f0f8ff;border-bottom:3px solid #00AEEF;padding:12px 32px;display:flex;align-items:center;gap:16px}
-    .status-bar .num-reserva{font-size:18px;font-weight:800;color:#0077b6;margin-left:auto}
+    .status-bar .num-reserva{font-size:13px;font-weight:800;color:#0077b6;margin-left:auto}
     /* ── BODY ── */
     .body{padding:20px 32px}
     /* ── SECCIÓN ── */
@@ -4594,12 +4627,13 @@ function _imprimirRegistro(reg) {
     .noches-table td:last-child{text-align:right}
     /* ── RESUMEN FINANCIERO ── */
     .fin-table{width:100%;border-collapse:collapse}
-    .fin-table td{padding:5px 10px;font-size:12px}
-    .fin-table td:last-child{text-align:right;font-weight:600}
+    .fin-table td{padding:5px 10px;font-size:11px}
+    .fin-table td:last-child{text-align:right;font-weight:600;font-size:11px}
     .fin-table tr.subtotal td{border-top:1px solid #c8dce8}
-    .fin-total td{background:#0077b6;color:#fff;font-size:15px;font-weight:800;padding:10px 12px;border-radius:6px}
+    .fin-total td{background:#0077b6;color:#fff;font-size:12px;font-weight:800;padding:10px 12px;border-radius:6px}
     /* ── PIE ── */
     .footer{margin-top:24px;padding:12px 32px;background:#f5fbff;border-top:2px solid #00AEEF;display:flex;justify-content:space-between;font-size:10px;color:#6b8fa3}
+    .status-bar .num-reserva{font-size:13px;font-weight:800;color:#0077b6;margin-left:auto}
     @media print{
       body{-webkit-print-color-adjust:exact;print-color-adjust:exact}
       .no-break{break-inside:avoid}
@@ -4635,7 +4669,7 @@ function _imprimirRegistro(reg) {
     <div class="section">
       <div class="section-title">Datos del cliente</div>
       <div class="grid-datos">
-        <div class="dato wide"><label>Nombre completo</label><p style="font-size:14px">${reg.cliente||'—'}</p></div>
+        <div class="dato wide"><label>Nombre completo</label><p>${reg.cliente||'—'}</p></div>
         ${reg.tipoOferta?`<div class="dato wide"><label>Tipo de oferta</label><p>${reg.tipoOferta}</p></div>`:'<div class="dato"><label>Factura</label><p>'+(reg.factura==='si'?'Sí':'No')+'</p></div>'}
         ${reg.tel?`<div class="dato"><label>Teléfono / WhatsApp</label><p>${reg.tel}</p></div>`:''}
         ${reg.email?`<div class="dato wide"><label>Correo electrónico</label><p style="font-size:11px">${reg.email}</p></div>`:''}
@@ -4650,9 +4684,9 @@ function _imprimirRegistro(reg) {
     <div class="section">
       <div class="section-title">Detalles de estancia</div>
       <div class="grid-datos">
-        <div class="dato"><label>Check-in</label><p style="font-size:13px;color:#0077b6">${fmtD(reg.fi)}</p></div>
-        <div class="dato"><label>Check-out</label><p style="font-size:13px;color:#0077b6">${fmtD(reg.fo)}</p></div>
-        <div class="dato"><label>Noches</label><p style="font-size:16px;font-weight:800">${reg.n}</p></div>
+        <div class="dato"><label>Check-in</label><p style="color:#0077b6">${fmtD(reg.fi)}</p></div>
+        <div class="dato"><label>Check-out</label><p style="color:#0077b6">${fmtD(reg.fo)}</p></div>
+        <div class="dato"><label>Noches</label><p style="font-weight:800">${reg.n}</p></div>
         <div class="dato"><label>Plan</label><p>${reg.plan==='AI'?'Todo Incluido (AI)':'Plan Europeo (EP)'}</p></div>
         <div class="dato wide"><label>Temporada</label><p>${reg.temporada||'—'}</p></div>
         <div class="dato"><label>Habitaciones</label><p>${(reg.habitaciones||[]).length}</p></div>
