@@ -1015,8 +1015,9 @@ function clasifMenores(edadesArr,habTipo,adultos,adolescentes){
   if(habTipo==='MASTER_SUITE'){
     return edadesArr.map(e=>({edad:typeof e==='object'?e.edad:e,tipo:'extra'}));
   }
-  // Regla: cuántos niños de 2-12 "entran" (1 en sencilla, 2 en doble)
-  let limRegla=(adultos===1)?1:2;
+  // Departamento completo: 2 sub-habitaciones dobles → límite de regla = 4 (2 por sub-hab)
+  // Regla: cuántos niños de 2-12 "entran" (1 en sencilla, 2 en doble, 4 en departamento)
+  let limRegla = habTipo==='DEPARTAMENTO' ? 4 : (adultos===1)?1:2;
   let dentroRegla=0; // solo cuenta niños 2-12
   let res=[];
   for(let raw of edadesArr){
@@ -1051,6 +1052,141 @@ function clasifMenores(edadesArr,habTipo,adultos,adolescentes){
     ocupado++;
   }
   return res;
+}
+
+// ─── LÓGICA ESPECIAL DEPARTAMENTO COMPLETO ───────────────────────────────────
+// El Departamento = Estándar Dpto. + Junior Dpto. → siempre se cotiza como 6 adultos.
+// Estructura tarifaria fija: 2×tarifa doble + 2×adulto extra.
+// Si el grupo real < 6, los menores/adolescentes de mayor edad "suben" a adulto equivalente.
+
+const DEPTO_CUPO = 6; // cupo mínimo de cotización
+
+/**
+ * Dado el contenido real de una habitación DEPARTAMENTO,
+ * devuelve { adultosEq, menoresRestantes } donde:
+ *   adultosEq    = siempre 6 (o el real si ya ≥ 6)
+ *   menoresRestantes = menores/adolescentes que NO subieron a adulto
+ */
+function prepararHuespedDepto(habAdultos, habAdoles, menoresEdades) {
+  let adultosReales = habAdultos || 1;
+  let faltantes = Math.max(0, DEPTO_CUPO - adultosReales);
+
+  if (faltantes === 0) {
+    // Ya hay 6+ adultos reales; menores conservan su tarifa normal
+    return { adultosEq: Math.max(adultosReales, DEPTO_CUPO), adoRestantes: habAdoles, menoresRestantes: menoresEdades.slice() };
+  }
+
+  // Construir lista de candidatos a "subir" (adolescentes + menores), de mayor a menor edad
+  // Adolescentes (asumimos 15 como edad representativa si no está disponible)
+  let candidatos = [];
+  // Adolescentes primero (edad estimada 15 si no tenemos)
+  for (let i = 0; i < habAdoles; i++) candidatos.push({ tipo: 'ado', edad: 15, idx: i });
+  // Menores con edad conocida
+  menoresEdades.forEach((e, i) => {
+    let edad = e === '' ? 6 : parseInt(e) || 0; // si sin edad, usar 6 como conservador
+    candidatos.push({ tipo: 'men', edad, idx: i });
+  });
+  // Ordenar de mayor a menor edad
+  candidatos.sort((a, b) => b.edad - a.edad);
+
+  // "Subir" los faltantes
+  let subidos = new Set();
+  let subidosAdoIdx = new Set();
+  let subidosMenIdx = new Set();
+  for (let c of candidatos) {
+    if (faltantes <= 0) break;
+    if (c.tipo === 'ado') subidosAdoIdx.add(c.idx);
+    else subidosMenIdx.add(c.idx);
+    faltantes--;
+  }
+
+  let adoRestantes = 0;
+  for (let i = 0; i < habAdoles; i++) { if (!subidosAdoIdx.has(i)) adoRestantes++; }
+  let menoresRestantes = menoresEdades.filter((_, i) => !subidosMenIdx.has(i));
+
+  return { adultosEq: DEPTO_CUPO, adoRestantes, menoresRestantes };
+}
+
+/**
+ * Calcula el costo de UNA noche para el DEPARTAMENTO COMPLETO.
+ * Estructura fija: 2 tarifas dobles + 2 adultos extra (= 6 adultos equivalentes).
+ * Los menores/adolescentes que no "subieron" se cobran con su tarifa normal.
+ */
+function calcNocheDepto(fecha, plan, habAdultos, habAdoles, menoresEdades, descTipo, descVal, descAutoPct) {
+  let t = getTarifa(fecha); if (!t) return null;
+  let we = isWE(new Date(fecha + 'T12:00:00'));
+  let tb = getTBase(t, plan, we); if (!tb) return null;
+
+  let { adultosEq, adoRestantes, menoresRestantes } = prepararHuespedDepto(habAdultos, habAdoles, menoresEdades);
+
+  let base = 0; let items = [];
+
+  if (plan === 'AI') {
+    // Estructura fija: 2 tarifas dobles + 2 adultos extra
+    let porPersona = tb.d / 2;
+    base += tb.d;
+    items.push({ l: 'Estándar Dpto. — 2 adultos (tarifa doble)', v: tb.d, subtexto: `${fmt(porPersona)} por persona/noche` });
+    base += tb.d;
+    items.push({ l: 'Junior Dpto. — 2 adultos (tarifa doble)', v: tb.d, subtexto: `${fmt(porPersona)} por persona/noche` });
+    base += tb.pe;
+    items.push({ l: 'Adulto extra #1 (5° persona)', v: tb.pe });
+    base += tb.pe;
+    items.push({ l: 'Adulto extra #2 (6° persona)', v: tb.pe });
+
+    // Adolescentes restantes (no subieron)
+    for (let i = 0; i < adoRestantes; i++) { base += tb.ad; items.push({ l: 'Adolescente (13-17) — tarifa normal', v: tb.ad }); }
+
+    // Menores restantes (no subieron)
+    if (menoresRestantes.length > 0) {
+      let mcRest = clasifMenores(menoresRestantes, 'DEPARTAMENTO', adultosEq, adoRestantes);
+      for (let m of mcRest) {
+        let e = m.edad === '' || m.edad === undefined ? null : parseInt(m.edad);
+        let eLabel = e === null ? '?' : e + ' años';
+        if (m.tipo === 'gratis') { items.push({ l: `Menor ${eLabel} — Gratis`, v: 0, gratis: true }); }
+        else if (m.tipo === '612') { base += tb.n612; items.push({ l: `Menor ${eLabel} — tarifa niño`, v: tb.n612 }); }
+        else { base += tb.ne; items.push({ l: `Menor ${eLabel} — extra`, v: tb.ne }); }
+      }
+    }
+
+    // Nota si hubo relleno de cupo
+    let subidos = (habAdultos < DEPTO_CUPO) ? DEPTO_CUPO - (habAdultos || 1) - Math.max(0, habAdoles - adoRestantes) : 0;
+    if (habAdultos < DEPTO_CUPO) {
+      items.push({ l: `ℹ Departamento cotizado a cupo mínimo (${DEPTO_CUPO} adultos equiv.)`, v: 0, gratis: true });
+    }
+  } else {
+    // Plan Europeo: misma estructura base
+    base += tb.s;
+    items.push({ l: 'Estándar Dpto. — habitación (1-2 personas)', v: tb.s });
+    base += tb.s;
+    items.push({ l: 'Junior Dpto. — habitación (1-2 personas)', v: tb.s });
+    base += tb.pe; items.push({ l: 'Persona extra #1', v: tb.pe });
+    base += tb.pe; items.push({ l: 'Persona extra #2', v: tb.pe });
+    for (let i = 0; i < adoRestantes; i++) { base += tb.ad; items.push({ l: 'Adolescente (13-17)', v: tb.ad }); }
+    if (menoresRestantes.length > 0) {
+      let mcRest = clasifMenores(menoresRestantes, 'DEPARTAMENTO', adultosEq, adoRestantes);
+      for (let m of mcRest) {
+        let e = m.edad === '' || m.edad === undefined ? null : parseInt(m.edad);
+        let eLabel = e === null ? '?' : e + ' años';
+        if (m.tipo === 'gratis') { items.push({ l: `Menor ${eLabel} — Gratis`, v: 0, gratis: true }); }
+        else if (m.tipo === '612') { base += tb.n612; items.push({ l: `Menor ${eLabel} — tarifa niño`, v: tb.n612 }); }
+        else { base += tb.ne; items.push({ l: `Menor ${eLabel} — extra`, v: tb.ne }); }
+      }
+    }
+    if (habAdultos < DEPTO_CUPO) {
+      items.push({ l: `ℹ Departamento cotizado a cupo mínimo (${DEPTO_CUPO} adultos equiv.)`, v: 0, gratis: true });
+    }
+  }
+
+  let ajusteAuto = 0;
+  if (plan === 'AI' && descAutoPct && descAutoPct > 0) ajusteAuto = -(base * (descAutoPct / 100));
+  let ajusteManual = 0;
+  if (descTipo === 'pct_desc') ajusteManual = -(base * (descVal / 100));
+  else if (descTipo === 'monto_desc') ajusteManual = -descVal;
+  else if (descTipo === 'pct_inc') ajusteManual = base * (descVal / 100);
+  else if (descTipo === 'monto_inc') ajusteManual = descVal;
+  let ajuste = ajusteAuto + ajusteManual;
+
+  return { base, ajuste, ajusteAuto, ajusteManual, total: base + ajuste, items, temporada: t, we };
 }
 
 // Calcula costo de una noche para UNA habitación
@@ -1238,7 +1374,12 @@ function calcular(){
         let reglaNoche=_nochesEsp.find(x=>x.noche===nocheNum);
         descAutoPctFinal=reglaNoche?reglaNoche.pct:0;
       }
-      let res=calcNoche(fecha,plan,habAdultos,habAdoles,mcHab,descTipo,descVal,descAutoPctFinal);
+      let res;
+      if (habTipo === 'DEPARTAMENTO') {
+        res = calcNocheDepto(fecha, plan, habAdultos, habAdoles, habEdades, descTipo, descVal, descAutoPctFinal);
+      } else {
+        res = calcNoche(fecha, plan, habAdultos, habAdoles, mcHab, descTipo, descVal, descAutoPctFinal);
+      }
       if(!res)continue;
       let d=parseD(fecha);
       let diasSem=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
@@ -1415,6 +1556,11 @@ function calcular(){
     let subtotalAntePromo=totalFinal+promoStackDesc;
 
     // Construir detalle de capas con montos reales
+    const _SOBRE_LABEL = {
+      total:'total de la noche', sencillo:'tarifa sencillo', doble:'tarifa doble',
+      adulto_extra:'adulto extra', adolescente:'adolescente (13-17)',
+      nino_612:'niño (6-12 años)', nino_extra:'niño extra'
+    };
     _promoCapas.forEach((capa,ci)=>{
       let tipoLabel='';
       if(capa.tipo==='pct_todas')       tipoLabel=`-${capa.val}% todas las noches`;
@@ -1422,7 +1568,13 @@ function calcular(){
       else if(capa.tipo==='monto_noche')tipoLabel=`-${fmt(capa.val)}/noche`;
       else if(capa.tipo==='monto_total')tipoLabel=`-${fmt(capa.val)} al total`;
       else if(capa.tipo==='noche_gratis')tipoLabel=`Noche gratis (menor valor)`;
-      let baseLabel=capa.base==='original'?'sobre precio original':'sobre precio descontado';
+      let sobre = capa.aplicaSobre || 'total';
+      let sobreLabel = _SOBRE_LABEL[sobre] || sobre;
+      let baseLabel = capa.base==='original'?'precio original':'precio descontado';
+      if(sobre !== 'total' && !['monto_total','noche_gratis'].includes(capa.tipo))
+        baseLabel = `sobre ${sobreLabel}`;
+      else
+        baseLabel = `sobre ${baseLabel}`;
       let montoDesc=descPorCapa[ci]||0;
       promoStackDetalle.push({label:tipoLabel, base:baseLabel, monto:montoDesc});
     });
@@ -1511,13 +1663,22 @@ function calcularComparativa(){
 
   // Calcula totales (con y sin descuento) para una combinación dada
   function totalesParaHab(habTipo,nHabs){
-    let mc2=clasifMenores(c.habitaciones[0]?.menoresEdades||[],habTipo,c.habitaciones[0]?.adultos||1,c.habitaciones[0]?.adolescentes||0);
+    let hab0 = c.habitaciones[0] || {};
+    let ad0 = hab0.adultos||1, ado0 = hab0.adolescentes||0;
+    let men0 = hab0.menoresEdades||[];
+    let mc2=clasifMenores(men0,habTipo,ad0,ado0);
     let upg2=HAB_UPGRADE[habTipo]||0;
     let totConDesc=0, totSinDesc=0;
     for(let i=0;i<c.n;i++){
       let fecha=addDays(c.fi,i);
-      let resConDesc=calcNoche(fecha,c.plan,c.adultos,c.adoles,mc2,c.descTipo,c.descVal,c.descAutoPct||0);
-      let resSinDesc=calcNoche(fecha,c.plan,c.adultos,c.adoles,mc2,'ninguno',0,0);
+      let resConDesc, resSinDesc;
+      if(habTipo==='DEPARTAMENTO'){
+        resConDesc=calcNocheDepto(fecha,c.plan,ad0,ado0,men0,c.descTipo,c.descVal,c.descAutoPct||0);
+        resSinDesc=calcNocheDepto(fecha,c.plan,ad0,ado0,men0,'ninguno',0,0);
+      } else {
+        resConDesc=calcNoche(fecha,c.plan,c.adultos,c.adoles,mc2,c.descTipo,c.descVal,c.descAutoPct||0);
+        resSinDesc=calcNoche(fecha,c.plan,c.adultos,c.adoles,mc2,'ninguno',0,0);
+      }
       if(resConDesc)totConDesc+=resConDesc.total;
       if(resSinDesc)totSinDesc+=resSinDesc.base;
     }
@@ -3502,15 +3663,16 @@ function sincDescAutoDesde(origen) {
 }
 
 // ── PROMO STACK ───────────────────────────────────────────────
-// Cada capa: { id, tipo, base, val, noches }
+// Cada capa: { id, tipo, base, val, noches, aplicaSobre }
 // tipo: 'pct_todas' | 'pct_noches' | 'monto_noche' | 'noche_gratis' | 'monto_total'
 // base: 'original' | 'acumulado'
+// aplicaSobre: 'total' | 'sencillo' | 'doble' | 'adulto_extra' | 'adolescente' | 'nino_612' | 'nino_extra'
 let _promoCapas = [
-  { id: Date.now(), tipo: 'pct_todas', base: 'original', val: 0, noches: [] }
+  { id: Date.now(), tipo: 'pct_todas', base: 'original', val: 0, noches: [], aplicaSobre: 'total' }
 ];
 
 function agregarCapaPromo() {
-  _promoCapas.push({ id: Date.now(), tipo: 'pct_todas', base: 'acumulado', val: 0, noches: [] });
+  _promoCapas.push({ id: Date.now(), tipo: 'pct_todas', base: 'acumulado', val: 0, noches: [], aplicaSobre: 'total' });
   renderPromoCapas();
   calcular();
 }
@@ -3527,12 +3689,26 @@ function renderPromoCapas() {
   if (!container) return;
   let n = window._cot ? window._cot.n : 4;
 
+  // Opciones de "aplicar sobre" con etiquetas legibles
+  const SOBRE_OPTS = [
+    { v:'total',        l:'Total de la noche (todos los conceptos)' },
+    { v:'sencillo',     l:'Tarifa sencillo (1 adulto)' },
+    { v:'doble',        l:'Tarifa doble (2 adultos)' },
+    { v:'adulto_extra', l:'Adulto extra (3°, 4°…)' },
+    { v:'adolescente',  l:'Adolescente (13-17 años)' },
+    { v:'nino_612',     l:'Menor tarifa niño (6-12 años)' },
+    { v:'nino_extra',   l:'Menor extra (excede cupo/regla)' },
+  ];
+
   let html = '';
   _promoCapas.forEach((capa, idx) => {
     let tieneNoches = capa.tipo === 'pct_noches';
     let tieneVal    = ['pct_todas','pct_noches','monto_noche','monto_total'].includes(capa.tipo);
     let esPct       = ['pct_todas','pct_noches'].includes(capa.tipo);
     let sufijo      = esPct ? '%' : capa.tipo === 'monto_total' ? '$ total' : '$/noche';
+    let sobreActual = capa.aplicaSobre || 'total';
+    // "monto_total" y "noche_gratis" solo aplican sobre total
+    let sobreDisabled = ['monto_total','noche_gratis'].includes(capa.tipo);
 
     html += `<div style="background:var(--gris-bg);border:1.5px solid var(--azul-mid);border-radius:8px;padding:8px 10px;margin-bottom:8px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
@@ -3544,7 +3720,7 @@ function renderPromoCapas() {
       <div class="grid2" style="margin-bottom:6px">
         <div>
           <label style="font-size:10px">Tipo de descuento</label>
-          <select onchange="_promoCapas[${idx}].tipo=this.value;renderPromoCapas();calcular()" style="font-size:11px;padding:4px 6px">
+          <select onchange="_promoCapas[${idx}].tipo=this.value;if(['monto_total','noche_gratis'].includes(this.value))_promoCapas[${idx}].aplicaSobre='total';renderPromoCapas();calcular()" style="font-size:11px;padding:4px 6px">
             <option value="pct_todas"    ${capa.tipo==='pct_todas'   ?'selected':''}>% en todas las noches</option>
             <option value="pct_noches"   ${capa.tipo==='pct_noches'  ?'selected':''}>% en noches específicas</option>
             <option value="monto_noche"  ${capa.tipo==='monto_noche' ?'selected':''}>$ fijo por noche</option>
@@ -3559,6 +3735,17 @@ function renderPromoCapas() {
             <option value="acumulado"  ${capa.base==='acumulado' ?'selected':''}>Precio ya descontado</option>
           </select>
         </div>
+      </div>
+
+      <div style="margin-bottom:6px">
+        <label style="font-size:10px">Aplicar descuento sobre</label>
+        <select ${sobreDisabled?'disabled style="font-size:11px;padding:4px 6px;opacity:.5"':'style="font-size:11px;padding:4px 6px"'}
+          onchange="_promoCapas[${idx}].aplicaSobre=this.value;calcular()">
+          ${SOBRE_OPTS.map(o=>`<option value="${o.v}" ${sobreActual===o.v?'selected':''}>${sobreDisabled&&o.v!=='total'?'':o.l}</option>`).filter((_,i)=>!sobreDisabled||i===0).join('')}
+        </select>
+        ${sobreActual!=='total'&&!sobreDisabled
+          ? `<div style="font-size:9px;color:var(--azul-dark);margin-top:3px">⚑ El descuento se calcula solo sobre este concepto, no sobre el total de la noche.</div>`
+          : ''}
       </div>`;
 
     if (tieneVal) {
@@ -3603,6 +3790,26 @@ function toggleNocheCapaPromo(idx, noche, activa) {
 }
 
 // ── APLICAR STACK EN CALCULAR ─────────────────────────────────
+// Mapeo de aplicaSobre → clave de item en calcNoche
+const _SOBRE_ITEM_MAP = {
+  sencillo:     nd => nd.items.filter(it => it.l.includes('tarifa sencillo')),
+  doble:        nd => nd.items.filter(it => it.l.includes('tarifa doble')),
+  adulto_extra: nd => nd.items.filter(it => it.l.startsWith('Adulto extra')),
+  adolescente:  nd => nd.items.filter(it => it.l.startsWith('Adolescente')),
+  nino_612:     nd => nd.items.filter(it => it.l.includes('tarifa niño')),
+  nino_extra:   nd => nd.items.filter(it => it.l.includes('extra (excede')),
+};
+
+function _baseConcepto(capa, nd, precioNocheActual) {
+  let sobre = capa.aplicaSobre || 'total';
+  if (sobre === 'total') return capa.base === 'original' ? nd.base : precioNocheActual;
+  let fn = _SOBRE_ITEM_MAP[sobre];
+  if (!fn) return capa.base === 'original' ? nd.base : precioNocheActual;
+  let items = fn(nd);
+  // Suma de los valores de los items que corresponden al concepto
+  return items.reduce((s, it) => s + (it.v || 0), 0);
+}
+
 function aplicarPromoStack(nochesDet, totalBaseConUpg) {
   let preciosNoche = nochesDet.map(nd => nd.base + (nd.ajuste||0));
   let descuentoTotal = 0;
@@ -3611,7 +3818,10 @@ function aplicarPromoStack(nochesDet, totalBaseConUpg) {
 
   _promoCapas.forEach((capa, ci) => {
     let descCapa = 0;
+    let sobre = capa.aplicaSobre || 'total';
+
     if (capa.tipo === 'noche_gratis') {
+      // Noche gratis siempre sobre total
       let minVal = Infinity, minIdx = -1;
       preciosNoche.forEach((p,i)=>{ if(!nochesDet[i].gratis && p < minVal){ minVal=p; minIdx=i; } });
       if (minIdx >= 0) {
@@ -3620,26 +3830,33 @@ function aplicarPromoStack(nochesDet, totalBaseConUpg) {
         nocheGratisStack = true;
       }
     } else if (capa.tipo === 'monto_total') {
+      // Monto fijo siempre sobre total global
       descCapa = capa.val || 0;
     } else if (capa.tipo === 'pct_todas') {
       nochesDet.forEach((nd, i) => {
         if (nd.gratis) return;
-        let base = capa.base === 'original' ? nd.base : preciosNoche[i];
+        let base = _baseConcepto(capa, nd, preciosNoche[i]);
         let d = base * (capa.val / 100);
         descCapa += d;
-        preciosNoche[i] -= d;
+        if (sobre === 'total') preciosNoche[i] -= d;
+        // Para concepto específico solo reducimos el equivalente proporcional del precio noche
+        else preciosNoche[i] -= d;
       });
     } else if (capa.tipo === 'monto_noche') {
       nochesDet.forEach((nd, i) => {
         if (nd.gratis) return;
-        descCapa += capa.val || 0;
-        preciosNoche[i] -= capa.val || 0;
+        // Para monto fijo sobre concepto: verificar que el concepto exista en la noche
+        let base = _baseConcepto(capa, nd, preciosNoche[i]);
+        // Solo aplicar si el concepto tiene valor (ej. no hay niños 6-12 en esta noche)
+        let d = base > 0 || sobre === 'total' ? (capa.val || 0) : 0;
+        descCapa += d;
+        preciosNoche[i] -= d;
       });
     } else if (capa.tipo === 'pct_noches') {
       (capa.noches||[]).forEach(n => {
         let i = n - 1;
         if (i < 0 || i >= nochesDet.length || nochesDet[i].gratis) return;
-        let base = capa.base === 'original' ? nochesDet[i].base : preciosNoche[i];
+        let base = _baseConcepto(capa, nochesDet[i], preciosNoche[i]);
         let d = base * (capa.val / 100);
         descCapa += d;
         preciosNoche[i] -= d;
