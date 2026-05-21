@@ -1005,52 +1005,76 @@ function getTBase(t,plan,we){
 }
 
 // Clasifica menores según habitación y adultos
+// Reglas:
+//   0-2 años  → invisibles: no cuentan para cupo ni precio (tipo:'invisible')
+//   3-5 años  → gratis hasta el límite (1 si sencilla, 2 si doble+, 4 si DEPARTAMENTO)
+//              el excedente paga tarifa extra
+//   6-12 años → tarifa niño normal (612), si excede cupo físico → extra
+//   Cupo físico: adultos + adolescentes + menores 3+ no pueden superar HAB_CAP
 function clasifMenores(edadesArr,habTipo,adultos,adolescentes){
-  // edadesArr: array of numbers/strings (ages), or array of {edad} objects (legacy)
-  // Returns array of {edad, tipo} where tipo = 'gratis' | '612' | 'extra'
   adolescentes=adolescentes||0;
   let cap=HAB_CAP[habTipo]||4;
-  let ocupado=adultos+adolescentes; // personas que ya ocupan cupo
-  // Master Suite: sin menores
+
+  // Master Suite: no admite menores — todos extra (excepto invisibles 0-2)
   if(habTipo==='MASTER_SUITE'){
-    return edadesArr.map(e=>({edad:typeof e==='object'?e.edad:e,tipo:'extra'}));
+    return edadesArr.map(e=>{
+      let edad=typeof e==='object'?e.edad:e;
+      let edadNum=parseInt(edad);
+      if(!isNaN(edadNum)&&edadNum<=2)return{edad,tipo:'invisible'};
+      return{edad,tipo:'extra'};
+    });
   }
-  // Departamento completo: 2 sub-habitaciones dobles → límite de regla = 4 (2 por sub-hab)
-  // Regla: cuántos niños de 2-12 "entran" (1 en sencilla, 2 en doble, 4 en departamento)
-  let limRegla = habTipo==='DEPARTAMENTO' ? 4 : (adultos===1)?1:2;
-  let dentroRegla=0; // solo cuenta niños 2-12
-  let res=[];
+
+  // Límite de menores 3-5 gratis:
+  //   sencilla (1 adulto) → 1 | doble o más → 2 | DEPARTAMENTO → 4
+  let limGratis = habTipo==='DEPARTAMENTO' ? 4 : (adultos===1 ? 1 : 2);
+
+  // Cupo físico: adultos + adolescentes ya ocupan estos lugares
+  let ocupado = adultos + adolescentes;
+  let gratisUsados = 0;
+  let res = [];
+
   for(let raw of edadesArr){
-    let edad=typeof raw==='object'?parseInt(raw.edad||0):parseInt(raw===''?-1:raw);
-    if(edad<0){res.push({edad:'?',tipo:'gratis'});continue;} // sin edad: pendiente
-    // ── 0-1 años: SIEMPRE gratis, NO consume cupo de regla ──
-    // Solo verifica cupo físico
-    if(edad<=1){
-      if(ocupado>=cap){
-        res.push({edad,tipo:'extra'}); // sin cupo físico → extra
+    let edadRaw = typeof raw==='object' ? raw.edad : raw;
+    let edadNum = parseInt(edadRaw);
+    let edadValida = !isNaN(edadNum) && edadRaw !== '';
+
+    // Sin edad capturada: pendiente, no cobrar ni contar cupo
+    if(!edadValida){
+      res.push({edad:'?', tipo:'pendiente'});
+      continue;
+    }
+
+    // 0-2 años: completamente invisibles, no suman a ocupado
+    if(edadNum <= 2){
+      res.push({edad:edadNum, tipo:'invisible'});
+      continue;
+    }
+
+    // 3+ años: verificar cupo físico primero
+    if(ocupado >= cap){
+      res.push({edad:edadNum, tipo:'extra'});
+      ocupado++;
+      continue;
+    }
+
+    // 3-5 años: gratis hasta el límite, luego extra
+    if(edadNum <= 5){
+      if(gratisUsados < limGratis){
+        res.push({edad:edadNum, tipo:'gratis'});
+        gratisUsados++;
       } else {
-        res.push({edad,tipo:'gratis'});
+        res.push({edad:edadNum, tipo:'extra'});
       }
       ocupado++;
       continue;
     }
-    // ── 2-12 años: consume cupo de regla ──
-    // Primero: ¿hay cupo físico?
-    if(ocupado>=cap){
-      res.push({edad,tipo:'extra'});
-      ocupado++;
-      continue;
-    }
-    // ¿Entra dentro del límite de la regla?
-    if(dentroRegla<limRegla){
-      res.push({edad,tipo:edad<=5?'gratis':'612'});
-      dentroRegla++;
-    } else {
-      // Excedió límite de regla → extra
-      res.push({edad,tipo:'extra'});
-    }
+
+    // 6-12 años: tarifa niño normal
+    res.push({edad:edadNum, tipo:'612'});
     ocupado++;
   }
+
   return res;
 }
 
@@ -1209,12 +1233,12 @@ function calcNoche(fecha,plan,adultos,adolescentes,menoresC,descTipo,descVal,des
     for(let i=3;i<=adultos;i++){base+=tb.pe;items.push({l:`Adulto extra #${i-2}`,v:tb.pe});}
     for(let i=0;i<adolescentes;i++){base+=tb.ad;items.push({l:'Adolescente (13-17)',v:tb.ad});}
     for(let m of menoresC){
-      let e=m.edad===''||m.edad===undefined?null:parseInt(m.edad);
-      let eLabel=e===null?'?':e+' años';
-      let rangoLabel=e===null?'':(e<=1?' (infante)':e<=5?' (2-5 gratis)':' (6-12)');
-      if(m.tipo==='gratis'){items.push({l:`Menor ${eLabel}${rangoLabel}`,v:0,gratis:true});}
-      else if(m.tipo==='612'){base+=tb.n612;items.push({l:`Menor ${eLabel} — tarifa niño`,v:tb.n612});}
-      else{base+=tb.ne;items.push({l:`Menor ${eLabel} — extra (excede cupo/regla)`,v:tb.ne});}
+      if(m.tipo==='invisible') continue;
+      let eLabel=m.edad==='?'?'(sin edad)':m.edad+' años';
+      if(m.tipo==='pendiente'){items.push({l:`Menor ${eLabel} — captura edad`,v:0,gratis:true,warn:true});}
+      else if(m.tipo==='gratis'){items.push({l:`Menor ${eLabel} (3-5 años — sin costo)`,v:0,gratis:true});}
+      else if(m.tipo==='612'){base+=tb.n612;items.push({l:`Menor ${eLabel} — tarifa niño (6-12)`,v:tb.n612});}
+      else{base+=tb.ne;items.push({l:`Menor ${eLabel} — extra`,v:tb.ne});}
     }
   }else{
     base+=tb.s;items.push({l:'Habitación (1-2 personas)',v:tb.s});
@@ -1222,12 +1246,12 @@ function calcNoche(fecha,plan,adultos,adolescentes,menoresC,descTipo,descVal,des
     for(let i=0;i<ext;i++){base+=tb.pe;items.push({l:'Persona extra',v:tb.pe});}
     for(let i=0;i<adolescentes;i++){base+=tb.ad;items.push({l:'Adolescente (13-17)',v:tb.ad});}
     for(let m of menoresC){
-      let e=m.edad===''||m.edad===undefined?null:parseInt(m.edad);
-      let eLabel=e===null?'?':e+' años';
-      let rangoLabel=e===null?'':(e<=1?' (infante)':e<=5?' (2-5 gratis)':' (6-12)');
-      if(m.tipo==='gratis'){items.push({l:`Menor ${eLabel}${rangoLabel}`,v:0,gratis:true});}
-      else if(m.tipo==='612'){base+=tb.n612;items.push({l:`Menor ${eLabel} — tarifa niño`,v:tb.n612});}
-      else{base+=tb.ne;items.push({l:`Menor ${eLabel} — extra (excede cupo/regla)`,v:tb.ne});}
+      if(m.tipo==='invisible') continue;
+      let eLabel=m.edad==='?'?'(sin edad)':m.edad+' años';
+      if(m.tipo==='pendiente'){items.push({l:`Menor ${eLabel} — captura edad`,v:0,gratis:true,warn:true});}
+      else if(m.tipo==='gratis'){items.push({l:`Menor ${eLabel} (3-5 años — sin costo)`,v:0,gratis:true});}
+      else if(m.tipo==='612'){base+=tb.n612;items.push({l:`Menor ${eLabel} — tarifa niño (6-12)`,v:tb.n612});}
+      else{base+=tb.ne;items.push({l:`Menor ${eLabel} — extra`,v:tb.ne});}
     }
   }
 
@@ -2025,8 +2049,11 @@ function renderHabs(){
               let mc=clasifMenores(h.menoresEdades,h.tipo,h.adultos||1,h.adolescentes||0);
               let status=mc[idx]?mc[idx].tipo:'extra';
               let tagEl=document.createElement('span');
-              tagEl.className='menor-edad-tag '+(status==='gratis'?'gratis':status==='612'?'tarifa':'extra');
-              tagEl.textContent=status==='gratis'?'Gratis':status==='612'?'Tarifa niño':'Extra';
+              if(status==='invisible'){tagEl.className='menor-edad-tag gratis';tagEl.textContent='Sin costo (0-2)';}
+              else if(status==='gratis'){tagEl.className='menor-edad-tag gratis';tagEl.textContent='Gratis (3-5)';}
+              else if(status==='612'){tagEl.className='menor-edad-tag tarifa';tagEl.textContent='Tarifa niño (6-12)';}
+              else if(status==='pendiente'){tagEl.className='menor-edad-tag tarifa';tagEl.textContent='Captura edad';}
+              else{tagEl.className='menor-edad-tag extra';tagEl.textContent='Extra';}
               this.parentElement.appendChild(tagEl);
             }
             calcular();
@@ -2039,8 +2066,11 @@ function renderHabs(){
           let mc=clasifMenores(hab.menoresEdades,hab.tipo,hab.adultos||1,hab.adolescentes||0);
           let status=mc[mi]?mc[mi].tipo:'extra';
           let tagEl=document.createElement('span');
-          tagEl.className='menor-edad-tag '+(status==='gratis'?'gratis':status==='612'?'tarifa':'extra');
-          tagEl.textContent=status==='gratis'?'Gratis':status==='612'?'Tarifa niño':'Extra';
+          if(status==='invisible'){tagEl.className='menor-edad-tag gratis';tagEl.textContent='Sin costo (0-2)';}
+          else if(status==='gratis'){tagEl.className='menor-edad-tag gratis';tagEl.textContent='Gratis (3-5)';}
+          else if(status==='612'){tagEl.className='menor-edad-tag tarifa';tagEl.textContent='Tarifa niño (6-12)';}
+          else if(status==='pendiente'){tagEl.className='menor-edad-tag tarifa';tagEl.textContent='Captura edad';}
+          else{tagEl.className='menor-edad-tag extra';tagEl.textContent='Extra';}
           eWrap.appendChild(tagEl);
         }
         edadesGrid.appendChild(eWrap);
@@ -2971,117 +3001,142 @@ function exportarPDF(){
   }).join('');
 
   // ── Desglose noche a noche ─────────────────────────────────────
-  // Usamos nochesDet que tiene info por habitación 1 (tarifas son las mismas para todas las habs del mismo tipo/config)
-  // Para multi-hab mostramos el total de todas
   const multiHab = (c.habitaciones||[]).length > 1;
   let nochesDesglose = '';
+  let personasHTML = '';
 
-  if(c.nochesDet && c.nochesDet.length){
-    // Encabezado de tabla
-    nochesDesglose += `<table style="width:100%;border-collapse:collapse;font-size:11px;margin-top:8px">
+  const diasSem=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+
+  function buildTablaNoches(noches, habUpg, etiqueta){
+    let html = '';
+    if(!noches||!noches.length) return html;
+    if(etiqueta) html += `<div style="font-size:11px;font-weight:700;color:#0077b6;margin:10px 0 4px">${etiqueta}</div>`;
+    html += `<table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:4px">
       <thead>
         <tr style="background:#0077b6;color:#fff">
           <th style="padding:6px 8px;text-align:left">Fecha</th>
           <th style="padding:6px 8px;text-align:left">Día</th>
           <th style="padding:6px 8px;text-align:left">Temporada</th>
-          <th style="padding:6px 8px;text-align:right">Tarifa base${multiHab?` (×${(c.habitaciones||[]).length} hab.)`:''}  </th>
-          ${c.upg>0?`<th style="padding:6px 8px;text-align:right">Upgrade${multiHab?` (×${(c.habitaciones||[]).length})`:''}  </th>`:''}
-          <th style="padding:6px 8px;text-align:right">Descuento / Promo</th>
+          <th style="padding:6px 8px;text-align:right">Tarifa base</th>
+          ${habUpg>0?`<th style="padding:6px 8px;text-align:right">Upgrade</th>`:''}
+          <th style="padding:6px 8px;text-align:right">Desc./Promo</th>
           <th style="padding:6px 8px;text-align:right;background:#005a8e">Total noche</th>
         </tr>
       </thead><tbody>`;
-
-    let totalBase_sum=0, totalUpg_sum=0, totalDesc_sum=0, totalFinal_sum=0;
-
-    c.nochesDet.forEach((nd,i)=>{
-      const esGratis = nd.gratis;
-      const numH = (c.habitaciones||[]).length || 1;
-      // Base = tarifa sin descuento × número de habitaciones
-      const baseTotal = nd.base * numH;
-      // Ajuste (descuento) × número de habitaciones
-      const ajusteTotal = (nd.ajuste||0) * numH;
-      // Upgrade × número de habitaciones
-      const upgTotal = (c.upg>0 ? (c.habitaciones||[]).reduce((s,h)=>s+(h.upgrade||0),0) : 0);
-      // Total noche completo
-      const totalNoche = esGratis ? 0 : baseTotal + ajusteTotal + upgTotal;
-
-      if(!esGratis){
-        totalBase_sum  += baseTotal;
-        totalUpg_sum   += upgTotal;
-        totalDesc_sum  += ajusteTotal;
-        totalFinal_sum += totalNoche;
-      }
-
-      const rowBg = esGratis ? '#e8f9ee' : (i%2===0?'#fff':'#f8fbff');
-      const diasSem=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
-      const d = parseD(nd.fecha);
-      const diaNombre = diasSem[d.getDay()];
-
-      nochesDesglose += `<tr style="background:${rowBg}">
+    let tBase=0,tUpg=0,tDesc=0,tFin=0;
+    noches.forEach((nd,i)=>{
+      const esG=nd.gratis;
+      const upgN=habUpg||0;
+      const baseN=nd.base, ajusteN=nd.ajuste||0;
+      const totN=esG?0:baseN+ajusteN+upgN;
+      if(!esG){tBase+=baseN;tUpg+=upgN;tDesc+=ajusteN;tFin+=totN;}
+      const rowBg=esG?'#e8f9ee':(i%2===0?'#fff':'#f8fbff');
+      const d=parseD(nd.fecha);
+      const diaN=diasSem[d.getDay()];
+      html+=`<tr style="background:${rowBg}">
         <td style="padding:5px 8px;font-weight:600">${nd.fechaLabel}</td>
-        <td style="padding:5px 8px;font-size:10px;color:#555">${diaNombre} ${nd.we?'(Vie/Sáb)':'(Dom-Jue)'}</td>
+        <td style="padding:5px 8px;font-size:10px;color:#555">${diaN} ${nd.we?'(Vie/Sáb)':'(Dom-Jue)'}</td>
         <td style="padding:5px 8px;font-size:10px;color:#0077b6">${nd.tmp||'—'}</td>
-        <td style="padding:5px 8px;text-align:right${esGratis?';text-decoration:line-through;color:#aaa':''}">${fmt(baseTotal)}</td>
-        ${c.upg>0?`<td style="padding:5px 8px;text-align:right;color:#b8750a">${esGratis?'—':`+ ${fmt(upgTotal)}`}</td>`:''}
-        <td style="padding:5px 8px;text-align:right;color:${ajusteTotal<0?'#1a7a3a':ajusteTotal>0?'#b91c1c':'#aaa'}">
-          ${esGratis?'🎁 GRATIS':ajusteTotal!==0?((ajusteTotal<0?'-':'+')+fmt(Math.abs(ajusteTotal))):'—'}
+        <td style="padding:5px 8px;text-align:right${esG?';text-decoration:line-through;color:#aaa':''}">${fmt(baseN)}</td>
+        ${habUpg>0?`<td style="padding:5px 8px;text-align:right;color:#b8750a">${esG?'—':'+ '+fmt(upgN)}</td>`:''}
+        <td style="padding:5px 8px;text-align:right;color:${ajusteN<0?'#1a7a3a':ajusteN>0?'#b91c1c':'#aaa'}">
+          ${esG?'🎁 GRATIS':ajusteN!==0?((ajusteN<0?'-':'+')+fmt(Math.abs(ajusteN))):'—'}
         </td>
-        <td style="padding:5px 8px;text-align:right;font-weight:700;color:${esGratis?'#1a7a3a':'#b8750a'};background:${esGratis?'#e8f9ee':'#fff8e6'}">
-          ${esGratis?'🎁 GRATIS':fmt(totalNoche)}
+        <td style="padding:5px 8px;text-align:right;font-weight:700;color:${esG?'#1a7a3a':'#b8750a'};background:${esG?'#e8f9ee':'#fff8e6'}">
+          ${esG?'🎁 GRATIS':fmt(totN)}
         </td>
       </tr>`;
     });
-
-    // Fila de totales
-    nochesDesglose += `<tr style="background:#e8f4fd;font-weight:700;border-top:2px solid #0077b6">
-      <td colspan="3" style="padding:6px 8px;color:#0077b6">TOTALES (${c.n} noche${c.n>1?'s':''})</td>
-      <td style="padding:6px 8px;text-align:right">${fmt(totalBase_sum)}</td>
-      ${c.upg>0?`<td style="padding:6px 8px;text-align:right;color:#b8750a">+ ${fmt(totalUpg_sum)}</td>`:''}
-      <td style="padding:6px 8px;text-align:right;color:${totalDesc_sum<0?'#1a7a3a':totalDesc_sum>0?'#b91c1c':'#aaa'}">${totalDesc_sum!==0?((totalDesc_sum<0?'-':'+')+fmt(Math.abs(totalDesc_sum))):'—'}</td>
-      <td style="padding:6px 8px;text-align:right;font-weight:800;color:#b8750a;background:#fff8e6">${fmt(c.totalFinal)}</td>
-    </tr>`;
-
-    nochesDesglose += `</tbody></table>`;
+    html+=`<tr style="background:#e8f4fd;font-weight:700;border-top:2px solid #0077b6">
+      <td colspan="3" style="padding:6px 8px;color:#0077b6">SUBTOTAL (${noches.length} noche${noches.length>1?'s':''})</td>
+      <td style="padding:6px 8px;text-align:right">${fmt(tBase)}</td>
+      ${habUpg>0?`<td style="padding:6px 8px;text-align:right;color:#b8750a">+ ${fmt(tUpg)}</td>`:''}
+      <td style="padding:6px 8px;text-align:right;color:${tDesc<0?'#1a7a3a':tDesc>0?'#b91c1c':'#aaa'}">${tDesc!==0?((tDesc<0?'-':'+')+fmt(Math.abs(tDesc))):'—'}</td>
+      <td style="padding:6px 8px;text-align:right;font-weight:800;color:#b8750a;background:#fff8e6">${fmt(tFin)}</td>
+    </tr></tbody></table>`;
+    return html;
   }
 
-  // ── Desglose de personas (detalle de qué compone la tarifa) ────
-  let personasHTML = '';
-  if(c.nochesDet && c.nochesDet[0] && c.nochesDet[0].items){
-    // Tomamos la primera noche no-gratis como ejemplo representativo
-    const ndRef = c.nochesDet.find(nd=>!nd.gratis) || c.nochesDet[0];
-    if(ndRef && ndRef.items && ndRef.items.length){
-      personasHTML = `<div style="margin-top:16px">
-        <div class="sec-titulo">Composición de tarifa (por habitación · por noche)</div>
-        <table style="width:100%;border-collapse:collapse;font-size:11px">
-          <thead><tr style="background:#e8f4fd">
-            <th style="padding:5px 8px;text-align:left;color:#0077b6">Concepto</th>
-            <th style="padding:5px 8px;text-align:right;color:#0077b6">Precio / noche</th>
-          </tr></thead><tbody>`;
-      ndRef.items.forEach(it=>{
-        personasHTML += `<tr style="border-bottom:1px solid #e8f4f9">
-          <td style="padding:5px 8px;color:${it.gratis?'#1a7a3a':'#222'}">
-            ${it.l}
-            ${it.subtexto?`<br><span style="font-size:10px;color:#0077b6">${it.subtexto}</span>`:''}
-          </td>
-          <td style="padding:5px 8px;text-align:right;color:${it.gratis?'#1a7a3a':'#222'};font-weight:${it.subtexto?700:400}">
-            ${it.gratis?'Incluido (Gratis)':fmt(it.v)+' / noche'}
-          </td>
-        </tr>`;
-      });
-      // Subtotal base
-      personasHTML += `<tr style="background:#f0f8ff;font-weight:700">
-        <td style="padding:5px 8px;color:#0077b6">Subtotal tarifa base (1 hab.)</td>
-        <td style="padding:5px 8px;text-align:right;color:#0077b6">${fmt(ndRef.base)} / noche</td>
+  function buildComposicion(ndRef, habUpg){
+    if(!ndRef||!ndRef.items||!ndRef.items.length) return '';
+    let html = `<table style="width:100%;border-collapse:collapse;font-size:11px;margin-top:6px">
+      <thead><tr style="background:#e8f4fd">
+        <th style="padding:5px 8px;text-align:left;color:#0077b6">Concepto</th>
+        <th style="padding:5px 8px;text-align:right;color:#0077b6">Precio / noche</th>
+      </tr></thead><tbody>`;
+    ndRef.items.forEach(it=>{
+      if(it.tipo==='invisible') return;
+      html+=`<tr style="border-bottom:1px solid #e8f4f9">
+        <td style="padding:5px 8px;color:${it.gratis?'#1a7a3a':'#222'}">
+          ${it.l}${it.subtexto?`<br><span style="font-size:10px;color:#0077b6">${it.subtexto}</span>`:''}
+        </td>
+        <td style="padding:5px 8px;text-align:right;color:${it.gratis?'#1a7a3a':'#222'};font-weight:${it.subtexto?700:400}">
+          ${it.gratis?'Incluido':fmt(it.v)+'/n'}
+        </td>
       </tr>`;
-      if(c.upg>0){
-        personasHTML += `<tr style="background:#fff8e6">
-          <td style="padding:5px 8px;color:#b8750a">Upgrade habitación</td>
-          <td style="padding:5px 8px;text-align:right;color:#b8750a">+ ${fmt((c.habitaciones||[])[0]?.upgrade||0)} / noche</td>
-        </tr>`;
-      }
-      personasHTML += `</tbody></table></div>`;
+    });
+    html+=`<tr style="background:#f0f8ff;font-weight:700">
+      <td style="padding:5px 8px;color:#0077b6">Subtotal tarifa base</td>
+      <td style="padding:5px 8px;text-align:right;color:#0077b6">${fmt(ndRef.base)}/n</td>
+    </tr>`;
+    if(habUpg>0){
+      html+=`<tr style="background:#fff8e6">
+        <td style="padding:5px 8px;color:#b8750a">Upgrade habitación</td>
+        <td style="padding:5px 8px;text-align:right;color:#b8750a">+ ${fmt(habUpg)}/n</td>
+      </tr>`;
     }
+    html+=`</tbody></table>`;
+    return html;
   }
+
+  if(!multiHab){
+    // ── Una sola habitación: comportamiento original ──
+    nochesDesglose = buildTablaNoches(c.nochesDet, (c.habitaciones||[])[0]?.upgrade||0, '');
+    const ndRef = (c.nochesDet||[]).find(nd=>!nd.gratis)||(c.nochesDet||[])[0];
+    if(ndRef && ndRef.items){
+      personasHTML = `<div style="margin-top:16px">
+        <div class="sec-titulo">Composición de tarifa (por noche)</div>
+        ${buildComposicion(ndRef, (c.habitaciones||[])[0]?.upgrade||0)}
+      </div>`;
+    }
+  } else {
+    // ── Multi-habitación: una sección por habitación ──
+    let totalGlobal = 0;
+    (c.desgloseHabs||[]).forEach((habDet,hi)=>{
+      const habInfo = (c.habitaciones||[])[hi]||{};
+      const habNom  = HAB_NOM[habDet.tipo]||habDet.tipo;
+      const habUpg  = habDet.upgrade||0;
+      const subtotalHab = (habDet.noches||[]).reduce((s,nd)=>s+(nd.gratis?0:nd.base+(nd.ajuste||0)+habUpg),0);
+      totalGlobal += subtotalHab;
+
+      // Encabezado de habitación
+      nochesDesglose += `<div style="margin-top:18px;border:1.5px solid #0077b6;border-radius:8px;overflow:hidden">
+        <div style="background:#0077b6;color:#fff;padding:7px 12px;font-size:11px;font-weight:700;display:flex;justify-content:space-between;align-items:center">
+          <span>🛏️ Habitación ${hi+1} — ${habNom}${habUpg>0?' (con upgrade)':''}</span>
+          <span style="font-size:11px;opacity:.9">Subtotal: ${fmt(subtotalHab)} MXN</span>
+        </div>
+        <div style="padding:10px 12px">`;
+
+      // Composición de tarifa (primera noche no-gratis)
+      const ndRef = (habDet.noches||[]).find(nd=>!nd.gratis)||(habDet.noches||[])[0];
+      if(ndRef && ndRef.items){
+        nochesDesglose += `<div style="font-size:10px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Composición de tarifa (por noche)</div>`;
+        nochesDesglose += buildComposicion(ndRef, habUpg);
+      }
+
+      // Tabla de noches
+      nochesDesglose += `<div style="font-size:10px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.05em;margin:10px 0 4px">Desglose por noche</div>`;
+      nochesDesglose += buildTablaNoches(habDet.noches, habUpg, '');
+      nochesDesglose += `</div></div>`;
+    });
+
+    // Totales consolidados
+    nochesDesglose += `<div style="margin-top:16px;background:#e8f4fd;border:2px solid #0077b6;border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:11px;font-weight:700;color:#0077b6">TOTAL GLOBAL — ${(c.habitaciones||[]).length} habitaciones · ${c.n} noche${c.n>1?'s':''}</span>
+      <span style="font-size:14px;font-weight:800;color:#b8750a">${fmt(c.totalFinal)} MXN</span>
+    </div>`;
+  }
+
 
   // ── Descuento / promo info ─────────────────────────────────────
   let descTexto='Ninguno';
@@ -3398,20 +3453,24 @@ function histMsg(txt, color) {
 
 // ── GUARDAR ───────────────────────────────────────────────────
 function guardarEnHistorial() {
-  let cot     = window._cot;
-  let cliente   = document.getElementById('cli-nombre')?.value || document.getElementById('cliente-nombre')?.value || 'Sin nombre';
-  let factura   = document.querySelector('input[name="cli-factura"]:checked')?.value || 'no';
+  let cot      = window._cot;
+  let cliente  = document.getElementById('cli-nombre')?.value || 'Sin nombre';
+  let factura  = document.querySelector('input[name="cli-factura"]:checked')?.value || 'no';
   let tipoOferta= document.getElementById('cli-tipo-oferta')?.value || '';
-  let pais      = document.getElementById('cli-pais')?.value || '';
-  let estado    = document.getElementById('cli-estado')?.value || '';
-  let ciudad    = document.getElementById('cli-ciudad')?.value || '';
-  let direccion = document.getElementById('cli-direccion')?.value || '';
-  let numReserva= document.getElementById('cli-num-reserva')?.value || '';
-  let tel       = document.getElementById('cli-tel')?.value || '';
-  let email     = document.getElementById('cli-email')?.value || '';
+  let pais     = document.getElementById('cli-pais')?.value || '';
+  let estado   = document.getElementById('cli-estado')?.value || '';
+  let ciudad   = document.getElementById('cli-ciudad')?.value || '';
+  let direccion= document.getElementById('cli-direccion')?.value || '';
+  let numReservaBase = document.getElementById('cli-num-reserva')?.value || '';
+  let tel      = document.getElementById('cli-tel')?.value || '';
+  let email    = document.getElementById('cli-email')?.value || '';
+  let tipo     = document.getElementById('hist-save-tipo').value;
+  let nota     = document.getElementById('hist-save-nota').value || '';
+  let peticiones = document.getElementById('cli-notas')?.value || '';
+
   // Huéspedes adicionales por habitación
-  let huespedesHabs = [{nombre: cliente, tel, email, numReserva: document.getElementById('cli-num-reserva')?.value||''}];
-  for (let i = 1; i < (cot.habitaciones||[]).length; i++) {
+  let huespedesHabs = [{nombre: cliente, tel, email, numReserva: numReservaBase}];
+  for (let i = 1; i < (cot?.habitaciones||[]).length; i++) {
     huespedesHabs.push({
       nombre:     document.getElementById(`cli-hab-nombre-${i}`)?.value || '',
       tel:        document.getElementById(`cli-hab-tel-${i}`)?.value || '',
@@ -3419,50 +3478,137 @@ function guardarEnHistorial() {
       numReserva: document.getElementById(`cli-hab-num-reserva-${i}`)?.value || ''
     });
   }
-  let tipo       = document.getElementById('hist-save-tipo').value;
-  let nota       = document.getElementById('hist-save-nota').value || '';
-  let peticiones = document.getElementById('cli-notas')?.value || '';
 
   if (!cot || !cot.fi || !cot.fo) {
     histMsg('⚠ Completa la cotización antes de guardar.', '#b91c1c'); return;
   }
 
-  let registro = {
-    id:             Date.now(),
-    tipo, cliente, nota, peticiones, numReserva, tel, email, huespedesHabs,
-    factura, tipoOferta, pais, estado, ciudad, direccion,
-    fecha_guardado: new Date().toISOString(),
-    fi: cot.fi, fo: cot.fo, n: cot.n, plan: cot.plan,
-    totalFinal:     cot.totalFinal,
-    totalBase:      cot.totalBase,
-    totalAjuste:    cot.totalAjuste,
-    totalUpg:       cot.totalUpg || 0,
-    nocheGratisValor: cot.nocheGratisValor || 0,
-    descTipo:       cot.descTipo,
-    descVal:        cot.descVal,
-    promoActiva:    cot.promoActiva || false,
-    promoNombre:    cot.promoNombre || '',
-    temporada:      cot.temporada || '',
-    habitaciones:   (cot.habitaciones||[]).map(h => ({
-      tipo: h.tipo, adultos: h.adultos||1,
-      adolescentes: h.adolescentes||0,
-      adolescentesEdades: h.adolescentesEdades||[],
-      menoresCount: h.menoresCount||0,
-      menoresEdades: h.menoresEdades||[],
-      upgrade: h.upgrade||0
-    })),
-    noches_det: (cot.nochesDet||[]).map(nd => ({
+  const numHabs = (cot.habitaciones||[]).length;
+  const multiHab = numHabs > 1;
+  const sufijos = ['A','B','C','D','E','F','G','H'];
+
+  // Helper: serializar noches de una habitación
+  function serNoches(noches) {
+    return (noches||[]).map(nd => ({
       fecha: nd.fecha, fechaLabel: nd.fechaLabel, total: nd.total,
       base: nd.base, ajuste: nd.ajuste||0, tmp: nd.tmp,
-      we: nd.we||false, gratis: nd.gratis||false
-    }))
-  };
+      we: nd.we||false, gratis: nd.gratis||false,
+      items: (nd.items||[]).map(it=>({l:it.l,v:it.v,gratis:it.gratis||false,subtexto:it.subtexto||''}))
+    }));
+  }
+
+  let registros = [];
+  const now = Date.now();
+
+  if (!multiHab) {
+    // ── Una sola habitación: comportamiento original ──
+    const h = cot.habitaciones[0] || {};
+    registros.push({
+      id: now,
+      tipo, cliente, nota, peticiones,
+      numReserva: numReservaBase,
+      tel, email, huespedesHabs,
+      factura, tipoOferta, pais, estado, ciudad, direccion,
+      fecha_guardado: new Date().toISOString(),
+      fi: cot.fi, fo: cot.fo, n: cot.n, plan: cot.plan,
+      totalFinal:      cot.totalFinal,
+      totalBase:       cot.totalBase,
+      totalAjuste:     cot.totalAjuste,
+      totalUpg:        cot.totalUpg || 0,
+      nocheGratisValor: cot.nocheGratisValor || 0,
+      descTipo: cot.descTipo, descVal: cot.descVal,
+      promoActiva: cot.promoActiva||false, promoNombre: cot.promoNombre||'',
+      temporada: cot.temporada||'',
+      habitaciones: [{
+        tipo: h.tipo, adultos: h.adultos||1,
+        adolescentes: h.adolescentes||0,
+        adolescentesEdades: h.adolescentesEdades||[],
+        menoresCount: h.menoresCount||0,
+        menoresEdades: h.menoresEdades||[],
+        upgrade: h.upgrade||0
+      }],
+      noches_det: serNoches(cot.nochesDet),
+      desgloseHabs: [{
+        idx:0, tipo:h.tipo, upgrade:h.upgrade||0,
+        adultos:h.adultos||1, adoles:h.adolescentes||0, menores:h.menoresCount||0,
+        noches: serNoches(cot.nochesDet)
+      }]
+    });
+  } else {
+    // ── Múltiples habitaciones: un registro independiente por habitación ──
+    (cot.desgloseHabs||[]).forEach((habDet, hi) => {
+      const h       = cot.habitaciones[hi] || {};
+      const hInfo   = huespedesHabs[hi]    || huespedesHabs[0];
+      const sufijo  = sufijos[hi] || String(hi+1);
+      // Número de reserva: base + sufijo si hay base, o solo sufijo como diferenciador
+      const numRes  = hInfo.numReserva
+        ? hInfo.numReserva
+        : numReservaBase
+          ? `${numReservaBase}-${sufijo}`
+          : '';
+      const nombreTitular = hInfo.nombre || cliente;
+      const habNoches = serNoches(habDet.noches);
+      const subtotalHab = habNoches.reduce((s,nd)=>s+(nd.gratis?0:nd.base+(nd.ajuste||0)+(habDet.upgrade||0)),0);
+
+      // Ajuste proporcional aproximado (para efectos de resumen financiero del registro)
+      const totalBaseHab = habNoches.reduce((s,nd)=>s+(nd.gratis?0:nd.base),0);
+      const totalAjusteHab = habNoches.reduce((s,nd)=>s+(nd.gratis?0:(nd.ajuste||0)),0);
+      const totalUpgHab   = habNoches.filter(nd=>!nd.gratis).length * (habDet.upgrade||0);
+
+      registros.push({
+        id: now + hi,         // IDs únicos consecutivos
+        tipo,
+        cliente:    nombreTitular,
+        nota,
+        peticiones,
+        numReserva: numRes,
+        tel:    hInfo.tel   || tel,
+        email:  hInfo.email || email,
+        huespedesHabs: [hInfo],
+        factura, tipoOferta, pais, estado, ciudad, direccion,
+        fecha_guardado: new Date().toISOString(),
+        fi: cot.fi, fo: cot.fo, n: cot.n, plan: cot.plan,
+        totalFinal:      subtotalHab,
+        totalBase:       totalBaseHab,
+        totalAjuste:     totalAjusteHab,
+        totalUpg:        totalUpgHab,
+        nocheGratisValor: habNoches.some(nd=>nd.gratis) ? habNoches.find(nd=>nd.gratis)?.base||0 : 0,
+        descTipo: cot.descTipo, descVal: cot.descVal,
+        promoActiva: cot.promoActiva||false, promoNombre: cot.promoNombre||'',
+        temporada: cot.temporada||'',
+        // Cada registro tiene solo SU habitación
+        habitaciones: [{
+          tipo: h.tipo, adultos: h.adultos||1,
+          adolescentes: h.adolescentes||0,
+          adolescentesEdades: h.adolescentesEdades||[],
+          menoresCount: h.menoresCount||0,
+          menoresEdades: h.menoresEdades||[],
+          upgrade: h.upgrade||0
+        }],
+        noches_det: habNoches,
+        desgloseHabs: [{
+          idx: 0, tipo: habDet.tipo, upgrade: habDet.upgrade||0,
+          adultos: h.adultos||1, adoles: h.adolescentes||0, menores: h.menoresCount||0,
+          noches: habNoches
+        }],
+        // Referencia al grupo para identificar que vienen del mismo contacto
+        grupoReserva: numReservaBase || null,
+        habIdx: hi + 1,
+        totalHabs: numHabs
+      });
+    });
+  }
 
   let arr = lsCargar();
-  arr.unshift(registro);
+  // Insertar todos los registros al inicio (en orden: hab 1, hab 2…)
+  arr.unshift(...registros.reverse()); // reverse para que hab 1 quede primero arriba
   if (arr.length > 500) arr = arr.slice(0, 500);
   lsGuardar(arr);
-  histMsg(`✅ Guardado como ${tipo==='reservacion'?'reservación':'cotización'} para ${cliente}`);
+
+  const msg = multiHab
+    ? `✅ Guardados ${registros.length} registros independientes para ${cliente}`
+    : `✅ Guardado como ${tipo==='reservacion'?'reservación':'cotización'} para ${cliente}`;
+  histMsg(msg);
   document.getElementById('hist-save-nota').value = '';
 }
 
@@ -4429,6 +4575,7 @@ function renderHistorial() {
         <div class="hist-item-header" onclick="toggleHistItem(${reg.id})">
           <span class="hist-tipo-badge ${reg.tipo}">${reg.tipo==='reservacion'?'✅ Reservación':'📄 Cotización'}</span>
           <span class="hist-name">${reg.cliente||'Sin nombre'}</span>
+          ${reg.totalHabs>1?`<span style="font-size:10px;font-weight:700;background:#fff3cd;color:#856404;padding:2px 8px;border-radius:10px;margin-left:4px">Hab.${reg.habIdx}/${reg.totalHabs}</span>`:''}
           <span class="hist-meta">${fmtHistTime(reg.fecha_guardado)} · ${reg.n} noche${reg.n>1?'s':''} · ${habs.length} hab.</span>
           <span class="hist-total-badge">${fmt(reg.totalFinal)}</span>
           <span class="hist-chevron">▼</span>
@@ -4750,41 +4897,87 @@ function _imprimirRegistro(reg) {
       });
       nochesDetalleHtml += `</tbody></table>`;
     } else {
-      // Varias habitaciones: una tabla por habitación
+      // Varias habitaciones: una sección por habitación con sus propias noches
+      const desgloseHabs = reg.desgloseHabs || [];
       (reg.habitaciones||[]).forEach((hab, hi) => {
         const upg = hab.upgrade || 0;
         const habNombre = HAB_NOM[hab.tipo] || hab.tipo;
         const ad = hab.adultos||1, ado = hab.adolescentes||0, men = hab.menoresCount||0;
-        const edades = (hab.menoresEdades||[]).filter(e=>e!=='');
+        // Usar noches individuales de desgloseHabs si están disponibles
+        const habNoches = desgloseHabs[hi]?.noches || reg.noches_det || [];
         const pax = [`${ad} adulto${ad>1?'s':''}`];
-        if(ado) pax.push(`${ado} adolescente${ado>1?'s':''} (13-17)`);
-        if(men) { (hab.menoresEdades||[]).forEach((e,mi)=>{ pax.push(`Menor ${mi+1}: ${e===''?'?':e+' año'+((parseInt(e)||0)===1?'':'s')}`); }); }
-        nochesDetalleHtml += `<div style="margin-bottom:12px">
-          <div style="background:#e8f4fd;padding:5px 8px;border-radius:4px;font-weight:700;font-size:11px;color:#0077b6;margin-bottom:4px">
-            Hab. ${hi+1} — ${habNombre}${upg?` · Upgrade +${fmt(upg)}/noche`:''}<br>
-            <span style="font-weight:400;font-size:10px;color:#555">${pax.join(' · ')}</span>
-          </div>`;
-        nochesDetalleHtml += `<table class="tab noches-table"><thead><tr>
-          <th>Fecha</th><th>Temporada</th>
-          <th style="text-align:right">Tarifa base</th>
-          ${upg?`<th style="text-align:right">Upgrade</th>`:''}
-          <th style="text-align:right">Descuento</th>
-          <th style="text-align:right">Total noche</th>
-        </tr></thead><tbody>`;
-        reg.noches_det.forEach(nd => {
+        if(ado){
+          const adoEd = hab.adolescentesEdades||[];
+          if(adoEd.some(e=>e!=='')) adoEd.forEach((e,ai)=>{ pax.push(`Adol.${ai+1}: ${e===''?'?':e+' años'}`); });
+          else pax.push(`${ado} adolescente${ado>1?'s':''} (13-17)`);
+        }
+        if(men){ (hab.menoresEdades||[]).forEach((e,mi)=>{
+          const mc = clasifMenores(hab.menoresEdades, hab.tipo, ad, ado)[mi];
+          const eLabel = e===''?'?':e+' año'+((parseInt(e)||0)===1?'':'s');
+          const tipoLabel = mc ? (mc.tipo==='invisible'?' (infante)':mc.tipo==='gratis'?' ✓gratis':mc.tipo==='612'?' niño':'') : '';
+          pax.push(`Menor ${mi+1}: ${eLabel}${tipoLabel}`);
+        }); }
+        const subtotalHab = habNoches.reduce((s,nd)=>s+(nd.gratis?0:nd.base+(nd.ajuste||0)+upg),0);
+        nochesDetalleHtml += `<div style="margin-top:16px;border:1.5px solid #0077b6;border-radius:8px;overflow:hidden">
+          <div style="background:#0077b6;color:#fff;padding:7px 12px;font-size:11px;font-weight:700;display:flex;justify-content:space-between;align-items:center">
+            <span>🛏️ Habitación ${hi+1} — ${habNombre}${upg?` (con upgrade)`:''}</span>
+            <span style="font-size:11px;opacity:.9">Subtotal: ${fmt(subtotalHab)} MXN</span>
+          </div>
+          <div style="padding:8px 12px;font-size:10px;color:#555">${pax.join(' · ')}</div>`;
+        // Composición de tarifa (primera noche no-gratis)
+        const ndRef = habNoches.find(nd=>!nd.gratis)||habNoches[0];
+        if(ndRef && ndRef.items && ndRef.items.length){
+          nochesDetalleHtml += `<div style="padding:0 12px 6px">
+            <div style="font-size:10px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Composición de tarifa (por noche)</div>
+            <table style="width:100%;border-collapse:collapse;font-size:10px">
+              <thead><tr style="background:#e8f4fd">
+                <th style="padding:4px 6px;text-align:left;color:#0077b6">Concepto</th>
+                <th style="padding:4px 6px;text-align:right;color:#0077b6">Precio/n</th>
+              </tr></thead><tbody>`;
+          ndRef.items.forEach(it=>{
+            if(it.tipo==='invisible') return;
+            nochesDetalleHtml += `<tr style="border-bottom:1px solid #e8f4f9">
+              <td style="padding:4px 6px;color:${it.gratis?'#1a7a3a':'#222'}">${it.l}</td>
+              <td style="padding:4px 6px;text-align:right;color:${it.gratis?'#1a7a3a':'#222'}">${it.gratis?'Gratis':fmt(it.v)}</td>
+            </tr>`;
+          });
+          nochesDetalleHtml += `<tr style="background:#f0f8ff;font-weight:700">
+            <td style="padding:4px 6px;color:#0077b6">Subtotal base</td>
+            <td style="padding:4px 6px;text-align:right;color:#0077b6">${fmt(ndRef.base)}/n</td>
+          </tr>`;
+          if(upg) nochesDetalleHtml += `<tr style="background:#fff8e6"><td style="padding:4px 6px;color:#b8750a">Upgrade</td><td style="padding:4px 6px;text-align:right;color:#b8750a">+ ${fmt(upg)}/n</td></tr>`;
+          nochesDetalleHtml += `</tbody></table></div>`;
+        }
+        // Tabla de noches individuales
+        nochesDetalleHtml += `<div style="padding:0 12px 10px">
+          <div style="font-size:10px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.05em;margin:8px 0 4px">Desglose por noche</div>
+          <table class="tab noches-table"><thead><tr>
+            <th>Fecha</th><th>Temporada</th><th>Día</th>
+            <th style="text-align:right">Base</th>
+            ${upg?`<th style="text-align:right">Upgrade</th>`:''}
+            <th style="text-align:right">Desc.</th>
+            <th style="text-align:right">Total</th>
+          </tr></thead><tbody>`;
+        habNoches.forEach(nd => {
           const esGratis = nd.gratis;
           const totalNoche = esGratis ? 0 : nd.base + (nd.ajuste||0) + upg;
           nochesDetalleHtml += `<tr${esGratis?' style="background:#e8f9ee"':''}>
             <td style="font-weight:600">${nd.fechaLabel}</td>
             <td style="font-size:10px">${nd.tmp||'—'}</td>
+            <td style="font-size:10px">${nd.we?'Vie/Sáb':'Dom-Jue'}</td>
             <td style="text-align:right${esGratis?';text-decoration:line-through;color:#888':''}">${fmt(nd.base)}</td>
-            ${upg?`<td style="text-align:right">+ ${fmt(upg)}</td>`:''}
+            ${upg?`<td style="text-align:right;color:#b8750a">${esGratis?'—':'+ '+fmt(upg)}</td>`:''}
             <td style="text-align:right;color:${(nd.ajuste||0)<0?'#1a7a3a':'#b91c1c'}">${esGratis?'—':(nd.ajuste||0)!==0?(((nd.ajuste||0)<0?'-':'+')+''+fmt(Math.abs(nd.ajuste||0))):'—'}</td>
             <td style="text-align:right;font-weight:700;color:${esGratis?'#1a7a3a':'#b8750a'}">${esGratis?'🎁 GRATIS':fmt(totalNoche)}</td>
           </tr>`;
         });
-        nochesDetalleHtml += `</tbody></table></div>`;
+        nochesDetalleHtml += `</tbody></table></div></div>`;
       });
+      // Total global
+      nochesDetalleHtml += `<div style="margin-top:14px;background:#e8f4fd;border:2px solid #0077b6;border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:11px;font-weight:700;color:#0077b6">TOTAL GLOBAL — ${(reg.habitaciones||[]).length} habitaciones · ${reg.n} noche${reg.n>1?'s':''}</span>
+        <span style="font-size:13px;font-weight:800;color:#b8750a">${fmt(reg.totalFinal)} MXN</span>
+      </div>`;
     }
   }
 
@@ -4891,6 +5084,8 @@ function _imprimirRegistro(reg) {
   <div class="status-bar">
     ${badge}
     ${reg.numReserva?`<div class="num-reserva"># ${reg.numReserva}</div>`:''}
+    ${reg.totalHabs>1?`<div style="font-size:11px;font-weight:700;background:#fff3cd;color:#856404;padding:3px 10px;border-radius:12px;margin-left:8px">Hab. ${reg.habIdx} de ${reg.totalHabs}</div>`:''}
+    ${reg.grupoReserva&&!reg.numReserva?`<div style="font-size:10px;color:#555;margin-left:8px">Grupo: ${reg.grupoReserva}</div>`:''}
     ${reg.nota?`<div style="font-size:11px;color:#555;margin-left:${reg.numReserva?'16px':'auto'}"><em>${reg.nota}</em></div>`:''}
   </div>
 
