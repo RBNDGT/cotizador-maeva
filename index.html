@@ -1211,14 +1211,52 @@ function initMensajes() {
   mensajesPromo = JSON.parse(JSON.stringify(MENSAJES_DEFAULT));
 }
 
+function buildPromoLabel() {
+  const c = window._cot;
+  if (!c) return '';
+  if (c.promoActiva && c.promoNombre) {
+    if (c.promoCapas && c.promoCapas.length > 0 && c.promoStackDetalle && c.promoStackDetalle.length) {
+      return c.promoStackDetalle.map(d => d.label).join(' + ');
+    }
+    const tipo = c.promoTipo === 'pct'               ? `${c.promoValPct}% de descuento`
+               : c.promoTipo === 'noche_gratis'       ? 'noche gratis'
+               : c.promoTipo === 'pct_noche'          ? `${c.promoValPct}% de descuento + noche gratis`
+               : c.promoTipo === 'monto'              ? `$${c.promoValMonto}/noche de descuento`
+               : c.promoTipo === 'noches_especificas' ? (c.nochesEsp||[]).map(x=>`N${x.noche}: ${x.pct}%`).join(', ')
+               : '';
+    return `${c.promoNombre} — ${tipo}`;
+  }
+  if (c.nocheGratisValor > 0) {
+    return c.nocheGratisLabel || `${c.n} noches — noche de menor valor gratis`;
+  }
+  if (c.descAutoPct > 0) {
+    return `${c.n} ${c.n === 1 ? 'noche' : 'noches'} — ${c.descAutoPct}% de descuento`;
+  }
+  if (c.descTipo && c.descTipo !== 'ninguno' && c.descVal > 0) {
+    return ({
+      pct_desc:   `${c.descVal}% de descuento`,
+      monto_desc: `$${c.descVal}/noche de descuento`,
+      pct_inc:    `${c.descVal}% de incremento`,
+      monto_inc:  `$${c.descVal}/noche de incremento`
+    })[c.descTipo] || '';
+  }
+  return '';
+}
+
 function buildMensajesPromo(n, tono, fi) {
   const fecha = fi || '';
-  return mensajesPromo.filter(m => {
+  const msgs = mensajesPromo.filter(m => {
     if (!m.activo) return false;
     if (m.minNoches && n < m.minNoches) return false;
     if (m.fechaFin && fecha && fecha > m.fechaFin) return false;
     return true;
-  }).map(m => tono === 'formal' ? `\n\n   ${m.texto}` : `\n${m.texto}`).join('');
+  });
+  if (!msgs.length) return '';
+  const promoLabel = buildPromoLabel();
+  const promoLinea = promoLabel
+    ? (tono === 'formal' ? `\n\n   *Promoción: ${promoLabel}*` : `\n*Promoción: ${promoLabel}*`)
+    : '';
+  return msgs.map(m => tono === 'formal' ? `\n\n   ${m.texto}` : `\n${m.texto}`).join('') + promoLinea;
 }
 
 function initTarifas() {
