@@ -1017,6 +1017,17 @@ body.dark .topbar-agente input:focus{border-color:rgba(77,212,255,.5);background
       </div>
     </div>
 
+    <!-- Mensajes promocionales -->
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px">
+        <div class="sec" style="margin-bottom:0">Mensajes en cotización</div>
+        <button class="btn btn-primary btn-sm" onclick="adminAgregarMensaje()">+ Agregar mensaje</button>
+      </div>
+      <p style="font-size:12px;color:var(--texto-suave);margin-bottom:12px">Textos que aparecen automáticamente en el resumen para el cliente cuando se cumplen las condiciones.</p>
+      <div id="admin-mensajes-lista"></div>
+      <div id="admin-mensajes-empty" style="text-align:center;padding:20px;color:var(--texto-suave);font-size:12px;display:none">No hay mensajes configurados.</div>
+    </div>
+
     <div class="card">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px">
         <div class="sec" style="margin-bottom:0" id="admin-año-header">Temporadas y tarifas 2026</div>
@@ -1175,6 +1186,40 @@ const TARIFAS=[
 
 // tarifasActivas: copia mutable de TARIFAS — puede ser sobreescrita por el admin panel
 let tarifasActivas = [];
+
+// ─── MENSAJES PROMOCIONALES ───────────────────────────────────────────────────
+const MENSAJES_LS_KEY = 'maeva_mensajes_v1';
+const MENSAJES_DEFAULT = [
+  {
+    id: 1,
+    texto: '🍽️ *1 cortesía Restaurante Juana Cata* por habitación (especialidad · comida o cena)',
+    activo: true,
+    fechaFin: '2026-06-30',
+    minNoches: 2
+  }
+];
+let mensajesPromo = [];
+
+function initMensajes() {
+  try {
+    const raw = localStorage.getItem(MENSAJES_LS_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) { mensajesPromo = parsed; return; }
+    }
+  } catch(e) {}
+  mensajesPromo = JSON.parse(JSON.stringify(MENSAJES_DEFAULT));
+}
+
+function buildMensajesPromo(n, tono, fi) {
+  const fecha = fi || '';
+  return mensajesPromo.filter(m => {
+    if (!m.activo) return false;
+    if (m.minNoches && n < m.minNoches) return false;
+    if (m.fechaFin && fecha && fecha > m.fechaFin) return false;
+    return true;
+  }).map(m => tono === 'formal' ? `\n\n   ${m.texto}` : `\n${m.texto}`).join('');
+}
 
 function initTarifas() {
   try {
@@ -2711,16 +2756,8 @@ function generarResumen(){
     return lines;
   }
 
-  // Cortesía Juana Cata: 1 por habitación si estancia ≥ 2 noches
-  function lineaCortesia(n, tono, numHabs){
-    if(n < 2) return '';
-    let label = numHabs > 1
-      ? `🍽️ *${numHabs} cortesía${numHabs>1?'s':''} Restaurante Juana Cata* (especialidad) — 1 por habitación`
-      : `🍽️ *1 cortesía Restaurante Juana Cata* (especialidad · comida o cena)`;
-    return tono === 'formal'
-      ? `\n\n   ${label}`
-      : `\n${label}`;
-  }
+  // Mensajes promocionales activos (gestionados desde Admin)
+  function lineaCortesia(n, tono, numHabs){ return buildMensajesPromo(n, tono, window._cot?.fi||''); }
 
   // Desglose de promos en texto legible
   function buildPromoTexto(promoStackDetalle, ahorroTotal, tono){
@@ -4854,6 +4891,7 @@ function initDarkMode() {
 }
 
 initTarifas();
+initMensajes();
 cargarConfig();
 renderHabs();
 calcular();
@@ -4937,6 +4975,42 @@ if('serviceWorker' in navigator){
       </div>
 
       <button onclick="cerrarGuia()" class="btn btn-primary" style="width:100%;margin-top:16px;padding:11px">Entendido</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL ADMIN: MENSAJE PROMOCIONAL ──────────────────────── -->
+<div id="admin-msg-overlay" class="admin-modal-overlay">
+  <div class="admin-modal" style="max-width:480px">
+    <div class="admin-modal-head">
+      <h2 id="admin-msg-titulo">Nuevo mensaje</h2>
+      <button onclick="adminCerrarMsgModal()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--texto-suave);line-height:1">✕</button>
+    </div>
+    <div class="admin-modal-body">
+      <span class="admin-section-label">Texto del mensaje</span>
+      <textarea id="admin-msg-texto" rows="3" placeholder="Ej. 🍽️ *1 cortesía Restaurante Juana Cata* por habitación (comida o cena)" style="margin-bottom:12px"></textarea>
+
+      <span class="admin-section-label">Condiciones de aparición</span>
+      <div class="grid2" style="margin-bottom:10px">
+        <div>
+          <label>Noches mínimas (0 = sin mínimo)</label>
+          <input type="number" id="admin-msg-noches" min="0" placeholder="2">
+        </div>
+        <div>
+          <label>Fecha límite (opcional)</label>
+          <input type="date" id="admin-msg-fecha-fin">
+        </div>
+      </div>
+
+      <div class="admin-toggle-row" style="margin-top:6px">
+        <input type="checkbox" id="admin-msg-activo" checked style="width:16px;height:16px;cursor:pointer;accent-color:var(--azul);flex-shrink:0">
+        <label for="admin-msg-activo">Mensaje activo (aparece en los resúmenes)</label>
+      </div>
+
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px;padding-top:14px;border-top:1px solid var(--azul-light)">
+        <button class="btn" onclick="adminCerrarMsgModal()">Cancelar</button>
+        <button class="btn btn-primary" onclick="adminGuardarMensaje()">Guardar mensaje</button>
+      </div>
     </div>
   </div>
 </div>
@@ -5634,6 +5708,7 @@ async function adminLogin() {
         document.getElementById('admin-año-input').value = cfg['admin-año'] || '2026';
       } catch(e) { document.getElementById('admin-año-input').value = '2026'; }
       adminRenderTabla();
+      adminRenderMensajes();
     } else {
       document.getElementById('admin-pwd-err').style.display = 'block';
       document.getElementById('admin-pwd-input').value       = '';
@@ -5812,5 +5887,105 @@ function adminGuardarTemporada() {
   adminGuardarLS();
   adminRenderTabla();
   adminCerrarModal();
+}
+
+// ─── ADMIN: MENSAJES PROMOCIONALES ───────────────────────────────────────────
+const MENSAJES_LS_KEY = 'maeva_mensajes_v1';
+let _editandoMsgIdx = null;
+
+function adminGuardarMensajesLS() {
+  localStorage.setItem(MENSAJES_LS_KEY, JSON.stringify(mensajesPromo));
+}
+
+function adminRenderMensajes() {
+  const wrap = document.getElementById('admin-mensajes-lista');
+  if (!wrap) return;
+  if (!mensajesPromo.length) {
+    wrap.innerHTML = '<p style="font-size:13px;color:var(--texto-suave);padding:8px 0">Sin mensajes configurados.</p>';
+    return;
+  }
+  wrap.innerHTML = mensajesPromo.map((m, i) => `
+    <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-radius:10px;background:var(--bg-card);border:1.5px solid var(--borde);margin-bottom:8px;opacity:${m.activo ? 1 : 0.5}">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:600;margin-bottom:4px;word-break:break-word">${m.texto}</div>
+        <div style="font-size:11px;color:var(--texto-suave);display:flex;gap:12px;flex-wrap:wrap">
+          ${m.minNoches ? `<span>Mín. ${m.minNoches} noches</span>` : ''}
+          ${m.fechaFin  ? `<span>Hasta ${m.fechaFin}</span>` : '<span>Sin vencimiento</span>'}
+          <span style="font-weight:600;color:${m.activo ? '#16a34a' : '#b91c1c'}">${m.activo ? '● Activo' : '○ Inactivo'}</span>
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;flex-shrink:0">
+        <button class="btn btn-sm" onclick="adminToggleMensaje(${i})" title="${m.activo ? 'Desactivar' : 'Activar'}">${m.activo ? '⏸' : '▶'}</button>
+        <button class="btn btn-sm" onclick="adminEditarMensaje(${i})">Editar</button>
+        <button class="btn btn-sm" style="color:#b91c1c;border-color:#f5b4b4;background:#fde8e8" onclick="adminEliminarMensaje(${i})">✕</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function adminAgregarMensaje() {
+  _editandoMsgIdx = null;
+  adminAbrirMsgModal(null);
+}
+
+function adminEditarMensaje(idx) {
+  _editandoMsgIdx = idx;
+  adminAbrirMsgModal(mensajesPromo[idx]);
+}
+
+function adminEliminarMensaje(idx) {
+  const txt = mensajesPromo[idx]?.texto?.slice(0, 40) || 'este mensaje';
+  if (!confirm(`¿Eliminar "${txt}…"?`)) return;
+  mensajesPromo.splice(idx, 1);
+  adminGuardarMensajesLS();
+  adminRenderMensajes();
+}
+
+function adminToggleMensaje(idx) {
+  mensajesPromo[idx].activo = !mensajesPromo[idx].activo;
+  adminGuardarMensajesLS();
+  adminRenderMensajes();
+}
+
+function adminAbrirMsgModal(m) {
+  const d = m || {};
+  document.getElementById('admin-msg-titulo').textContent = m ? 'Editar mensaje' : 'Nuevo mensaje';
+  document.getElementById('admin-msg-texto').value      = d.texto     || '';
+  document.getElementById('admin-msg-noches').value     = d.minNoches || '';
+  document.getElementById('admin-msg-fecha-fin').value  = d.fechaFin  || '';
+  document.getElementById('admin-msg-activo').checked   = d.activo !== false;
+  document.getElementById('admin-msg-overlay').classList.add('active');
+  document.getElementById('admin-msg-texto').focus();
+}
+
+function adminCerrarMsgModal() {
+  document.getElementById('admin-msg-overlay').classList.remove('active');
+}
+
+function adminGuardarMensaje() {
+  const texto = document.getElementById('admin-msg-texto').value.trim();
+  if (!texto) { alert('El texto del mensaje es obligatorio.'); document.getElementById('admin-msg-texto').focus(); return; }
+
+  const minNoches = parseInt(document.getElementById('admin-msg-noches').value);
+  const fechaFin  = document.getElementById('admin-msg-fecha-fin').value.trim();
+  const activo    = document.getElementById('admin-msg-activo').checked;
+
+  const obj = {
+    id: _editandoMsgIdx !== null ? mensajesPromo[_editandoMsgIdx].id : Date.now(),
+    texto,
+    activo
+  };
+  if (!isNaN(minNoches) && minNoches > 0) obj.minNoches = minNoches;
+  if (fechaFin) obj.fechaFin = fechaFin;
+
+  if (_editandoMsgIdx !== null) {
+    mensajesPromo[_editandoMsgIdx] = obj;
+  } else {
+    mensajesPromo.push(obj);
+  }
+
+  adminGuardarMensajesLS();
+  adminRenderMensajes();
+  adminCerrarMsgModal();
 }
 </script>
