@@ -118,7 +118,7 @@ textarea{resize:vertical;min-height:70px}
 .total-value{font-size:30px;font-weight:800;letter-spacing:-.03em}
 .total-sub-txt{font-size:12px;opacity:.8;margin-top:2px}
 #total-sin-desc{color:rgba(255,255,255,.65)}
-#resumen-output{background:var(--gris-bg);border:1.5px solid var(--gris-borde);border-radius:10px;padding:1rem;font-size:13px;line-height:1.8;white-space:pre-wrap;min-height:120px;font-family:system-ui;color:var(--texto)}
+#resumen-output{background:var(--gris-bg);border:1.5px solid var(--gris-borde);border-radius:10px;padding:1rem;font-size:13px;line-height:1.8;white-space:pre-wrap;min-height:120px;font-family:inherit;color:var(--texto)}
 .tabs{display:flex;gap:3px;margin-bottom:1.35rem;flex-wrap:nowrap;background:var(--blanco);padding:5px;border-radius:14px;border:1px solid rgba(0,174,239,.12);box-shadow:0 1px 3px rgba(0,0,0,.04),0 4px 12px rgba(0,100,180,.05)}
 .tabs::-webkit-scrollbar{display:none}
 .tab{flex:1;padding:8px 6px;border-radius:10px;font-size:12px;cursor:pointer;border:none;background:transparent;color:var(--texto-suave);font-weight:500;transition:all .18s cubic-bezier(.4,0,.2,1);font-family:inherit;white-space:nowrap;text-align:center;display:flex;align-items:center;justify-content:center;gap:5px;letter-spacing:.01em}
@@ -800,7 +800,7 @@ body.dark .topbar-agente input:focus{border-color:rgba(77,212,255,.5);background
   <div id="resumen-desc-auto" class="desc-auto-badge"></div>
   <!-- Contenedor multi-hab o hab única -->
   <div id="resumen-output-container">
-    <div id="resumen-output" style="background:var(--gris-bg);border:1.5px solid var(--gris-borde);border-radius:10px;padding:1rem;font-size:13px;line-height:1.8;white-space:pre-wrap;min-height:120px;font-family:system-ui;color:var(--texto)">Complete la cotización y haga clic en "Generar resumen para cliente" desde la pestaña Cotizar.</div>
+    <div id="resumen-output" style="background:var(--gris-bg);border:1.5px solid var(--gris-borde);border-radius:10px;padding:1rem;font-size:13px;line-height:1.8;white-space:pre-wrap;min-height:120px;font-family:inherit;color:var(--texto)">Complete la cotización y haga clic en "Generar resumen para cliente" desde la pestaña Cotizar.</div>
   </div>
   <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
     <button class="btn btn-primary" onclick="abrirModal()">Regenerar ↗</button>
@@ -3029,7 +3029,7 @@ _${cfgCierre}_`;
     let html='';
     html+=`<div style="margin-bottom:12px">
       <div style="font-size:11px;font-weight:700;color:var(--azul);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">📋 Resumen completo</div>
-      <div id="resumen-output" style="background:var(--gris-bg);border:1.5px solid var(--gris-borde);border-radius:10px;padding:1rem;font-size:13px;line-height:1.8;white-space:pre-wrap;font-family:system-ui;color:var(--texto)">${texto.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+      <div id="resumen-output" style="background:var(--gris-bg);border:1.5px solid var(--gris-borde);border-radius:10px;padding:1rem;font-size:13px;line-height:1.8;white-space:pre-wrap;font-family:inherit;color:var(--texto)">${texto.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
     </div>`;
     html+=`<div style="font-size:11px;font-weight:700;color:var(--azul);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;margin-top:4px">🛏️ Bloques por habitación (copiar individualmente)</div>`;
     (c.desgloseHabs||[]).forEach((habDet,hi)=>{
@@ -3091,13 +3091,13 @@ _${cfgCierre}_`;
           <span style="font-size:12px;font-weight:700;color:var(--texto)">Habitación ${hi+1} — ${HAB_NOM[habDet.tipo]||habDet.tipo}</span>
           <button class="btn btn-sm" onclick="copiarBloque('bloque-hab-${hi}')" style="font-size:11px;padding:3px 10px">📋 Copiar hab. ${hi+1}</button>
         </div>
-        <div id="bloque-hab-${hi}" style="background:var(--gris-bg);border:1.5px solid var(--azul-mid);border-radius:10px;padding:.85rem;font-size:13px;line-height:1.8;white-space:pre-wrap;font-family:system-ui;color:var(--texto)">${escapedBloque}</div>
+        <div id="bloque-hab-${hi}" style="background:var(--gris-bg);border:1.5px solid var(--azul-mid);border-radius:10px;padding:.85rem;font-size:13px;line-height:1.8;white-space:pre-wrap;font-family:inherit;color:var(--texto)">${escapedBloque}</div>
       </div>`;
     });
     container.innerHTML=html;
   } else {
     // Una habitación: bloque único
-    container.innerHTML=`<div id="resumen-output" style="background:var(--gris-bg);border:1.5px solid var(--gris-borde);border-radius:10px;padding:1rem;font-size:13px;line-height:1.8;white-space:pre-wrap;min-height:120px;font-family:system-ui;color:var(--texto)"></div>`;
+    container.innerHTML=`<div id="resumen-output" style="background:var(--gris-bg);border:1.5px solid var(--gris-borde);border-radius:10px;padding:1rem;font-size:13px;line-height:1.8;white-space:pre-wrap;min-height:120px;font-family:inherit;color:var(--texto)"></div>`;
     document.getElementById('resumen-output').textContent=texto;
   }
 
@@ -5597,10 +5597,10 @@ document.getElementById('modal-guia').addEventListener('click', e => {
 });
 
 // ─── ADMIN PANEL ──────────────────────────────────────────────────────────────
-const ADMIN_PWD     = 'Maeva2026';
+const ADMIN_HASH    = '0fd67851aa69dec2d46755960e531b1807154c75267bc85d1543446d567e4a36';
 const ADMIN_LS_KEY  = 'maeva_tarifas_v1';
 let _adminLogueado  = false;
-let _editandoIdx    = null; // null = nueva temporada, number = editar existente
+let _editandoIdx    = null;
 
 function adminAplicarAño() {
   const val = document.getElementById('admin-año-input').value.trim();
@@ -5618,24 +5618,29 @@ function adminAplicarAño() {
   } catch(e) {}
 }
 
-function adminLogin() {
+async function adminLogin() {
   const pwd = document.getElementById('admin-pwd-input').value;
-  if (pwd === ADMIN_PWD) {
-    _adminLogueado = true;
-    document.getElementById('admin-gate').style.display    = 'none';
-    document.getElementById('admin-content').style.display = 'block';
-    document.getElementById('admin-pwd-err').style.display = 'none';
-    document.getElementById('admin-pwd-input').value       = '';
-    // Cargar año actual en el campo
-    try {
-      const cfg = JSON.parse(localStorage.getItem('maeva_config') || '{}');
-      document.getElementById('admin-año-input').value = cfg['admin-año'] || '2026';
-    } catch(e) { document.getElementById('admin-año-input').value = '2026'; }
-    adminRenderTabla();
-  } else {
+  try {
+    const buf  = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pwd));
+    const hash = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+    if (hash === ADMIN_HASH) {
+      _adminLogueado = true;
+      document.getElementById('admin-gate').style.display    = 'none';
+      document.getElementById('admin-content').style.display = 'block';
+      document.getElementById('admin-pwd-err').style.display = 'none';
+      document.getElementById('admin-pwd-input').value       = '';
+      try {
+        const cfg = JSON.parse(localStorage.getItem('maeva_config') || '{}');
+        document.getElementById('admin-año-input').value = cfg['admin-año'] || '2026';
+      } catch(e) { document.getElementById('admin-año-input').value = '2026'; }
+      adminRenderTabla();
+    } else {
+      document.getElementById('admin-pwd-err').style.display = 'block';
+      document.getElementById('admin-pwd-input').value       = '';
+      document.getElementById('admin-pwd-input').focus();
+    }
+  } catch(e) {
     document.getElementById('admin-pwd-err').style.display = 'block';
-    document.getElementById('admin-pwd-input').value       = '';
-    document.getElementById('admin-pwd-input').focus();
   }
 }
 
