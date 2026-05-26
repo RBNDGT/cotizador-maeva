@@ -2,8 +2,13 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<link rel="icon" type="image/png" href="favicon.png">
-<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/svg+xml" href="icon.svg">
+<link rel="apple-touch-icon" href="icon.svg">
+<meta name="theme-color" content="#003A5C">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Maeva">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Cotizador Club Maeva Miramar 2026</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -472,6 +477,7 @@ body.dark .topbar-agente input:focus{border-color:rgba(77,212,255,.5);background
     <input type="text" id="agente-global" placeholder="Tu nombre completo"
       oninput="syncAgenteGlobal(this.value)">
   </div>
+  <button onclick="abrirGuia()" title="Guía rápida" style="background:rgba(255,255,255,.12);border:1.5px solid rgba(255,255,255,.2);color:#fff;border-radius:50%;width:34px;height:34px;font-size:15px;font-weight:700;cursor:pointer;margin:auto 14px auto 6px;flex-shrink:0;transition:all .18s;display:flex;align-items:center;justify-content:center" onmouseover="this.style.background='rgba(255,255,255,.22)'" onmouseout="this.style.background='rgba(255,255,255,.12)'">?</button>
 </div>
 <div class="container">
 
@@ -4840,9 +4846,88 @@ cargarConfig();
 renderHabs();
 calcular();
 initDarkMode();
+// Registrar Service Worker (PWA)
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('./sw.js').catch(()=>{});
+}
 </script>
 </body>
 </html>
+
+<!-- ── MODAL GUÍA RÁPIDA ──────────────────────────────────────── -->
+<div id="modal-guia" style="display:none;position:fixed;inset:0;background:rgba(0,30,50,.6);z-index:3000;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(4px)">
+  <div style="background:var(--blanco);border-radius:18px;width:100%;max-width:560px;max-height:90vh;overflow-y:auto;box-shadow:0 16px 56px rgba(0,40,80,.3);border-top:4px solid var(--azul)">
+
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:1.4rem 1.5rem .5rem">
+      <div>
+        <div style="font-size:17px;font-weight:800;color:var(--texto);letter-spacing:-.01em">Guía rápida</div>
+        <div style="font-size:12px;color:var(--texto-suave);margin-top:2px">Cotizador Club Maeva Miramar</div>
+      </div>
+      <button onclick="cerrarGuia()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--texto-suave);line-height:1;padding:4px">✕</button>
+    </div>
+
+    <div style="padding:.5rem 1.5rem 1.5rem">
+
+      <!-- Paso 1 -->
+      <div style="display:flex;gap:14px;padding:14px 0;border-bottom:1px solid var(--azul-light)">
+        <div style="flex-shrink:0;width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--azul),var(--azul-dark));color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px">1</div>
+        <div>
+          <div style="font-weight:700;font-size:13px;margin-bottom:4px">Ingresa tu nombre de agente</div>
+          <div style="font-size:12px;color:var(--texto-suave);line-height:1.6">Escríbelo en el campo <strong>"Agente"</strong> de la barra superior. Aparecerá automáticamente en todos los resúmenes que generes.</div>
+        </div>
+      </div>
+
+      <!-- Paso 2 -->
+      <div style="display:flex;gap:14px;padding:14px 0;border-bottom:1px solid var(--azul-light)">
+        <div style="flex-shrink:0;width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--azul),var(--azul-dark));color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px">2</div>
+        <div>
+          <div style="font-weight:700;font-size:13px;margin-bottom:4px">Configura la cotización</div>
+          <div style="font-size:12px;color:var(--texto-suave);line-height:1.6">En la pestaña <strong>Cotizar</strong>: selecciona fechas de entrada y salida, plan (AI o EP), número de adultos y menores. El sistema detecta la temporada y aplica descuentos automáticamente.</div>
+        </div>
+      </div>
+
+      <!-- Paso 3 -->
+      <div style="display:flex;gap:14px;padding:14px 0;border-bottom:1px solid var(--azul-light)">
+        <div style="flex-shrink:0;width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--azul),var(--azul-dark));color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px">3</div>
+        <div>
+          <div style="font-weight:700;font-size:13px;margin-bottom:4px">Revisa el desglose y el total</div>
+          <div style="font-size:12px;color:var(--texto-suave);line-height:1.6">El cálculo aparece al instante abajo. Puedes ver la <strong>comparativa de opciones</strong> para mostrarle al cliente diferentes alternativas en precio.</div>
+        </div>
+      </div>
+
+      <!-- Paso 4 -->
+      <div style="display:flex;gap:14px;padding:14px 0;border-bottom:1px solid var(--azul-light)">
+        <div style="flex-shrink:0;width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--azul),var(--azul-dark));color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px">4</div>
+        <div>
+          <div style="font-weight:700;font-size:13px;margin-bottom:4px">Genera el resumen para el cliente</div>
+          <div style="font-size:12px;color:var(--texto-suave);line-height:1.6">Clic en <strong>"Generar resumen para cliente"</strong>. Llena los datos del cliente, elige el tono (formal, amigable o WhatsApp corto) y envía directo por WhatsApp o descarga en PDF.</div>
+        </div>
+      </div>
+
+      <!-- Paso 5 -->
+      <div style="display:flex;gap:14px;padding:14px 0">
+        <div style="flex-shrink:0;width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--dorado),var(--dorado-dark));color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px">5</div>
+        <div>
+          <div style="font-weight:700;font-size:13px;margin-bottom:4px">Guarda en el historial</div>
+          <div style="font-size:12px;color:var(--texto-suave);line-height:1.6">Usa el botón flotante <strong>"Guardar"</strong> para registrar la cotización como <em>Cotización</em> o <em>Reservación</em>. El historial te permite recuperar y reenviar cualquier cotización anterior.</div>
+        </div>
+      </div>
+
+      <!-- Tips -->
+      <div style="background:var(--azul-light);border:1px solid var(--azul-mid);border-radius:10px;padding:12px 14px;margin-top:6px">
+        <div style="font-size:10px;font-weight:700;color:var(--azul-dark);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">💡 Tips rápidos</div>
+        <ul style="font-size:12px;color:var(--texto-suave);line-height:2;padding-left:16px;margin:0">
+          <li>Puedes agregar <strong>varias habitaciones</strong> independientes en una misma cotización</li>
+          <li>La <strong>4ta noche gratis</strong> se aplica automáticamente cuando corresponde</li>
+          <li>El <strong>modo oscuro</strong> está disponible en la pestaña Configuración</li>
+          <li>Para actualizar tarifas o agregar temporadas: pestaña <strong>Admin</strong></li>
+        </ul>
+      </div>
+
+      <button onclick="cerrarGuia()" class="btn btn-primary" style="width:100%;margin-top:16px;padding:11px">Entendido</button>
+    </div>
+  </div>
+</div>
 
 <!-- ── MODAL ADMIN: EDITAR/CREAR TEMPORADA ────────────────────── -->
 <div id="admin-modal-overlay" class="admin-modal-overlay">
@@ -5484,6 +5569,19 @@ document.getElementById('modal-confirm-ok').addEventListener('click', () => {
 document.getElementById('modal-confirm-cancel').addEventListener('click', () => {
   document.getElementById('modal-confirm').style.display = 'none';
   _confirmCallback = null;
+});
+
+// ─── GUÍA RÁPIDA ─────────────────────────────────────────────────────────────
+function abrirGuia() {
+  const m = document.getElementById('modal-guia');
+  m.style.display = 'flex';
+  m.scrollTop = 0;
+}
+function cerrarGuia() {
+  document.getElementById('modal-guia').style.display = 'none';
+}
+document.getElementById('modal-guia').addEventListener('click', e => {
+  if (e.target === document.getElementById('modal-guia')) cerrarGuia();
 });
 
 // ─── ADMIN PANEL ──────────────────────────────────────────────────────────────
