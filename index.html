@@ -1453,10 +1453,12 @@ function calcNocheDepto(fecha, plan, habAdultos, habAdoles, menoresEdades, descT
     items.push({ l: 'Estándar Dpto. — 2 adultos (tarifa doble)', v: tb.d, subtexto: `${fmt(porPersona)} por persona/noche` });
     base += tb.d;
     items.push({ l: 'Junior Dpto. — 2 adultos (tarifa doble)', v: tb.d, subtexto: `${fmt(porPersona)} por persona/noche` });
-    base += tb.pe;
-    items.push({ l: 'Adulto extra #1 (5° persona)', v: tb.pe });
-    base += tb.pe;
-    items.push({ l: 'Adulto extra #2 (6° persona)', v: tb.pe });
+    // Extras dinámicos: mínimo 2 (cupo base), más si hay más de 4 adultos reales
+    let numExtrasAI = Math.max(2, (habAdultos || 1) - 4);
+    for (let xi = 0; xi < numExtrasAI; xi++) {
+      base += tb.pe;
+      items.push({ l: `Adulto extra #${xi+1} (${xi+5}° persona)`, v: tb.pe });
+    }
 
     // Adolescentes restantes (no subieron)
     for (let i = 0; i < adoRestantes; i++) { base += tb.ad; items.push({ l: 'Adolescente (13-17) — tarifa normal', v: tb.ad }); }
@@ -1484,8 +1486,11 @@ function calcNocheDepto(fecha, plan, habAdultos, habAdoles, menoresEdades, descT
     items.push({ l: 'Estándar Dpto. — habitación (1-2 personas)', v: tb.s });
     base += tb.s;
     items.push({ l: 'Junior Dpto. — habitación (1-2 personas)', v: tb.s });
-    base += tb.pe; items.push({ l: 'Persona extra #1', v: tb.pe });
-    base += tb.pe; items.push({ l: 'Persona extra #2', v: tb.pe });
+    let numExtrasEP = Math.max(2, (habAdultos || 1) - 4);
+    for (let xi = 0; xi < numExtrasEP; xi++) {
+      base += tb.pe;
+      items.push({ l: `Persona extra #${xi+1} (${xi+5}° persona)`, v: tb.pe });
+    }
     for (let i = 0; i < adoRestantes; i++) { base += tb.ad; items.push({ l: 'Adolescente (13-17)', v: tb.ad }); }
     if (menoresRestantes.length > 0) {
       let mcRest = clasifMenores(menoresRestantes, 'DEPARTAMENTO', adultosEq, adoRestantes);
@@ -1576,6 +1581,9 @@ function calcNoche(fecha,plan,adultos,adolescentes,menoresC,descTipo,descVal,des
 function calcular(){
   let fi=document.getElementById('fecha-in').value;
   let fo=document.getElementById('fecha-out').value;
+  // Sync fecha-out min so browser blocks selecting before check-in
+  const _foInput=document.getElementById('fecha-out');
+  if(fi&&_foInput) _foInput.min=fi;
   let plan=document.getElementById('plan').value;
   // Totales de huéspedes sumados de todas las habitaciones
   let adultos=habitaciones.reduce((s,h)=>s+(h.adultos||1),0);
@@ -1628,8 +1636,13 @@ function calcular(){
   document.getElementById('resultado').style.display='none';
 
   if(!fi||!fo)return;
+  const _hoy=new Date().toISOString().split('T')[0];
+  if(fi<_hoy){
+    document.getElementById('advertencias').innerHTML='<div class="alerta alerta-red">🔒 La fecha de llegada ya pasó. Por favor selecciona una fecha válida.</div>';
+    return;
+  }
   let n=noches(fi,fo);
-  if(n<=0){document.getElementById('advertencias').innerHTML='<div class="alerta alerta-red">La fecha de salida debe ser posterior a la llegada.</div>';return;}
+  if(n<=0){document.getElementById('advertencias').innerHTML='<div class="alerta alerta-red">🔒 La fecha de salida debe ser igual o posterior a la llegada.</div>';return;}
 
   let mc=[];
   let t0=getTarifa(fi);
@@ -4934,6 +4947,8 @@ cargarConfig();
 renderHabs();
 calcular();
 initDarkMode();
+// Bloquear fechas pasadas en el selector de llegada
+document.getElementById('fecha-in').min = new Date().toISOString().split('T')[0];
 // Registrar Service Worker (PWA)
 if('serviceWorker' in navigator){
   navigator.serviceWorker.register('./sw.js').catch(()=>{});
@@ -5928,7 +5943,6 @@ function adminGuardarTemporada() {
 }
 
 // ─── ADMIN: MENSAJES PROMOCIONALES ───────────────────────────────────────────
-const MENSAJES_LS_KEY = 'maeva_mensajes_v1';
 let _editandoMsgIdx = null;
 
 function adminGuardarMensajesLS() {
