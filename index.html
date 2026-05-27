@@ -1888,6 +1888,15 @@ function calcular(){
     let result=aplicarPromoStack(nochesDet, totalFinal);
     promoStackDesc=result.descuentoTotal;
     let descPorCapa=result.descPorCapa||[];
+    // Si una capa fue noche_gratis, el upgrade de esa noche también debe descontarse
+    if(result.nocheGratisStack){
+      let upgradeNocheGratis=desgloseHabs.reduce((s,hd)=>s+(hd.upgrade||0),0);
+      if(upgradeNocheGratis>0){
+        promoStackDesc+=upgradeNocheGratis;
+        let ngIdx=_promoCapas.findIndex(c=>c.tipo==='noche_gratis');
+        if(ngIdx>=0)descPorCapa[ngIdx]=(descPorCapa[ngIdx]||0)+upgradeNocheGratis;
+      }
+    }
     totalFinal-=promoStackDesc;
 
     // Subtotal antes de promo (para mostrar en desglose)
