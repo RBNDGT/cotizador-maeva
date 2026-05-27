@@ -1874,7 +1874,7 @@ function calcular(){
   if(plan==='AI'&&descAutoActivo&&n===4&&idxNocheGratis>=0){
     desgloseHabs.forEach(habDet=>{
       if(habDet.noches&&habDet.noches[idxNocheGratis])
-        nocheGratisValor+=habDet.noches[idxNocheGratis].base;
+        nocheGratisValor+=habDet.noches[idxNocheGratis].base+(habDet.upgrade||0);
     });
     totalFinal-=nocheGratisValor;
     nocheGratisLabel=`🎁 Noche gratis (${nochesDet[idxNocheGratis].fechaLabel}, menor valor): -${fmt(nocheGratisValor)}`;
