@@ -1284,6 +1284,7 @@ function initTarifas() {
   } catch(e) {}
 }
 
+const HAB_DESC={ESTANDAR:"2 camas matrimoniales",JUNIOR_SUITE:"cama king size, sala y terraza",JUNIOR_SUITE_KING:"cama king size",MASTER_SUITE:"cama king size, sala y jacuzzi",VILLA:"2 recámaras, sala y cocina",EJECUTIVA:"cama matrimonial",ESTANDAR_DEPTO:"2 camas matrimoniales",JUNIOR_DEPTO:"cama king size",DEPARTAMENTO:"departamento completo (2 habitaciones)"};
 const HAB_CAP={ESTANDAR:4,JUNIOR_SUITE:5,JUNIOR_SUITE_KING:3,MASTER_SUITE:2,VILLA:6,EJECUTIVA:2,ESTANDAR_DEPTO:4,JUNIOR_DEPTO:4,DEPARTAMENTO:8};
 const HAB_NOM={ESTANDAR:"Estándar",JUNIOR_SUITE:"Junior Suite",JUNIOR_SUITE_KING:"Jr. Suite King Size",MASTER_SUITE:"Master Suite",VILLA:"Villa",EJECUTIVA:"Ejecutiva",ESTANDAR_DEPTO:"Estándar Dpto.",JUNIOR_DEPTO:"Junior Dpto.",DEPARTAMENTO:"Departamento completo"};
 const HAB_UPGRADE={ESTANDAR:0,JUNIOR_SUITE:650,JUNIOR_SUITE_KING:650,MASTER_SUITE:1600,VILLA:900,EJECUTIVA:0,ESTANDAR_DEPTO:0,JUNIOR_DEPTO:900,DEPARTAMENTO:1600};
@@ -2750,12 +2751,14 @@ function generarResumen(){
   let ahorroTotal=Math.abs(c.totalAjuste)+(c.nocheGratisValor||0);
   let descTotalLinea=ahorroTotal>0?`\n   💰 Ahorro total: -${fmt(ahorroTotal)}`:'';
   let incluyeAI=c.plan==='AI'?`
+
 ✅ TODO INCLUIDO INCLUYE:
-   • Hospedaje · Desayuno, comida y cena buffet
-   • Bebidas nacionales con vinos de la casa
-   • Actividades recreativas · Cancha de tenis
-   • Alberca Solarium (mayores de 21 años)
-   • Club de playa`:'';
+   • Hospedaje
+   • Alimentos tipo bufete (desayuno, comida y cena)
+   • Bebidas nacionales con vinos de la casa ilimitadas
+   • Cancha de tenis · Albercas · Palapa Disco
+   • Impuestos`
+  :'';
 
   let notasCliente=notas?`\n📝 NOTAS / PETICIONES ESPECIALES:\n   ${notas}\n`:'';
 
@@ -2890,42 +2893,80 @@ function generarResumen(){
   // ── TEXTO SEGÚN TONO ──
   let texto='';
 
+  // ── helpers compartidos ──────────────────────────────────────────────────
+  function buildCostoNoche(noches, upgrade){
+    if(!noches||!noches.length) return '';
+    let upg = upgrade||0;
+    let rates = noches.map(nd=>nd.base+upg);
+    let minR=Math.min(...rates), maxR=Math.max(...rates);
+    return minR===maxR ? fmt(minR) : `${fmt(minR)} – ${fmt(maxR)}`;
+  }
+  function buildIncluye(plan){
+    if(plan!=='AI') return '';
+    return `\n*Incluye:*\n• Hospedaje\n• Alimentos tipo bufete (desayuno, comida y cena)\n• Bebidas nacionales con vinos de la casa ilimitadas\n• Cancha de tenis\n• Albercas · Palapa Disco\n• Impuestos`;
+  }
+  function buildFooter(cfgT, agente){
+    return `\nTarifas y disponibilidad sujetas a cambio\n\nPara reservar y más información:\n${cfgT}${agente?'\n\nLe atendió: '+agente:''}`;
+  }
+  function buildPromoBloque(c, totalSinPromo){
+    let lineas='';
+    if(c.promoActiva&&c.promoNombre){
+      lineas+=`\n*PROMOCIÓN: ${c.promoNombre.toUpperCase()}*`;
+      if(c.promoStackDesc>0) lineas+=`\nAhorro: -${fmt(c.promoStackDesc)}`;
+    }
+    if(c.nocheGratisValor>0){
+      lineas+=`\n🎁 *4ta noche gratis*\nAhorro: -${fmt(c.nocheGratisValor)}`;
+    }
+    if(lineas) lineas+=`\n\n*Total: ${fmt(c.totalFinal)} MXN*`;
+    else lineas+=`\n*Total ${c.n} noche${c.n>1?'s':''}: ${fmt(c.totalFinal)} MXN*`;
+    return lineas;
+  }
+
   if(_tono==='whatsapp'){
     if(multiHab){
-      // Resumen general primero
-      texto=`🏖️ *${cfgHotel}* — Cotización grupal\n`;
-      texto+=`━━━━━━━━━━━━━━\n`;
-      texto+=`👤 ${nombre}\n`;
-      texto+=`📅 ${fmtD(c.fi)} → ${fmtD(c.fo)} (${c.n} noche${c.n>1?'s':''})\n`;
-      texto+=`📋 ${planLabel}\n`;
+      let totalPersonas=c.habitaciones.reduce((s,h)=>(s+(h.adultos||1)+(h.adolescentes||0)+(h.menoresCount||0)),0);
+      texto=`*${cfgHotel}*\n`;
+      texto+=`━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+      texto+=`Check in:  ${fmtD(c.fi)} · 15:00 hrs\n`;
+      texto+=`Check out: ${fmtD(c.fo)} · 11:00 hrs\n`;
+      texto+=`Noches: ${c.n}\n`;
+      texto+=`Personas: ${totalPersonas}\n`;
+      texto+=`Plan: ${planLabel}\n`;
       c.habitaciones.forEach((h,i)=>{
+        let desc=HAB_DESC[h.tipo]||'';
         let ad=h.adultos||1,ado=h.adolescentes||0,men=h.menoresCount||0;
-        let adoEd=(h.adolescentesEdades||[]).filter(e=>e!=='');
-        let menEd=(h.menoresEdades||[]);
-        let p=[`${ad} adulto${ad>1?'s':''}`];
-        if(ado>0){p.push(adoEd.length?adoEd.map((e,ai)=>`adol.${ai+1}:${e}a`).join(' '):ado+' adol.');}
-        if(men>0){menEd.forEach((e,mi)=>{p.push(`men.${mi+1}:${e===''?'?':e+'a'}`)});}
-        texto+=`🛏️ *Hab ${i+1}* ${HAB_NOM[h.tipo]||h.tipo}: ${p.join(' · ')}${h.upgrade>0?' +upg':''}\n`;
+        let pax=[ad+' ad.'+(ad>1?'s':'')];if(ado)pax.push(ado+' adol.');if(men)pax.push(men+' men.');
+        texto+=`\nHab ${i+1}: ${HAB_NOM[h.tipo]}${desc?' ('+desc+')':''}${h.upgrade>0?' + upgrade':''}\n`;
+        texto+=`Huéspedes: ${pax.join(' · ')}\n`;
+        let habDet=c.desgloseHabs?.[i];
+        if(habDet){texto+=`Costo/noche: ${buildCostoNoche(habDet.noches,habDet.upgrade)}\n`;}
       });
-      if(c.nocheGratisValor>0) texto+=`🎁 ¡Noche gratis incluida!\n`;
-      texto+=lineaCortesia(c.n, 'amigable', c.habitaciones.length);
-      texto+=`\n\n💵 *Total general: ${fmt(c.totalFinal)} MXN*\n`;
-      texto+=`📞 ${cfgTel}${agente?'\n👤 '+agente:''}`;
+      let totalSinPromo=c.totalBase+c.totalUpg;
+      if(totalSinPromo!==c.totalFinal)texto+=`\nTotal sin promo: ${fmt(totalSinPromo)}\n`;
+      texto+=buildPromoBloque(c, totalSinPromo);
+      texto+=lineaCortesia(c.n,'amigable',c.habitaciones.length);
+      texto+=buildIncluye(c.plan);
+      texto+=buildFooter(cfgTel,agente);
     } else {
-      texto=`🏖️ *${cfgHotel}* — Cotización\n`;
-      texto+=`━━━━━━━━━━━━━━\n`;
-      texto+=`👤 ${nombre}\n`;
-      texto+=`📅 ${fmtD(c.fi)} → ${fmtD(c.fo)} (${c.n} noche${c.n>1?'s':''})\n`;
-      texto+=`🛏️ ${habLabel}${c.upg>0?' +upgrade':''}  ·  ${planLabel}\n`;
-      let habDescWA=c.habitaciones.map((h,i)=>{let ad=h.adultos||1,ado=h.adolescentes||0,men=h.menoresCount||0;let p=[ad+' ad.'+(ad>1?'s':'')];if(ado>0)p.push(ado+' adol.');if(men>0)p.push(men+' men.');return 'H'+(i+1)+': '+p.join('+');}).join(' | ');
-      texto+=`👥 ${habDescWA}\n`;
-      let hab0wa=c.desgloseHabs?.[0]||{noches:c.nochesDet,upgrade:(c.habitaciones[0]?.upgrade||0)};
-      texto+=`\n💰 *Desglose:*`;
-      texto+=buildLineasNoches(hab0wa.noches||c.nochesDet||[], hab0wa.upgrade||0, c.promoCapas, c.promoStackDetalle, 'amigable');
-      texto+=buildPromoTexto(c.promoStackDetalle, ahorroTotal, 'amigable');
-      texto+=lineaCortesia(c.n, 'amigable', 1);
-      texto+=`\n\n💵 *Total: ${fmt(c.totalFinal)} MXN*\n`;
-      texto+=`\n📞 ${cfgTel}${agente?'\n👤 '+agente:''}`;
+      let h0=c.habitaciones[0]||{};
+      let totalPersonas=(h0.adultos||1)+(h0.adolescentes||0)+(h0.menoresCount||0);
+      let desc=HAB_DESC[c.hab]||'';
+      let hab0wa=c.desgloseHabs?.[0]||{noches:c.nochesDet,upgrade:(h0.upgrade||0)};
+      let totalSinPromo=c.totalBase+c.totalUpg;
+      texto=`*${cfgHotel}*\n`;
+      texto+=`━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+      texto+=`Check in:  ${fmtD(c.fi)} · 15:00 hrs\n`;
+      texto+=`Check out: ${fmtD(c.fo)} · 11:00 hrs\n`;
+      texto+=`Noches: ${c.n}\n`;
+      texto+=`Personas: ${totalPersonas}\n`;
+      texto+=`Hab: ${habLabel}${desc?' ('+desc+')':''}${c.upg>0?' + upgrade':''}\n`;
+      texto+=`Plan: ${planLabel}\n`;
+      texto+=`\nCosto por noche: ${buildCostoNoche(hab0wa.noches, hab0wa.upgrade)}\n`;
+      texto+=`Total ${c.n} noche${c.n>1?'s':''}: ${fmt(totalSinPromo)}\n`;
+      texto+=buildPromoBloque(c, totalSinPromo);
+      texto+=lineaCortesia(c.n,'amigable',1);
+      texto+=buildIncluye(c.plan);
+      texto+=buildFooter(cfgTel,agente);
     }
   } else if(_tono==='amigable'){
     texto=`¡Hola ${nombre}! 😊\n\n`;
@@ -2957,13 +2998,12 @@ function generarResumen(){
       texto+=buildLineasNoches(hab0.noches||c.nochesDet||[], hab0.upgrade||0, c.promoCapas, c.promoStackDetalle, 'amigable');
     }
     texto+=buildPromoTexto(c.promoStackDetalle, ahorroTotal, 'amigable');
-    texto+=lineaCortesia(c.n, 'amigable', c.numHabs);
-    if(c.plan==='AI')texto+=`\n\n✅ *Incluye:* hospedaje, alimentos buffet, bebidas, actividades y club de playa\n`;
-    texto+=`\n\n💵 *Total estimado: ${fmt(c.totalFinal)} MXN*\n`;
-    texto+=`   (${c.n} noches · ${c.numHabs} hab. · con impuestos)\n`;
-    if(notas)texto+=`\n📝 Nota: ${notas}\n`;
-    texto+=`\n¡Quedamos a tus órdenes para confirmar tu reserva! 🌴\n`;
-    texto+=`📞 ${cfgTel}${agente?' · '+agente:''}`;
+    texto+=lineaCortesia(c.n,'amigable',c.numHabs);
+    texto+=buildIncluye(c.plan);
+    if(notas)texto+=`\n\n📝 Nota: ${notas}`;
+    texto+=`\n\n💵 *Total: ${fmt(c.totalFinal)} MXN*`;
+    texto+=`\n   (${c.n} noches · ${c.numHabs} hab. · impuestos incluidos)`;
+    texto+=buildFooter(cfgTel,agente);
   } else {
     // Formal (default)
     let desgloseHabsLineas='';
@@ -2981,6 +3021,8 @@ function generarResumen(){
     let promoTextoFormal = buildPromoTexto(c.promoStackDetalle, ahorroTotal, 'formal');
     let cortesiaFormal = lineaCortesia(c.n, 'formal', c.numHabs);
     let upgTotalLinea=multiHab&&c.totalUpg>0?`\n   Upgrades totales: +${fmt(c.totalUpg)}`:'';
+    let habDescFormal=HAB_DESC[c.hab]?` (${HAB_DESC[c.hab]})`:'';
+    let totalSinPromoF=c.totalBase+c.totalUpg;
     texto=`🏖️ *COTIZACIÓN — ${cfgHotel.toUpperCase()}*
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -2989,12 +3031,12 @@ Estimado/a *${nombre}*,
 ${cfgSaludo}
 
 📅 *FECHAS*
-   Llegada:   *${fmtD(c.fi)}*
-   Salida:    *${fmtD(c.fo)}*
-   Noches:    *${c.n} noche${c.n>1?'s':''}*
+   Check in:   *${fmtD(c.fi)}* · 15:00 hrs
+   Check out:  *${fmtD(c.fo)}* · 11:00 hrs
+   Noches:     *${c.n}*
 
 🛏️ *HABITACIÓN Y PLAN*
-   Tipo:       ${habLabel} × ${c.numHabs} habitación${c.numHabs>1?'es':''}${upgLineа}
+   Hab:        ${habLabel}${habDescFormal} × ${c.numHabs}${upgLineа}
    Plan:       *${planLabel}*
    Temporada:  ${c.temporada}${descLinea}
 
@@ -3002,16 +3044,15 @@ ${cfgSaludo}
 ${huespedesLineas}${menoresTexto}
 
 💰 *DESGLOSE POR NOCHE*${desgloseHabsLineas}${promoTextoFormal}${cortesiaFormal}${upgTotalLinea}
-
-💵 *TOTAL ESTIMADO: ${fmt(c.totalFinal)} MXN*
-   (Incluye impuestos · ${c.n} noches · ${c.numHabs} hab.)
+${totalSinPromoF!==c.totalFinal?`\n   Total antes de promoción: ${fmt(totalSinPromoF)}`:''}
+💵 *TOTAL: ${fmt(c.totalFinal)} MXN*
 ${incluyeAI}
 ${notasCliente}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Para confirmar su reservación:
-📞 ${cfgTel}${agente?'\n👤 '+agente:''}
+Tarifas y disponibilidad sujetas a cambio
 
-_${cfgCierre}_`;
+Para reservar y más información:
+📞 ${cfgTel}${agente?'\n\nLe atendió: '+agente:''}`;
   }
 
   // ── TEXTOS DE RESERVACIÓN ─────────────────────────────────────
