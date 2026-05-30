@@ -2397,9 +2397,9 @@ function renderHabs(){
               let oldChk=this.parentElement.querySelector('.exc-chk-wrap');if(oldChk)oldChk.remove();
               if(baseStatus==='extra'){
                 let excWrap=document.createElement('label');excWrap.className='exc-chk-wrap';
-                excWrap.style.cssText='display:flex;align-items:center;gap:3px;font-size:9px;color:var(--azul);cursor:pointer;margin-top:3px;white-space:nowrap;font-weight:600';
+                excWrap.style.cssText='display:flex;align-items:center;gap:5px;font-size:11px;color:#1d4ed8;cursor:pointer;margin-top:5px;white-space:nowrap;font-weight:700;background:#eff6ff;border:1px solid #bfdbfe;border-radius:5px;padding:3px 7px';
                 let excInp=document.createElement('input');excInp.type='checkbox';
-                excInp.style.cssText='width:11px;height:11px;cursor:pointer;accent-color:var(--azul)';
+                excInp.style.cssText='width:14px;height:14px;cursor:pointer;accent-color:#1d4ed8;flex-shrink:0';
                 excInp.checked=!!(h.menoresExcepciones&&h.menoresExcepciones[idx]);
                 excInp.onchange=(()=>{let hid=h.id;let midx=idx;return function(){
                   let hh=habitaciones.find(x=>x.id===hid);
@@ -2432,9 +2432,9 @@ function renderHabs(){
           eWrap.appendChild(tagEl);
           if(baseStatus==='extra'){
             let excWrap=document.createElement('label');excWrap.className='exc-chk-wrap';
-            excWrap.style.cssText='display:flex;align-items:center;gap:3px;font-size:9px;color:var(--azul);cursor:pointer;margin-top:3px;white-space:nowrap;font-weight:600';
+            excWrap.style.cssText='display:flex;align-items:center;gap:5px;font-size:11px;color:#1d4ed8;cursor:pointer;margin-top:5px;white-space:nowrap;font-weight:700;background:#eff6ff;border:1px solid #bfdbfe;border-radius:5px;padding:3px 7px';
             let excInp=document.createElement('input');excInp.type='checkbox';
-            excInp.style.cssText='width:11px;height:11px;cursor:pointer;accent-color:var(--azul)';
+            excInp.style.cssText='width:14px;height:14px;cursor:pointer;accent-color:#1d4ed8;flex-shrink:0';
             excInp.checked=!!(hab.menoresExcepciones&&hab.menoresExcepciones[mi]);
             excInp.onchange=(()=>{let hid=hab.id;let midx=mi;return function(){
               let hh=habitaciones.find(x=>x.id===hid);
