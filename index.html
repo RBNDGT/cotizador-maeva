@@ -1313,8 +1313,9 @@ function getTBase(t,plan,we){
 //              el excedente paga tarifa extra
 //   6-12 años → tarifa niño normal (612), si excede cupo físico → extra
 //   Cupo físico: adultos + adolescentes + menores 3+ no pueden superar HAB_CAP
-function clasifMenores(edadesArr,habTipo,adultos,adolescentes){
+function clasifMenores(edadesArr,habTipo,adultos,adolescentes,excepciones){
   adolescentes=adolescentes||0;
+  excepciones=excepciones||[];
   let cap=HAB_CAP[habTipo]||4;
 
   // Master Suite: no admite menores — todos extra (excepto invisibles 0-2)
@@ -1355,8 +1356,13 @@ function clasifMenores(edadesArr,habTipo,adultos,adolescentes){
 
     // 3+ años: verificar cupo físico primero
     if(ocupado >= cap){
-      res.push({edad:edadNum, tipo:'extra'});
-      ocupado++;
+      if(excepciones[res.length]){
+        res.push({edad:edadNum, tipo:'excepcion'});
+        // No suma al ocupado: entra por excepción, comparte cama
+      } else {
+        res.push({edad:edadNum, tipo:'extra'});
+        ocupado++;
+      }
       continue;
     }
 
@@ -1544,6 +1550,7 @@ function calcNoche(fecha,plan,adultos,adolescentes,menoresC,descTipo,descVal,des
       let eLabel=m.edad==='?'?'(sin edad)':m.edad+' años';
       if(m.tipo==='pendiente'){items.push({l:`Menor ${eLabel} — captura edad`,v:0,gratis:true,warn:true});}
       else if(m.tipo==='gratis'){items.push({l:`Menor ${eLabel} (3-5 años — sin costo)`,v:0,gratis:true});}
+      else if(m.tipo==='excepcion'){items.push({l:`Menor ${eLabel} — excepción hotel ✉`,v:0,gratis:true,excepcion:true});}
       else if(m.tipo==='612'){base+=tb.n612;items.push({l:`Menor ${eLabel} — tarifa niño (6-12)`,v:tb.n612});}
       else{base+=tb.ne;items.push({l:`Menor ${eLabel} — extra`,v:tb.ne});}
     }
@@ -1557,6 +1564,7 @@ function calcNoche(fecha,plan,adultos,adolescentes,menoresC,descTipo,descVal,des
       let eLabel=m.edad==='?'?'(sin edad)':m.edad+' años';
       if(m.tipo==='pendiente'){items.push({l:`Menor ${eLabel} — captura edad`,v:0,gratis:true,warn:true});}
       else if(m.tipo==='gratis'){items.push({l:`Menor ${eLabel} (3-5 años — sin costo)`,v:0,gratis:true});}
+      else if(m.tipo==='excepcion'){items.push({l:`Menor ${eLabel} — excepción hotel ✉`,v:0,gratis:true,excepcion:true});}
       else if(m.tipo==='612'){base+=tb.n612;items.push({l:`Menor ${eLabel} — tarifa niño (6-12)`,v:tb.n612});}
       else{base+=tb.ne;items.push({l:`Menor ${eLabel} — extra`,v:tb.ne});}
     }
@@ -1685,7 +1693,7 @@ function calcular(){
     // Pad with empty strings if count > edades array (age not yet entered)
     while(habEdades.length<habMenoresCount)habEdades.push('');
     habEdades=habEdades.slice(0,habMenoresCount);
-    let mcHab=clasifMenores(habEdades,habTipo,habAdultos,habAdoles);
+    let mcHab=clasifMenores(habEdades,habTipo,habAdultos,habAdoles,habitaciones[hi].menoresExcepciones||[]);
     let habNochesDet=[];
 
     // ── Descuento auto 5+ noches ──
@@ -2119,7 +2127,7 @@ function calcularComparativa(){
 }
 
 // ─── HABITACIONES INDEPENDIENTES ─────────────────────────────────────────────
-let habitaciones=[{tipo:'ESTANDAR',upgrade:0,adultos:1,adolescentes:0,adolescentesEdades:[],menoresCount:0,menoresEdades:[],id:Date.now()}];
+let habitaciones=[{tipo:'ESTANDAR',upgrade:0,adultos:1,adolescentes:0,adolescentesEdades:[],menoresCount:0,menoresEdades:[],menoresExcepciones:[],id:Date.now()}];
 
 const HAB_OPCIONES=`
   <option value="ESTANDAR">Estándar (cap. 4)</option>
@@ -2142,7 +2150,7 @@ const UPGRADE_OPCIONES=`
   <option value="1600">+$1,600/noche — Master Suite</option>`;
 
 function agregarHab(){
-  habitaciones.push({tipo:'ESTANDAR',upgrade:0,adultos:1,adolescentes:0,adolescentesEdades:[],menoresCount:0,menoresEdades:[],id:Date.now()});
+  habitaciones.push({tipo:'ESTANDAR',upgrade:0,adultos:1,adolescentes:0,adolescentesEdades:[],menoresCount:0,menoresEdades:[],menoresExcepciones:[],id:Date.now()});
   renderHabs();calcular();
 }
 
@@ -2321,7 +2329,10 @@ function renderHabs(){
     // Campos de edad por cada menor
     if((hab.menoresCount||0)>0){
       if(!hab.menoresEdades)hab.menoresEdades=[];
+      if(!hab.menoresExcepciones)hab.menoresExcepciones=[];
       while(hab.menoresEdades.length<hab.menoresCount)hab.menoresEdades.push('');
+      while(hab.menoresExcepciones.length<hab.menoresCount)hab.menoresExcepciones.push(false);
+      hab.menoresExcepciones=hab.menoresExcepciones.slice(0,hab.menoresCount);
       let edadesWrap=document.createElement('div');
       edadesWrap.style.cssText='margin-top:8px;border-top:1px dashed var(--azul-mid);padding-top:7px';
       let edadesTitle=document.createElement('div');
@@ -2370,15 +2381,35 @@ function renderHabs(){
               // Count how many prior menores (by age) already fit within cap
               let cupoRestante=Math.max(0,cap-totalOcup);
               // Rebuild classification to get this minor's status
-              let mc=clasifMenores(h.menoresEdades,h.tipo,h.adultos||1,h.adolescentes||0);
+              let mc=clasifMenores(h.menoresEdades,h.tipo,h.adultos||1,h.adolescentes||0,h.menoresExcepciones||[]);
+              let mcBase=clasifMenores(h.menoresEdades,h.tipo,h.adultos||1,h.adolescentes||0,[]);
               let status=mc[idx]?mc[idx].tipo:'extra';
+              let baseStatus=mcBase[idx]?mcBase[idx].tipo:'extra';
               let tagEl=document.createElement('span');
               if(status==='invisible'){tagEl.className='menor-edad-tag gratis';tagEl.textContent='Sin costo (0-2)';}
               else if(status==='gratis'){tagEl.className='menor-edad-tag gratis';tagEl.textContent='Gratis (3-5)';}
               else if(status==='612'){tagEl.className='menor-edad-tag tarifa';tagEl.textContent='Tarifa niño (6-12)';}
+              else if(status==='excepcion'){tagEl.className='menor-edad-tag';tagEl.style.cssText='background:#e0e7ff;color:#3730a3';tagEl.textContent='✉ Excepción hotel';}
               else if(status==='pendiente'){tagEl.className='menor-edad-tag tarifa';tagEl.textContent='Captura edad';}
               else{tagEl.className='menor-edad-tag extra';tagEl.textContent='Extra';}
               this.parentElement.appendChild(tagEl);
+              // Checkbox de excepción cuando el menor excede cupo
+              let oldChk=this.parentElement.querySelector('.exc-chk-wrap');if(oldChk)oldChk.remove();
+              if(baseStatus==='extra'){
+                let excWrap=document.createElement('label');excWrap.className='exc-chk-wrap';
+                excWrap.style.cssText='display:flex;align-items:center;gap:3px;font-size:9px;color:var(--azul);cursor:pointer;margin-top:3px;white-space:nowrap;font-weight:600';
+                let excInp=document.createElement('input');excInp.type='checkbox';
+                excInp.style.cssText='width:11px;height:11px;cursor:pointer;accent-color:var(--azul)';
+                excInp.checked=!!(h.menoresExcepciones&&h.menoresExcepciones[idx]);
+                excInp.onchange=(()=>{let hid=h.id;let midx=idx;return function(){
+                  let hh=habitaciones.find(x=>x.id===hid);
+                  if(hh){if(!hh.menoresExcepciones)hh.menoresExcepciones=[];hh.menoresExcepciones[midx]=this.checked;}
+                  renderHabs();calcular();
+                };})();
+                excWrap.appendChild(excInp);
+                excWrap.appendChild(document.createTextNode('Excepción hotel'));
+                this.parentElement.appendChild(excWrap);
+              }
             }
             calcular();
           }
@@ -2387,15 +2418,33 @@ function renderHabs(){
         eWrap.appendChild(eInp);
         // Show tag if age already set
         if(hab.menoresEdades[mi]!==''){
-          let mc=clasifMenores(hab.menoresEdades,hab.tipo,hab.adultos||1,hab.adolescentes||0);
+          let mc=clasifMenores(hab.menoresEdades,hab.tipo,hab.adultos||1,hab.adolescentes||0,hab.menoresExcepciones||[]);
+          let mcBase=clasifMenores(hab.menoresEdades,hab.tipo,hab.adultos||1,hab.adolescentes||0,[]);
           let status=mc[mi]?mc[mi].tipo:'extra';
+          let baseStatus=mcBase[mi]?mcBase[mi].tipo:'extra';
           let tagEl=document.createElement('span');
           if(status==='invisible'){tagEl.className='menor-edad-tag gratis';tagEl.textContent='Sin costo (0-2)';}
           else if(status==='gratis'){tagEl.className='menor-edad-tag gratis';tagEl.textContent='Gratis (3-5)';}
           else if(status==='612'){tagEl.className='menor-edad-tag tarifa';tagEl.textContent='Tarifa niño (6-12)';}
+          else if(status==='excepcion'){tagEl.className='menor-edad-tag';tagEl.style.cssText='background:#e0e7ff;color:#3730a3';tagEl.textContent='✉ Excepción hotel';}
           else if(status==='pendiente'){tagEl.className='menor-edad-tag tarifa';tagEl.textContent='Captura edad';}
           else{tagEl.className='menor-edad-tag extra';tagEl.textContent='Extra';}
           eWrap.appendChild(tagEl);
+          if(baseStatus==='extra'){
+            let excWrap=document.createElement('label');excWrap.className='exc-chk-wrap';
+            excWrap.style.cssText='display:flex;align-items:center;gap:3px;font-size:9px;color:var(--azul);cursor:pointer;margin-top:3px;white-space:nowrap;font-weight:600';
+            let excInp=document.createElement('input');excInp.type='checkbox';
+            excInp.style.cssText='width:11px;height:11px;cursor:pointer;accent-color:var(--azul)';
+            excInp.checked=!!(hab.menoresExcepciones&&hab.menoresExcepciones[mi]);
+            excInp.onchange=(()=>{let hid=hab.id;let midx=mi;return function(){
+              let hh=habitaciones.find(x=>x.id===hid);
+              if(hh){if(!hh.menoresExcepciones)hh.menoresExcepciones=[];hh.menoresExcepciones[midx]=this.checked;}
+              renderHabs();calcular();
+            };})();
+            excWrap.appendChild(excInp);
+            excWrap.appendChild(document.createTextNode('Excepción hotel'));
+            eWrap.appendChild(excWrap);
+          }
         }
         edadesGrid.appendChild(eWrap);
       }
@@ -2717,20 +2766,25 @@ function generarResumen(){
     let allMc=[];
     (c.habitaciones||[]).forEach((h,hi)=>{
       let edades=h.menoresEdades||[];
-      let mc=clasifMenores(edades,h.tipo,h.adultos||1,h.adolescentes||0);
+      let mc=clasifMenores(edades,h.tipo,h.adultos||1,h.adolescentes||0,h.menoresExcepciones||[]);
       mc.forEach(m=>allMc.push(m));
     });
     if(allMc.length>0){
       let grats=allMc.filter(m=>m.tipo==='gratis').length;
       let t612=allMc.filter(m=>m.tipo==='612').length;
       let ext=allMc.filter(m=>m.tipo==='extra').length;
+      let exc=allMc.filter(m=>m.tipo==='excepcion').length;
       let p=[];
       if(grats)p.push(grats+' sin costo');
       if(t612)p.push(t612+' tarifa 6-12');
       if(ext)p.push(ext+' extra');
+      if(exc)p.push(exc+' excepción hotel ✉');
       menoresTexto='\n   Menores: '+p.join(', ');
     }
   }
+
+  let hayExcepciones=(c.habitaciones||[]).some(h=>(h.menoresExcepciones||[]).some(e=>e===true));
+  let cartaConformidadLinea=hayExcepciones?'\n⚠️ *Carta de conformidad requerida* por menor en excepción de cupo.':'';
 
   let descLinea='';
   if(c.promoActiva&&c.promoNombre){
@@ -2861,16 +2915,18 @@ function generarResumen(){
     if(menH>0)hpax.push(menH+' menor'+(menH>1?'es':''));
     let cHab=c.habitaciones[habIdx]||{};
     let edadesHab=cHab.menoresEdades||[];
-    let mcHab=clasifMenores(edadesHab,habDet.tipo,adH,adoH);
+    let mcHab=clasifMenores(edadesHab,habDet.tipo,adH,adoH,cHab.menoresExcepciones||[]);
     let menDet='';
     if(mcHab.filter(m=>m.tipo!=='invisible').length>0){
       let grats=mcHab.filter(m=>m.tipo==='gratis').length;
       let t612=mcHab.filter(m=>m.tipo==='612').length;
       let ext=mcHab.filter(m=>m.tipo==='extra').length;
+      let exc=mcHab.filter(m=>m.tipo==='excepcion').length;
       let mp=[];
       if(grats)mp.push(grats+' sin costo (3-5 años)');
       if(t612)mp.push(t612+' tarifa niño (6-12)');
       if(ext)mp.push(ext+' extra');
+      if(exc)mp.push(exc+' excepción hotel ✉');
       if(mp.length)menDet='\n   Menores: '+mp.join(', ');
     }
     let lineasNoches = buildLineasNoches(habDet.noches||[], habDet.upgrade||0, c.promoCapas, c.promoStackDetalle, 'formal');
@@ -2944,6 +3000,7 @@ function generarResumen(){
       let totalSinPromo=c.totalBase+c.totalUpg;
       if(totalSinPromo!==c.totalFinal)texto+=`\nTotal sin promo: ${fmt(totalSinPromo)}\n`;
       texto+=buildPromoBloque(c, totalSinPromo);
+      texto+=cartaConformidadLinea;
       texto+=lineaCortesia(c.n,'amigable',c.habitaciones.length);
       texto+=buildIncluye(c.plan);
       texto+=buildFooter(cfgTel,agente);
@@ -2964,6 +3021,7 @@ function generarResumen(){
       texto+=`\nCosto por noche: ${buildCostoNoche(hab0wa.noches, hab0wa.upgrade)}\n`;
       texto+=`Total ${c.n} noche${c.n>1?'s':''}: ${fmt(totalSinPromo)}\n`;
       texto+=buildPromoBloque(c, totalSinPromo);
+      texto+=cartaConformidadLinea;
       texto+=lineaCortesia(c.n,'amigable',1);
       texto+=buildIncluye(c.plan);
       texto+=buildFooter(cfgTel,agente);
@@ -2998,6 +3056,7 @@ function generarResumen(){
       texto+=buildLineasNoches(hab0.noches||c.nochesDet||[], hab0.upgrade||0, c.promoCapas, c.promoStackDetalle, 'amigable');
     }
     texto+=buildPromoTexto(c.promoStackDetalle, ahorroTotal, 'amigable');
+    texto+=cartaConformidadLinea;
     texto+=lineaCortesia(c.n,'amigable',c.numHabs);
     texto+=buildIncluye(c.plan);
     if(notas)texto+=`\n\n📝 Nota: ${notas}`;
@@ -3041,7 +3100,7 @@ ${cfgSaludo}
    Temporada:  ${c.temporada}${descLinea}
 
 👥 *HUÉSPEDES*
-${huespedesLineas}${menoresTexto}
+${huespedesLineas}${menoresTexto}${cartaConformidadLinea}
 
 💰 *DESGLOSE POR NOCHE*${desgloseHabsLineas}${promoTextoFormal}${cortesiaFormal}${upgTotalLinea}
 ${totalSinPromoF!==c.totalFinal?`\n   Total antes de promoción: ${fmt(totalSinPromoF)}`:''}
