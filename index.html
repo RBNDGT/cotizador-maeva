@@ -1158,7 +1158,12 @@ body.dark .topbar-agente input:focus{border-color:rgba(77,212,255,.5);background
 const LOGO_B64 = document.querySelector('.topbar-logo img')?.src || '';
 
 const TARIFAS=[
-  {nombre:"Ene 01–Mar 12 / Mar 16-28",desde:"2026-01-01",hasta:"2026-03-12",tipo:"baja",
+  {nombre:"Ene 01–Feb 28",desde:"2026-01-01",hasta:"2026-02-28",tipo:"baja",
+   AI:{s:5040,d:5800,pe:1785,n612:200,ne:1180,ad:1180},
+   AI_we:{s:5650,d:6505,pe:1785,n612:200,ne:1180,ad:1180},
+   EP:{s:2280,pe:365,n612:365,ne:365,ad:365},EP_we:{s:2675,pe:380,n612:380,ne:380,ad:380},
+   promo:"4ta noche gratis entrando domingo (solo AI)"},
+  {nombre:"Mar 01-12",desde:"2026-03-01",hasta:"2026-03-12",tipo:"baja",
    AI:{s:3780,d:4350,pe:1340,n612:150,ne:885,ad:885},AI_we:{s:3780,d:4350,pe:1340,n612:150,ne:885,ad:885},
    EP:{s:2280,pe:365,n612:365,ne:365,ad:365},EP_we:{s:2675,pe:380,n612:380,ne:380,ad:380},
    promo:"4ta noche gratis entrando domingo (solo AI)"},
