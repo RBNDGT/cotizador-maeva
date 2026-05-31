@@ -1207,7 +1207,7 @@ const TARIFAS=[
    EP:{s:2280,pe:365,n612:365,ne:365,ad:365},EP_we:{s:2675,pe:380,n612:380,ne:380,ad:380},
    promo:"4ta noche gratis entrando domingo (solo AI)"},
   {nombre:"Dic 30-31 (Fin de Año)",desde:"2026-12-30",hasta:"2026-12-31",tipo:"media",
-   AI:{s:5830,d:6700,pe:1400,n612:310,ne:920,ad:920},
+   AI:{s:5830,d:6700,pe:1785,n612:310,ne:1180,ad:1180},
    EP:{s:2675,pe:380,n612:380,ne:380,ad:380},
    nota:"Cena de fin de año — costo adicional obligatorio"}
 ];
@@ -2320,11 +2320,11 @@ function renderHabs(){
     });
     tipoSel.onchange=(()=>{let id=hab.id;return function(){
       let h=habitaciones.find(x=>x.id===id);
-      if(h){h.tipo=this.value;}
-      // Solo actualizar el info-text, no re-render completo
-      let infoEl=this.closest('div[data-habid]')?.querySelector('.hab-info');
-      if(infoEl){infoEl.textContent=`Cap. ${HAB_CAP[h.tipo]} personas · ${HAB_NOM[h.tipo]}`;}
-      calcular();
+      if(h){
+        h.tipo=this.value;
+        if(this.value==='DEPARTAMENTO'&&(h.adultos||1)<6){h.adultos=6;}
+      }
+      renderHabs();calcular();
     };})();
     tipoDiv.appendChild(tipoLbl);
     tipoDiv.appendChild(tipoSel);
@@ -2364,7 +2364,10 @@ function renderHabs(){
     info.className='hab-info';
     info.setAttribute('data-habid',hab.id);
     info.style.cssText='font-size:11px;color:var(--texto-suave);margin-top:6px';
-    info.textContent=`Cap. ${HAB_CAP[hab.tipo]} personas · ${HAB_NOM[hab.tipo]}${hab.upgrade>0?' · Upgrade +$'+hab.upgrade+'/noche':''}`;
+    let _ocupados=(hab.adultos||1)+(hab.adolescentes||0)+(hab.menoresCount||0);
+    let _cap=HAB_CAP[hab.tipo]||4;
+    let _restante=_cap-_ocupados;
+    info.textContent=`Cap. ${_cap} personas · ${HAB_NOM[hab.tipo]} · ${_ocupados}/${_cap} ocupados${_restante>0?' ('+_restante+' disponibles)':''}${hab.upgrade>0?' · Upgrade +$'+hab.upgrade+'/noche':''}`;
     wrap.setAttribute('data-habid',hab.id);
     wrap.appendChild(info);
 
@@ -2382,8 +2385,10 @@ function renderHabs(){
     let adDiv=document.createElement('div');
     let adLbl=document.createElement('label');adLbl.textContent='Adultos';
     let adInp=document.createElement('input');
-    adInp.type='number';adInp.min=1;adInp.max=8;
-    adInp.value=hab.adultos||1;
+    adInp.type='number';
+    adInp.min=hab.tipo==='DEPARTAMENTO'?6:1;
+    adInp.max=hab.tipo==='DEPARTAMENTO'?8:8;
+    adInp.value=hab.tipo==='DEPARTAMENTO'?Math.max(6,hab.adultos||6):hab.adultos||1;
     adInp.onchange=(()=>{let id=hab.id;return function(){
       let h=habitaciones.find(x=>x.id===id);
       if(h)h.adultos=parseInt(this.value)||1;
