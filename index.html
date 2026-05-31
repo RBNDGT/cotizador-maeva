@@ -163,6 +163,14 @@ textarea{resize:vertical;min-height:70px}
 .btn-email{background:#EA4335;color:#fff;border-color:#EA4335}
 .btn-email:hover{background:#c5342a}
 .desc-auto-badge{background:var(--dorado-light);border:1.5px solid var(--dorado);border-radius:8px;padding:8px 12px;font-size:12px;color:var(--dorado-dark);margin-top:8px;display:none}
+.fin-ano-panel{display:none;margin-bottom:12px}
+.fin-ano-card{background:linear-gradient(135deg,#FBF8EC,#FFF6D0);border:2px solid #C9A227;border-radius:12px;padding:14px 16px}
+.fin-ano-title{font-size:14px;font-weight:700;color:#7A5A00;margin-bottom:4px}
+.fin-ano-sub{font-size:11px;color:#9A7A20;margin-bottom:12px}
+.fin-ano-opciones{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:12px}
+.fin-ano-opciones label{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#5A4010;cursor:pointer}
+.fin-ano-desglose{font-size:12px;color:#5A4010;line-height:2;border-top:1px solid #E8D080;padding-top:8px;margin-top:4px}
+.fin-ano-total-line{font-weight:700;font-size:14px;color:#7A5A00;border-top:1px solid #C9A227;margin-top:8px;padding-top:8px}
 .desc-tabla{width:100%;border-collapse:collapse;font-size:12px;margin-top:6px}
 .desc-tabla th{background:var(--azul-light);color:var(--azul-dark);padding:5px 8px;text-align:left;font-weight:600}
 .desc-tabla td{padding:5px 8px;border-bottom:1px solid var(--azul-light)}
@@ -667,6 +675,19 @@ body.dark .topbar-agente input:focus{border-color:rgba(77,212,255,.5);background
 </div>
 
 <div id="advertencias"></div>
+
+<div id="fin-ano-panel" class="fin-ano-panel">
+  <div class="fin-ano-card">
+    <div class="fin-ano-title">🎆 Cena de Fin de Año — 31 de diciembre</div>
+    <div class="fin-ano-sub">Cargo adicional obligatorio · Solo aplica plan Todo Incluido</div>
+    <div class="fin-ano-opciones">
+      <label><input type="checkbox" id="fin-ano-socio" onchange="recalcFinAno()"> Socio membresía AI</label>
+      <label><input type="checkbox" id="fin-ano-menu-adulto" onchange="recalcFinAno()"> Menores con menú completo</label>
+    </div>
+    <div id="fin-ano-desglose" class="fin-ano-desglose"></div>
+    <div id="fin-ano-total-line" class="fin-ano-total-line"></div>
+  </div>
+</div>
 
 </div>
 
@@ -2030,8 +2051,74 @@ if(hab==='MASTER_SUITE'&&_msHasMenores){
   }
 
   // Guardar para otras pestañas
-  window._cot={fi,fo,n,plan,hab,adultos,adoles,menores:[],numHabs,upg,descTipo,descVal,descAutoPct,nocheGratisValor,nocheGratisLabel,totalFinal,totalBase,totalAjuste,totalUpg,nochesDet,desgloseHabs,habitaciones:[...habitaciones],temporada:t0?t0.nombre:'',promoActiva,promoNombre,promoTipo,promoValPct,promoValMonto,nochesEsp:[..._nochesEsp],promoCapas:JSON.parse(JSON.stringify(_promoCapas)),promoStackDesc,promoStackDetalle:[...promoStackDetalle]};
+  window._cot={fi,fo,n,plan,hab,adultos,adoles,menores:[],numHabs,upg,descTipo,descVal,descAutoPct,nocheGratisValor,nocheGratisLabel,totalFinal,totalBase,totalAjuste,totalUpg,nochesDet,desgloseHabs,habitaciones:[...habitaciones],temporada:t0?t0.nombre:'',promoActiva,promoNombre,promoTipo,promoValPct,promoValMonto,nochesEsp:[..._nochesEsp],promoCapas:JSON.parse(JSON.stringify(_promoCapas)),promoStackDesc,promoStackDetalle:[...promoStackDetalle],cargoFinAno:0,totalFinalBase:totalFinal};
   calcularComparativa();
+  showPanelFinAno(fi, fo, plan);
+}
+
+// ─── FIN DE AÑO ──────────────────────────────────────────────────────────────
+function incluyeNocheDic31(fi, fo) {
+  return fi && fo && fi <= '2026-12-31' && fo >= '2027-01-01';
+}
+
+function calcCargoFinAno(adultos, adolescentes, menores, esSocio, menuAdulto) {
+  let lineas = [], total = 0;
+  if (esSocio) {
+    let cargoAd = adultos * 1200;
+    total += cargoAd;
+    if (adultos) lineas.push(`${adultos} adulto${adultos>1?'s':''} (socio): ${fmt(cargoAd)}`);
+    let totalMin = menores + adolescentes;
+    let libres = Math.min(totalMin, 2);
+    let resto  = totalMin - libres;
+    let cargoLibres = menuAdulto ? libres * 1200 : 0;
+    total += cargoLibres;
+    if (libres) lineas.push(`${libres} menor${libres>1?'es':''} incluido${libres>1?'s':''} — menú ${menuAdulto?'completo: '+fmt(cargoLibres):'sencillo: incluido'}`);
+    if (resto > 0) {
+      let cargoResto = menuAdulto ? resto * 1200 : resto * 665;
+      total += cargoResto;
+      lineas.push(`${resto} menor${resto>1?'es':''} adicional${resto>1?'es':''} — menú ${menuAdulto?'completo':'sencillo'}: ${fmt(cargoResto)}`);
+    }
+  } else {
+    if (adultos) { let v=adultos*1330; total+=v; lineas.push(`${adultos} adulto${adultos>1?'s':''}: ${fmt(v)}`); }
+    if (adolescentes) { let v=adolescentes*1330; total+=v; lineas.push(`${adolescentes} adolescente${adolescentes>1?'s':''} (13-17): ${fmt(v)}`); }
+    if (menores) { let v=menores*(menuAdulto?1330:665); total+=v; lineas.push(`${menores} menor${menores>1?'es':''} 2-12 (menú ${menuAdulto?'completo':'sencillo'}): ${fmt(v)}`); }
+  }
+  return { total, lineas };
+}
+
+function recalcFinAno() {
+  let c = window._cot;
+  if (!c) return;
+  let esSocio    = document.getElementById('fin-ano-socio')?.checked || false;
+  let menuAdulto = document.getElementById('fin-ano-menu-adulto')?.checked || false;
+  let totalMenores = (c.habitaciones||[]).reduce((s,h)=>{
+    let mc = clasifMenores(h.menoresEdades||[], h.tipo, h.adultos||1, h.adolescentes||0, h.menoresExcepciones||[]);
+    return s + mc.filter(m=>m.tipo!=='invisible').length;
+  }, 0);
+  let res = calcCargoFinAno(c.adultos, c.adoles, totalMenores, esSocio, menuAdulto);
+  c.cargoFinAno      = res.total;
+  c.finAnoEsSocio    = esSocio;
+  c.finAnoMenuAdulto = menuAdulto;
+  c.finAnoLineas     = res.lineas;
+  document.getElementById('fin-ano-desglose').innerHTML  = res.lineas.map(l=>`• ${l}`).join('<br>');
+  document.getElementById('fin-ano-total-line').textContent = `🎆 Cargo Fin de Año: ${fmt(res.total)}`;
+  // Update grand total display
+  let grandTotal = (c.totalFinalBase||c.totalFinal) + res.total;
+  document.getElementById('total-valor').textContent = fmt(grandTotal);
+  let sub = document.getElementById('total-sub-txt');
+  if (sub) sub.textContent = res.total > 0 ? `Incluye cargo Fin de Año ($${Math.round(res.total).toLocaleString('es-MX')})` : '';
+}
+
+function showPanelFinAno(fi, fo, plan) {
+  let panel = document.getElementById('fin-ano-panel');
+  if (!panel) return;
+  if (incluyeNocheDic31(fi, fo) && plan === 'AI') {
+    panel.style.display = 'block';
+    recalcFinAno();
+  } else {
+    panel.style.display = 'none';
+    if (window._cot) window._cot.cargoFinAno = 0;
+  }
 }
 
 // ─── COMPARATIVA ─────────────────────────────────────────────────────────────
@@ -2984,6 +3071,23 @@ function generarResumen(){
   function buildFooter(cfgT, agente){
     return `\nTarifas y disponibilidad sujetas a cambio\n\nPara reservar y más información:\n${cfgT}${agente?'\n\nLe atendió: '+agente:''}`;
   }
+  function buildBloqueFinAno(c, tono){
+    if(!c.cargoFinAno || c.cargoFinAno===0) return '';
+    let sep = tono==='formal' ? '\n   ' : '\n';
+    let lineas = (c.finAnoLineas||[]).map(l=>`${sep}• ${l}`).join('');
+    let totalLine = `${sep}─────────────────────${sep}🎆 Cargo Fin de Año: *${fmt(c.cargoFinAno)} MXN*`;
+    let incluye = `\n\n🥂 *INCLUYE LA NOCHE DEL 31:*`
+      +`${sep}• Menú de 3 tiempos (entrada, plato fuerte y postre)`
+      +`${sep}• Menú sencillo de niños (hamburguesas, nuggets o pizza)`
+      +`${sep}• Bebidas nacionales con vinos de la casa ilimitadas`
+      +`${sep}• Uvas para el conteo de fin de año`
+      +`${sep}• Música en vivo para bailar`
+      +`\n\n👗 *VESTIMENTA:*`
+      +`${sep}Mujeres: Vestido de cóctel`
+      +`${sep}Hombres: Traje o saco (con o sin corbata)`;
+    return `\n\n🎆 *CENA DE FIN DE AÑO — 31 de diciembre*`
+      +`${sep}Cargo adicional obligatorio (Todo Incluido)${lineas}${totalLine}${incluye}`;
+  }
   function buildPromoBloque(c, totalSinPromo){
     let lineas='';
     if(c.promoActiva&&c.promoNombre){
@@ -3020,6 +3124,8 @@ function generarResumen(){
       let totalSinPromo=c.totalBase+c.totalUpg;
       if(totalSinPromo!==c.totalFinal)texto+=`\nTotal sin promo: ${fmt(totalSinPromo)}\n`;
       texto+=buildPromoBloque(c, totalSinPromo);
+      texto+=buildBloqueFinAno(c,'whatsapp');
+      if(c.cargoFinAno>0)texto+=`\n\n💵 *Total general: ${fmt((c.totalFinalBase||c.totalFinal)+c.cargoFinAno)} MXN*`;
       texto+=cartaConformidadLinea;
       texto+=lineaCortesia(c.n,'amigable',c.habitaciones.length);
       texto+=buildIncluye(c.plan);
@@ -3041,6 +3147,8 @@ function generarResumen(){
       texto+=`\nCosto por noche: ${buildCostoNoche(hab0wa.noches, hab0wa.upgrade)}\n`;
       texto+=`Total ${c.n} noche${c.n>1?'s':''}: ${fmt(totalSinPromo)}\n`;
       texto+=buildPromoBloque(c, totalSinPromo);
+      texto+=buildBloqueFinAno(c,'whatsapp');
+      if(c.cargoFinAno>0)texto+=`\n\n💵 *Total general: ${fmt((c.totalFinalBase||c.totalFinal)+c.cargoFinAno)} MXN*`;
       texto+=cartaConformidadLinea;
       texto+=lineaCortesia(c.n,'amigable',1);
       texto+=buildIncluye(c.plan);
@@ -3079,9 +3187,11 @@ function generarResumen(){
     texto+=cartaConformidadLinea;
     texto+=lineaCortesia(c.n,'amigable',c.numHabs);
     texto+=buildIncluye(c.plan);
+    texto+=buildBloqueFinAno(c,'amigable');
     if(notas)texto+=`\n\n📝 Nota: ${notas}`;
-    texto+=`\n\n💵 *Total: ${fmt(c.totalFinal)} MXN*`;
-    texto+=`\n   (${c.n} noches · ${c.numHabs} hab. · impuestos incluidos)`;
+    let totalAmigable=(c.totalFinalBase||c.totalFinal)+(c.cargoFinAno||0);
+    texto+=`\n\n💵 *Total: ${fmt(totalAmigable)} MXN*`;
+    texto+=`\n   (${c.n} noches · ${c.numHabs} hab. · impuestos incluidos${c.cargoFinAno>0?' · incluye cargo Fin de Año':''})`;
     texto+=buildFooter(cfgTel,agente);
   } else {
     // Formal (default)
@@ -3124,7 +3234,7 @@ ${huespedesLineas}${menoresTexto}${cartaConformidadLinea}
 
 💰 *DESGLOSE POR NOCHE*${desgloseHabsLineas}${promoTextoFormal}${cortesiaFormal}${upgTotalLinea}
 ${totalSinPromoF!==c.totalFinal?`\n   Total antes de promoción: ${fmt(totalSinPromoF)}`:''}
-💵 *TOTAL: ${fmt(c.totalFinal)} MXN*
+${c.cargoFinAno>0?`💵 *TOTAL HOSPEDAJE: ${fmt(c.totalFinalBase||c.totalFinal)} MXN*`:`💵 *TOTAL: ${fmt(c.totalFinal)} MXN*`}${buildBloqueFinAno(c,'formal')}${c.cargoFinAno>0?`\n\n💵 *TOTAL GENERAL: ${fmt((c.totalFinalBase||c.totalFinal)+(c.cargoFinAno||0))} MXN*`:''}
 ${incluyeAI}
 ${notasCliente}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
