@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-title" content="Maeva">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Cotizador Club Maeva Miramar 2026</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Dancing+Script:wght@600&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -1299,7 +1299,19 @@ function fmt(n){return '$'+Math.round(n).toLocaleString('es-MX');}
 function addDays(s,n){let d=parseD(s);d.setDate(d.getDate()+n);return d.toISOString().split('T')[0];}
 function noches(a,b){return Math.round((parseD(b)-parseD(a))/(864e5));}
 
-function getTarifa(s){for(let t of tarifasActivas)if(s>=t.desde&&s<=t.hasta)return t;return null;}
+function _escalar2027(t){
+  function sc(obj){if(!obj)return obj;let r={};for(let k in obj)r[k]=Math.round(obj[k]*1.1);return r;}
+  return Object.assign({},t,{nombre:t.nombre,_es2027:true,AI:sc(t.AI),AI_we:sc(t.AI_we),EP:sc(t.EP),EP_we:sc(t.EP_we)});
+}
+function getTarifa(s){
+  if(s>='2027-01-01'){
+    let equiv='2026'+s.slice(4);
+    for(let t of tarifasActivas)if(equiv>=t.desde&&equiv<=t.hasta)return _escalar2027(t);
+    return null;
+  }
+  for(let t of tarifasActivas)if(s>=t.desde&&s<=t.hasta)return t;
+  return null;
+}
 
 function getTBase(t,plan,we){
   if(plan==='AI') return(we&&t.AI_we)?t.AI_we:t.AI;
@@ -1665,6 +1677,7 @@ function calcular(){
       <span style="font-size:12px;color:#4A7A92">${t0.nombre}</span>`;
     if(t0.promo&&plan==='AI')h+=`<span class="badge badge-verde">${t0.promo}</span>`;
     if(t0.nota)h+=`<span class="badge badge-dorado">${t0.nota}</span>`;
+    if(t0._es2027)h+=`<span class="badge badge-dorado">⚠️ Tarifas 2027 estimadas · +10% sobre 2026</span>`;
     h+=`</div>`;
     document.getElementById('info-temporada').innerHTML=h;
   }
@@ -5063,6 +5076,12 @@ if('serviceWorker' in navigator){
   navigator.serviceWorker.register('./sw.js').catch(()=>{});
 }
 </script>
+<a href="https://soyruben.com" target="_blank" rel="noopener"
+   style="position:fixed;bottom:10px;right:14px;z-index:50;text-decoration:none;display:flex;flex-direction:column;align-items:flex-end;gap:0;opacity:.55;transition:opacity .25s"
+   onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.55">
+  <span style="font-size:8px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#9A7010;font-family:'Inter',sans-serif;line-height:1">Diseñado por</span>
+  <span style="font-family:'Dancing Script',cursive;font-size:20px;font-weight:600;line-height:1.1;background:linear-gradient(135deg,#A67C10 0%,#C9A227 50%,#9A7010 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;filter:drop-shadow(0 1px 3px rgba(150,110,10,.18))">Rubén Chávez</span>
+</a>
 </body>
 </html>
 
