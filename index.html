@@ -1940,11 +1940,27 @@ function calcular(){
   let promoStackDesc=0;
   let promoStackDetalle=[];
   if(promoActiva && _promoCapas.length>0){
-    let result=aplicarPromoStack(nochesDet, totalFinal);
-    promoStackDesc=result.descuentoTotal;
-    let descPorCapa=result.descPorCapa||[];
+    // Aplicar por habitación: capas per-hab se suman, monto_total/noche_gratis aplican una vez
+    let descPorCapa=_promoCapas.map(()=>0);
+    let nocheGratisStack=false;
+    const _UNICA_VEZ=['monto_total','noche_gratis'];
+    desgloseHabs.forEach((habDet,hi)=>{
+      let habNoches=habDet.noches||[];
+      let r=aplicarPromoStack(habNoches, totalFinal);
+      let habDesc=r.descPorCapa||[];
+      _promoCapas.forEach((capa,ci)=>{
+        if(_UNICA_VEZ.includes(capa.tipo)){
+          if(hi===0) descPorCapa[ci]=(descPorCapa[ci]||0)+(habDesc[ci]||0);
+        } else {
+          descPorCapa[ci]=(descPorCapa[ci]||0)+(habDesc[ci]||0);
+        }
+      });
+      if(r.nocheGratisStack) nocheGratisStack=true;
+      habDet.promoDescPorCapa=habDesc; // guardar por hab para textos
+    });
+    promoStackDesc=descPorCapa.reduce((s,v)=>s+(v||0),0);
     // Si una capa fue noche_gratis, el upgrade de esa noche también debe descontarse
-    if(result.nocheGratisStack){
+    if(nocheGratisStack){
       let upgradeNocheGratis=desgloseHabs.reduce((s,hd)=>s+(hd.upgrade||0),0);
       if(upgradeNocheGratis>0){
         promoStackDesc+=upgradeNocheGratis;
@@ -1981,6 +1997,13 @@ function calcular(){
         baseLabel = `sobre ${baseLabel}`;
       let montoDesc=descPorCapa[ci]||0;
       promoStackDetalle.push({label:tipoLabel, base:baseLabel, monto:montoDesc});
+    });
+
+    // Construir promoDetalle per-hab para textos (usa mismos labels, monto individual)
+    desgloseHabs.forEach(habDet=>{
+      let habDesc=habDet.promoDescPorCapa||[];
+      habDet.promoDetalle=promoStackDetalle.map((d,ci)=>Object.assign({},d,{monto:habDesc[ci]||0}))
+        .filter(d=>Math.abs(d.monto)>0.1);
     });
 
     // Guardar subtotalAntePromo para el desglose visual
@@ -3017,7 +3040,7 @@ function generarResumen(){
     if(menH>0)hpax.push(menH+' menor'+(menH>1?'es':''));
     lines+=`\n\n   ┌─ *Habitación ${habIdx+1}: ${habNom}*`;
     lines+=`\n   │  Huéspedes: ${hpax.join(', ')}`;
-    let lineasNoches=buildLineasNoches(habDet.noches||[], habDet.upgrade||0, c.promoCapas, c.promoStackDetalle, 'formal');
+    let lineasNoches=buildLineasNoches(habDet.noches||[], habDet.upgrade||0, c.promoCapas, habDet.promoDetalle||c.promoStackDetalle, 'formal');
     lines+=`\n   │ ${lineasNoches.replace(/\n   /g,'\n   │  ')}`;
     lines+=`\n   └─`;
     return lines;
@@ -3046,7 +3069,7 @@ function generarResumen(){
       if(exc)mp.push(exc+' excepción hotel ✉');
       if(mp.length)menDet='\n   Menores: '+mp.join(', ');
     }
-    let lineasNoches = buildLineasNoches(habDet.noches||[], habDet.upgrade||0, c.promoCapas, c.promoStackDetalle, 'formal');
+    let lineasNoches = buildLineasNoches(habDet.noches||[], habDet.upgrade||0, c.promoCapas, habDet.promoDetalle||c.promoStackDetalle, 'formal');
     let cortesia = lineaCortesia(n, 'formal', 1);
     let agenteLinea=agente?`\n👤 ${agente}`:'';
     let bloque='';
@@ -3186,7 +3209,7 @@ function generarResumen(){
       (c.desgloseHabs||[]).forEach((habDet,hi)=>{
         let habNom=HAB_NOM[habDet.tipo]||habDet.tipo;
         texto+=`\n\n   *Hab ${hi+1} — ${habNom}*`;
-        texto+=buildLineasNoches(habDet.noches||[], habDet.upgrade||0, c.promoCapas, c.promoStackDetalle, 'amigable');
+        texto+=buildLineasNoches(habDet.noches||[], habDet.upgrade||0, c.promoCapas, habDet.promoDetalle||c.promoStackDetalle, 'amigable');
       });
     } else {
       let hab0=c.desgloseHabs?.[0]||{noches:c.nochesDet,upgrade:(c.habitaciones[0]?.upgrade||0)};
