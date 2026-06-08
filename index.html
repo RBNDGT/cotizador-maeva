@@ -1373,13 +1373,13 @@ function clasifMenores(edadesArr,habTipo,adultos,adolescentes,excepciones){
     });
   }
 
-  // Límite de menores 3-5 gratis:
-  //   sencilla (1 adulto) → 1 | doble o más → 2 | DEPARTAMENTO → 4
-  let limGratis = habTipo==='DEPARTAMENTO' ? 4 : (adultos===1 ? 1 : 2);
+  // Slots favorables compartidos (gratis 3-5 + tarifa niño 6-12):
+  //   sencilla (1 adulto) → 1 | doble (2 adultos) → 2 | DEPARTAMENTO → 4
+  let limFavorable = habTipo==='DEPARTAMENTO' ? 4 : adultos;
 
   // Cupo físico: adultos + adolescentes ya ocupan estos lugares
   let ocupado = adultos + adolescentes;
-  let gratisUsados = 0;
+  let favorableUsados = 0;
   let res = [];
 
   for(let raw of edadesArr){
@@ -1411,11 +1411,11 @@ function clasifMenores(edadesArr,habTipo,adultos,adolescentes,excepciones){
       continue;
     }
 
-    // 3-5 años: gratis hasta el límite, luego extra
+    // 3-5 años: gratis si hay slot favorable disponible, si no → extra
     if(edadNum <= 5){
-      if(gratisUsados < limGratis){
+      if(favorableUsados < limFavorable){
         res.push({edad:edadNum, tipo:'gratis'});
-        gratisUsados++;
+        favorableUsados++;
       } else {
         res.push({edad:edadNum, tipo:'extra'});
       }
@@ -1423,8 +1423,13 @@ function clasifMenores(edadesArr,habTipo,adultos,adolescentes,excepciones){
       continue;
     }
 
-    // 6-12 años: tarifa niño normal
-    res.push({edad:edadNum, tipo:'612'});
+    // 6-12 años: tarifa niño si hay slot favorable disponible, si no → extra
+    if(favorableUsados < limFavorable){
+      res.push({edad:edadNum, tipo:'612'});
+      favorableUsados++;
+    } else {
+      res.push({edad:edadNum, tipo:'extra'});
+    }
     ocupado++;
   }
 
