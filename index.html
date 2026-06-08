@@ -1803,6 +1803,15 @@ function calcular(){
     }
   }
 
+  // Pre-calcular descuentos por noche para mostrar inline en el render
+  let _habPreDescPorNoche = [];
+  if(promoActiva && _promoCapas.length > 0){
+    desgloseHabs.forEach((habDet, hi) => {
+      let r0 = aplicarPromoStack(habDet.noches || [], totalFinal);
+      _habPreDescPorNoche[hi] = r0.descPorNoche || [];
+    });
+  }
+
   // Renderizar desglose: si hay múltiples habitaciones, mostrar sección por habitación
   let html='';
   let mostrarPorHab=desgloseHabs.length>1;
@@ -1817,10 +1826,13 @@ function calcular(){
         🛏 Habitación ${hi+1} — ${HAB_NOM[habDet.tipo]}${habDet.upgrade>0?' · Upgrade +$'+fmt(habDet.upgrade)+'/noche':''}
       </div>`;
     }
+    let _dpn=_habPreDescPorNoche[hi]||[];
     habNochesLocal.forEach((nd,i)=>{
     let tipoDia=nd.we?'Vie/Sáb':'Dom-Jue';
     let esGratis=nd.gratis===true;
-    let blockStyle=esGratis?'background:linear-gradient(135deg,#E6F7EE,#fff);border:2px solid #5CB85C;':'';
+    let promoDescNoche=_dpn[i]||0;
+    let hayPromoNoche=promoDescNoche>0;
+    let blockStyle=esGratis?'background:linear-gradient(135deg,#E6F7EE,#fff);border:2px solid #5CB85C;':hayPromoNoche?'border:1.5px solid rgba(245,166,35,.35);':'';
     html+=`<div class="noche-block" style="${blockStyle}">`;
     // Header de la noche con fecha exacta
     if(esGratis){
@@ -1865,6 +1877,13 @@ function calcular(){
           <span>${nd.ajuste<0?'-':'+'}${fmt(Math.abs(nd.ajuste))}</span>
         </div>`;
       }
+      // Descuento de promo eventual inline dentro de la noche
+      if(hayPromoNoche){
+        html+=`<div class="desglose-row" style="color:#B8860B;font-size:11px;font-weight:600;background:rgba(245,166,35,.08);padding:3px 6px;border-radius:5px;margin-top:2px">
+          <span>🎁 ${promoNombre||'Promo'}</span>
+          <span>-${fmt(promoDescNoche)}</span>
+        </div>`;
+      }
       // Upgrade por noche (dentro de cada noche, no al final)
       if(habDet.upgrade>0){
         html+=`<div class="desglose-row" style="font-size:11px;color:var(--texto-suave)">
@@ -1872,8 +1891,8 @@ function calcular(){
           <span>+ ${fmt(habDet.upgrade)}</span>
         </div>`;
       }
-      // Total noche (tarifa con descuento + upgrade)
-      let totalNoche = nd.base + nd.ajuste + (habDet.upgrade||0);
+      // Total noche (tarifa con descuento + upgrade + promo)
+      let totalNoche = nd.base + nd.ajuste - promoDescNoche + (habDet.upgrade||0);
       html+=`<div class="desglose-row" style="padding:5px 0;font-weight:700;color:var(--azul);border-top:1px solid var(--azul-mid);margin-top:3px">
         <span>Total noche ${i+1}</span>
         <span>${fmt(totalNoche)}</span>
@@ -1882,8 +1901,8 @@ function calcular(){
     html+=`</div>`;
     });// end noches
 
-    // Subtotal por habitación si hay varias
-    let habTotal=habNochesLocal.reduce((s,nd)=>s+(nd.gratis?0:nd.base+nd.ajuste+(habDet.upgrade||0)),0);
+    // Subtotal por habitación si hay varias (incluyendo descuentos de promo por noche)
+    let habTotal=habNochesLocal.reduce((s,nd,i)=>s+(nd.gratis?0:nd.base+nd.ajuste-(_dpn[i]||0)+(habDet.upgrade||0)),0);
     if(mostrarPorHab){
       html+=`<div class="desglose-row" style="padding:5px 0;font-weight:700;color:var(--azul);border-top:2px solid var(--azul-mid)">
         <span>Subtotal Hab. ${hi+1}</span><span>${fmt(habTotal)}</span>
@@ -1957,6 +1976,7 @@ function calcular(){
       });
       if(r.nocheGratisStack) nocheGratisStack=true;
       habDet.promoDescPorCapa=habDesc; // guardar por hab para textos
+      habDet.descPorNoche=r.descPorNoche||[];
     });
     promoStackDesc=descPorCapa.reduce((s,v)=>s+(v||0),0);
     // Si una capa fue noche_gratis, el upgrade de esa noche también debe descontarse
@@ -2040,40 +2060,12 @@ if(hab==='MASTER_SUITE'&&_msHasMenores){
     document.getElementById('total-valor').textContent=fmt(totalFinal);
   }
 
-  // Mostrar capas de promo stack en desglose con precio antes/después
+  // Mostrar resumen de promo en desglose (descuentos ya reflejados inline en cada noche)
   if(promoActiva && promoStackDesc>0){
     let ngEl=document.getElementById('desglose');
-    let subtotalAntes=window._promoSubtotalAntes||0;
-    let acumulado=subtotalAntes;
-
-    let capasHtml=promoStackDetalle.map((det,ci)=>{
-      let despues=acumulado-(det.monto||0);
-      let html=`<div style="margin-bottom:6px;padding:6px 8px;background:rgba(245,166,35,.07);border-radius:6px;border-left:2px solid var(--dorado)">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:3px">
-          <span style="font-size:11px;font-weight:700;color:var(--dorado-dark)">Capa ${ci+1}: ${det.label}</span>
-          <span style="font-size:12px;font-weight:700;color:#b91c1c">-${fmt(det.monto)}</span>
-        </div>
-        <div style="font-size:10px;color:var(--texto-suave);margin-bottom:2px">${det.base}</div>
-        <div style="display:flex;justify-content:space-between;font-size:11px;margin-top:4px;padding-top:4px;border-top:1px dashed rgba(245,166,35,.3)">
-          <span style="color:var(--texto-suave)">Antes: <span style="text-decoration:line-through">${fmt(acumulado)}</span></span>
-          <span style="color:#1A7A3F;font-weight:700">Después: ${fmt(despues)}</span>
-        </div>
-      </div>`;
-      acumulado=despues;
-      return html;
-    }).join('');
-
-    ngEl.innerHTML+=`<div style="border-top:2px solid var(--dorado);margin-top:10px;padding-top:10px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-        <span style="font-size:12px;font-weight:700;color:var(--dorado-dark)">🎁 ${promoNombre||'Promoción eventual'}</span>
-        <span style="font-size:10px;color:var(--texto-suave)">${_promoCapas.length} capa${_promoCapas.length>1?'s':''}</span>
-      </div>
-      <div style="font-size:11px;color:var(--texto-suave);margin-bottom:8px">Subtotal antes de promo: <strong style="color:var(--texto)">${fmt(subtotalAntes)}</strong></div>
-      ${capasHtml}
-      <div class="desglose-row" style="color:#1A7A3F;font-weight:700;font-size:13px;padding:8px 0;border-top:2px solid var(--dorado);margin-top:4px">
-        <span>💰 Ahorro total de promoción</span>
-        <span>-${fmt(promoStackDesc)}</span>
-      </div>
+    ngEl.innerHTML+=`<div style="border-top:2px solid var(--dorado);margin-top:10px;padding-top:8px;display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:12px;font-weight:700;color:var(--dorado-dark)">🎁 ${promoNombre||'Promoción'} — Ahorro total</span>
+      <span style="font-size:13px;font-weight:700;color:#1A7A3F">-${fmt(promoStackDesc)}</span>
     </div>`;
     document.getElementById('total-valor').textContent=fmt(totalFinal);
   }
@@ -2968,41 +2960,31 @@ function generarResumen(){
     return `${_DIAS_CORTO[d.getDay()]} ${d.getDate()} ${_MESES_CORTO[d.getMonth()]}`;
   }
 
-  // Construye líneas de noches: fecha — monto (sin desc.), luego al final subtotal + desglose promos
-  function buildLineasNoches(noches, upgrade, promoCapas, promoStackDetalle, tono){
+  // Construye líneas de noches con descuentos inline por noche
+  function buildLineasNoches(noches, upgrade, promoCapas, promoStackDetalle, tono, descPorNoche){
     const sep = tono === 'formal' ? '\n   ' : '\n   ';
     let lines = '';
     let subtotalBase = 0;
     let subtotalConDesc = 0;
     let hayUpgrade = upgrade > 0;
 
-    noches.forEach(nd => {
+    noches.forEach((nd, i) => {
       let base = nd.base;
       let upg  = hayUpgrade ? upgrade : 0;
-      let total = base + upg;
-      subtotalBase += total;
-      subtotalConDesc += nd.gratis ? 0 : (base + (nd.ajuste||0) + upg);
+      let promoDesc = (descPorNoche && descPorNoche[i]) || 0;
+      let totalBruto = base + upg;
+      let totalFinalNoche = nd.gratis ? 0 : (base + (nd.ajuste||0) - promoDesc + upg);
+      subtotalBase += totalBruto;
+      subtotalConDesc += nd.gratis ? 0 : totalFinalNoche;
       let label = fmtFechaNoche(nd.fecha);
       if(nd.gratis){
         lines += `${sep}${label}  —  🎁 GRATIS`;
+      } else if(promoDesc > 0.5){
+        lines += `${sep}${label}  —  ${fmt(totalFinalNoche)}  (-${fmt(promoDesc)} promo)`;
       } else {
-        lines += `${sep}${label}  —  ${fmt(total)}`;
+        lines += `${sep}${label}  —  ${fmt(totalFinalNoche)}`;
       }
     });
-
-    // Separador
-    lines += `${sep}${'─'.repeat(28)}`;
-    lines += `${sep}Subtotal:   *${fmt(subtotalBase)}*`;
-
-    // Desglose de cada capa de descuento/promo
-    if(promoStackDetalle && promoStackDetalle.length){
-      promoStackDetalle.forEach(det => {
-        if(det.monto && det.monto !== 0){
-          let signo = det.monto < 0 ? '' : '+';
-          lines += `${sep}${det.label}  (${det.base}):  ${signo}${fmt(det.monto)}`;
-        }
-      });
-    }
 
     let diff = subtotalConDesc - subtotalBase;
     if(Math.abs(diff) > 0.5){
@@ -3040,7 +3022,7 @@ function generarResumen(){
     if(menH>0)hpax.push(menH+' menor'+(menH>1?'es':''));
     lines+=`\n\n   ┌─ *Habitación ${habIdx+1}: ${habNom}*`;
     lines+=`\n   │  Huéspedes: ${hpax.join(', ')}`;
-    let lineasNoches=buildLineasNoches(habDet.noches||[], habDet.upgrade||0, c.promoCapas, habDet.promoDetalle||c.promoStackDetalle, 'formal');
+    let lineasNoches=buildLineasNoches(habDet.noches||[], habDet.upgrade||0, c.promoCapas, habDet.promoDetalle||c.promoStackDetalle, 'formal', habDet.descPorNoche);
     lines+=`\n   │ ${lineasNoches.replace(/\n   /g,'\n   │  ')}`;
     lines+=`\n   └─`;
     return lines;
@@ -3069,7 +3051,7 @@ function generarResumen(){
       if(exc)mp.push(exc+' excepción hotel ✉');
       if(mp.length)menDet='\n   Menores: '+mp.join(', ');
     }
-    let lineasNoches = buildLineasNoches(habDet.noches||[], habDet.upgrade||0, c.promoCapas, habDet.promoDetalle||c.promoStackDetalle, 'formal');
+    let lineasNoches = buildLineasNoches(habDet.noches||[], habDet.upgrade||0, c.promoCapas, habDet.promoDetalle||c.promoStackDetalle, 'formal', habDet.descPorNoche);
     let cortesia = lineaCortesia(n, 'formal', 1);
     let agenteLinea=agente?`\n👤 ${agente}`:'';
     let bloque='';
@@ -3209,14 +3191,14 @@ function generarResumen(){
       (c.desgloseHabs||[]).forEach((habDet,hi)=>{
         let habNom=HAB_NOM[habDet.tipo]||habDet.tipo;
         texto+=`\n\n   *Hab ${hi+1} — ${habNom}*`;
-        texto+=buildLineasNoches(habDet.noches||[], habDet.upgrade||0, c.promoCapas, habDet.promoDetalle||c.promoStackDetalle, 'amigable');
+        texto+=buildLineasNoches(habDet.noches||[], habDet.upgrade||0, c.promoCapas, habDet.promoDetalle||c.promoStackDetalle, 'amigable', habDet.descPorNoche);
       });
     } else {
       let hab0=c.desgloseHabs?.[0]||{noches:c.nochesDet,upgrade:(c.habitaciones[0]?.upgrade||0)};
       texto+=`\n💰 *Desglose:*`;
-      texto+=buildLineasNoches(hab0.noches||c.nochesDet||[], hab0.upgrade||0, c.promoCapas, c.promoStackDetalle, 'amigable');
+      texto+=buildLineasNoches(hab0.noches||c.nochesDet||[], hab0.upgrade||0, c.promoCapas, c.promoStackDetalle, 'amigable', hab0.descPorNoche);
     }
-    texto+=buildPromoTexto(c.promoStackDetalle, ahorroTotal, 'amigable');
+    if(c.promoStackDesc>0) texto+=`\n\n🎁 *${c.promoNombre||'Promo'}:* -${fmt(c.promoStackDesc)} MXN (ya incluido en precios por noche)`;
     texto+=cartaConformidadLinea;
     texto+=lineaCortesia(c.n,'amigable',c.numHabs);
     texto+=buildIncluye(c.plan);
@@ -3235,12 +3217,12 @@ function generarResumen(){
       });
     } else {
       let hab0=c.desgloseHabs?.[0]||{noches:c.nochesDet,upgrade:(c.habitaciones[0]?.upgrade||0)};
-      desgloseHabsLineas=buildLineasNoches(hab0.noches||c.nochesDet||[], hab0.upgrade||0, c.promoCapas, c.promoStackDetalle, 'formal');
+      desgloseHabsLineas=buildLineasNoches(hab0.noches||c.nochesDet||[], hab0.upgrade||0, c.promoCapas, c.promoStackDetalle, 'formal', hab0.descPorNoche);
     }
 
     let huespedesLineas=c.habitaciones.map((h,idx)=>{let ad=h.adultos||1,ado=h.adolescentes||0,men=h.menoresCount||0;let ln='   Hab '+(idx+1)+' ('+HAB_NOM[h.tipo]+'): '+ad+' adulto'+(ad>1?'s':'');if(ado>0)ln+=', '+ado+' adol.';if(men>0)ln+=', '+men+' menor'+(men>1?'es':'');return ln;}).join('\n');
 
-    let promoTextoFormal = buildPromoTexto(c.promoStackDetalle, ahorroTotal, 'formal');
+    let promoTextoFormal = c.promoStackDesc>0 ? `\n   🎁 ${c.promoNombre||'Promo'}: -${fmt(c.promoStackDesc)} MXN (incluido en precios por noche)` : '';
     let cortesiaFormal = lineaCortesia(c.n, 'formal', c.numHabs);
     let upgTotalLinea=multiHab&&c.totalUpg>0?`\n   Upgrades totales: +${fmt(c.totalUpg)}`:'';
     let habDescFormal=HAB_DESC[c.hab]?` (${HAB_DESC[c.hab]})`:'';
@@ -4529,6 +4511,7 @@ function aplicarPromoStack(nochesDet, totalBaseConUpg) {
   let descuentoTotal = 0;
   let nocheGratisStack = false;
   let descPorCapa = []; // monto descontado por cada capa
+  let descPorNoche = nochesDet.map(() => 0); // descuento total por noche (todas las capas)
 
   _promoCapas.forEach((capa, ci) => {
     let descCapa = 0;
@@ -4541,10 +4524,11 @@ function aplicarPromoStack(nochesDet, totalBaseConUpg) {
       if (minIdx >= 0) {
         descCapa = capa.base === 'original' ? nochesDet[minIdx].base : preciosNoche[minIdx];
         preciosNoche[minIdx] = capa.base === 'acumulado' ? 0 : preciosNoche[minIdx] - descCapa;
+        descPorNoche[minIdx] += descCapa;
         nocheGratisStack = true;
       }
     } else if (capa.tipo === 'monto_total') {
-      // Monto fijo siempre sobre total global
+      // Monto fijo sobre total global — no asigna a noche específica
       descCapa = capa.val || 0;
     } else if (capa.tipo === 'pct_todas') {
       nochesDet.forEach((nd, i) => {
@@ -4552,18 +4536,16 @@ function aplicarPromoStack(nochesDet, totalBaseConUpg) {
         let base = _baseConcepto(capa, nd, preciosNoche[i]);
         let d = base * (capa.val / 100);
         descCapa += d;
-        if (sobre === 'total') preciosNoche[i] -= d;
-        // Para concepto específico solo reducimos el equivalente proporcional del precio noche
-        else preciosNoche[i] -= d;
+        descPorNoche[i] += d;
+        preciosNoche[i] -= d;
       });
     } else if (capa.tipo === 'monto_noche') {
       nochesDet.forEach((nd, i) => {
         if (nd.gratis) return;
-        // Para monto fijo sobre concepto: verificar que el concepto exista en la noche
         let base = _baseConcepto(capa, nd, preciosNoche[i]);
-        // Solo aplicar si el concepto tiene valor (ej. no hay niños 6-12 en esta noche)
         let d = base > 0 || sobre === 'total' ? (capa.val || 0) : 0;
         descCapa += d;
+        descPorNoche[i] += d;
         preciosNoche[i] -= d;
       });
     } else if (capa.tipo === 'pct_noches') {
@@ -4573,6 +4555,7 @@ function aplicarPromoStack(nochesDet, totalBaseConUpg) {
         let base = _baseConcepto(capa, nochesDet[i], preciosNoche[i]);
         let d = base * (capa.val / 100);
         descCapa += d;
+        descPorNoche[i] += d;
         preciosNoche[i] -= d;
       });
     }
@@ -4580,7 +4563,7 @@ function aplicarPromoStack(nochesDet, totalBaseConUpg) {
     descPorCapa.push(descCapa);
   });
 
-  return { descuentoTotal, preciosNoche, nocheGratisStack, descPorCapa };
+  return { descuentoTotal, preciosNoche, nocheGratisStack, descPorCapa, descPorNoche };
 }
 
 function sincPromoDesde(origen) {
