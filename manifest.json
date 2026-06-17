@@ -1,0 +1,26 @@
+{
+  "name": "Cotizador Club Maeva Miramar",
+  "short_name": "Maeva",
+  "description": "Cotizador de reservaciones — Club Maeva Miramar Tampico",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "any",
+  "theme_color": "#003A5C",
+  "background_color": "#002A44",
+  "lang": "es",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["business", "productivity"]
+}
