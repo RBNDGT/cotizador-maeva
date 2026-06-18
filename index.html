@@ -3592,6 +3592,7 @@ function switchTab(id){
   document.querySelectorAll('.tab').forEach((t,i)=>{let ids=['cotizar','comparar','cliente','resumen','config','historial','analitica','admin'];t.classList.toggle('active',ids[i]===id);});
   document.querySelectorAll('.panel').forEach(p=>{p.classList.toggle('active',p.id==='panel-'+id);});
   if(id==='comparar')calcularComparativa();
+  if(id==='resumen')generarResumen();
   if(id==='historial')renderHistorial();
   if(id==='analitica')renderAnalitica();
 }
