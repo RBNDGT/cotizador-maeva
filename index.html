@@ -860,6 +860,10 @@ body.dark .topbar-agente input:focus{border-color:rgba(77,212,255,.5);background
     <div><label>Agente que atiende</label><input type="text" id="cli-agente" placeholder="Nombre del agente"></div>
   </div>
 </div>
+<div class="card" id="sh-inline-card">
+  <div class="sec">🖥️ Datos para sistema</div>
+  <div id="sh-inline-content" style="font-size:13px;color:var(--texto-suave);padding:4px 0">Genera una cotización para ver los datos del sistema.</div>
+</div>
 </div>
 
 <!-- ═══════════════ RESUMEN ═══════════════ -->
@@ -904,7 +908,6 @@ body.dark .topbar-agente input:focus{border-color:rgba(77,212,255,.5);background
     <button class="btn btn-email" onclick="enviarEmail()">✉️ Correo</button>
     <button class="btn btn-dorado" id="btn-pdf" onclick="exportarPDF()">⬇ PDF</button>
     <button class="btn" id="btn-add-combo" onclick="agregarABloqueCombinado()" style="border-left:3px solid #7E57C2">🧩 Agregar a combinada</button>
-    <button class="btn" id="btn-sishotel" onclick="abrirModalSishotel()" style="display:none;border-left:3px solid #0077b6">🖥️ Datos Sistema</button>
   </div>
 </div>
 </div>
@@ -3556,9 +3559,8 @@ Para reservar y más información:
   if(bdg&&c.nocheGratisValor>0){bdg.style.display='block';bdg.innerHTML=`🎁 Noche gratis aplicada: ahorro de <strong>${fmt(c.nocheGratisValor)}</strong>`;}
   else if(bdg&&c.descAutoPct>0){bdg.style.display='block';bdg.innerHTML=`🏷️ Descuento AI ${c.descAutoPct}% aplicado`;}
   else if(bdg){bdg.style.display='none';}
-  // Mostrar botón SisHotel
-  let btnSH=document.getElementById('btn-sishotel');
-  if(btnSH)btnSH.style.display='inline-flex';
+  // Actualizar datos sistema en tab cliente (si está abierto)
+  if(document.getElementById('panel-cliente')?.classList.contains('active'))renderSishotelInline();
 }
 function copiarResumen(){
   // Recolectar todo el texto del contenedor (resumen + todos los bloques por hab)
@@ -3593,6 +3595,7 @@ function switchTab(id){
   document.querySelectorAll('.panel').forEach(p=>{p.classList.toggle('active',p.id==='panel-'+id);});
   if(id==='comparar')calcularComparativa();
   if(id==='resumen')generarResumen();
+  if(id==='cliente')renderSishotelInline();
   if(id==='historial')renderHistorial();
   if(id==='analitica')renderAnalitica();
 }
@@ -4254,6 +4257,11 @@ function renderModalSishotel(){
     html+=`</div>`;
   }
   return html;
+}
+function renderSishotelInline(){
+  let el=document.getElementById('sh-inline-content');
+  if(!el)return;
+  el.innerHTML=renderModalSishotel();
 }
 function abrirModalSishotel(){
   document.getElementById('sishotel-body').innerHTML=renderModalSishotel();
