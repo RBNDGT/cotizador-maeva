@@ -4129,7 +4129,7 @@ function shOrigen(plan,promoActiva){
   return 'EP PUBLICA';
 }
 function shTotalHab(hi){
-  // Total con descuento formateado como $XX,XXX.XX
+  // Total con descuento formateado igual que el total estimado: $XX,XXX
   let c=window._cot;if(!c)return '';
   let hd=(c.desgloseHabs||[])[hi];
   let total=0;
@@ -4143,7 +4143,7 @@ function shTotalHab(hi){
   } else {
     total=c.totalFinalBase||c.totalFinal||0;
   }
-  return '$'+total.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2});
+  return fmt(total);
 }
 function shPrimeraNoche(hi){
   // Primera noche no-gratis como entero sin formato (solo dígitos)
@@ -4179,9 +4179,9 @@ function shTarPub(hi){
     else{if(lj===null||v>lj)lj=v;}
   });
   if(lj===null&&vs===null)return '';
-  if(lj!==null&&vs!==null&&lj!==vs)return 'TAR PUB: '+Math.round(lj)+' L-J / '+Math.round(vs)+' V-S';
+  if(lj!==null&&vs!==null&&lj!==vs)return 'TAR PUB: '+fmt(lj)+' / '+fmt(vs);
   let tarVal=lj!==null?lj:vs;
-  return 'TAR PUB: '+Math.round(tarVal);
+  return 'TAR PUB: '+fmt(tarVal);
 }
 function shRow(label,val,uid){
   return `<div class="sh-row">
