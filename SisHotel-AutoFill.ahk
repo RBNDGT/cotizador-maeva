@@ -4,42 +4,50 @@ SendMode Input
 SetWorkingDir %A_ScriptDir%
 
 ; ══════════════════════════════════════════════════════════════
-;  COTIZADOR MAEVA → SISHOTEL  v1.0
-;  Hotkey principal : Ctrl+Shift+F
-;  Hotkey calibrar  : Ctrl+Shift+C  (muestra coordenadas del mouse)
+;  COTIZADOR MAEVA → SISHOTEL  v1.1
+;  Hotkey principal : Ctrl+Shift+F  — llena el formulario
+;  Hotkey calibrar  : Ctrl+Shift+C  — muestra coordenadas del mouse
 ;
 ;  FLUJO DE USO:
-;  1. Genera la cotización en el cotizador (browser)
-;  2. Ve al tab "Datos del cliente" → clic "📤 Enviar a SisHotel"
+;  1. Genera cotización en el cotizador (browser)
+;  2. Tab "Datos del cliente" → clic "📤 Enviar a SisHotel"
 ;  3. En SisHotel: clic "Nueva Reserv." → elige fecha → Enter
-;     (el sistema genera el folio automático, queda en Datos Personales)
-;  4. Presiona Ctrl+Shift+F — el script llena todo
-;  5. Revisa y haz clic en "Guardar"
+;  4. Asegúrate de estar en la pestaña "Datos Personales"
+;  5. Presiona Ctrl+Shift+F
+;  6. Confirma en el cuadro de diálogo → el script llena todo
+;  7. Revisa y haz clic en "Guardar"
 ; ══════════════════════════════════════════════════════════════
 
-WIN_TITLE   := "Sistema Hotelero SisHotel"
-WIN_DIALOG  := "Nuevo Tipo de Habitacion"
+WIN_TITLE  := "Sistema Hotelero SisHotel"
+WIN_DIALOG := "Nuevo Tipo de Habitacion"
 
-; ── HOTKEY CALIBRACIÓN: muestra coordenadas del mouse ──────
+; ─── CALIBRACIÓN: muestra coordenadas del mouse ──────────────
 ^+c::
   MouseGetPos, mx, my
   WinGetPos, wx, wy,,, A
   offX := mx - wx
   offY := my - wy
-  MsgBox, 0, Coordenadas, Mouse en pantalla: X=%mx% Y=%my%`n`nVentana activa en: X=%wx% Y=%wy%`nOffset desde ventana: X=%offX% Y=%offY%
+  MsgBox, 0, Coordenadas, Pantalla: X=%mx% Y=%my%`nVentana: X=%wx% Y=%wy%`nOffset: X=%offX% Y=%offY%
 return
 
-; ── HOTKEY PRINCIPAL ────────────────────────────────────────
+; ─── HELPER: clic con offset desde ventana ───────────────────
+Clic(wX, wY, offX, offY) {
+  cx := wX + offX
+  cy := wY + offY
+  MouseClick, Left, %cx%, %cy%
+}
+
+; ─── HOTKEY PRINCIPAL ────────────────────────────────────────
 ^+f::
 
-  ; Verificar que hay payload del cotizador en clipboard
+  ; Verificar payload en clipboard
   clip := Clipboard
   if !InStr(clip, "SHCLI|") {
     MsgBox, 48, Sin datos, Primero haz clic en "Enviar a SisHotel" en el cotizador.
     return
   }
 
-  ; Parsear líneas del payload
+  ; Parsear líneas
   cliLine  := ""
   roomLines := []
   Loop, Parse, clip, `n, `r
@@ -49,108 +57,102 @@ return
     else if InStr(A_LoopField, "SHROOM|")
       roomLines.Push(A_LoopField)
   }
-
   if (!cliLine || roomLines.MaxIndex() < 1) {
     MsgBox, 48, Error, Datos incompletos. Vuelve a copiar desde el cotizador.
     return
   }
 
-  ; Parsear datos del cliente
+  ; Parsear cliente
   ; SHCLI|nombre|tel|email|ciudad|estado|pais|origen_seg|tar_pub
-  cli     := StrSplit(cliLine, "|")
-  nombre  := cli[2]
-  tel     := cli[3]
-  email   := cli[4]
-  ciudad  := cli[5]
-  estado  := cli[6]
-  pais    := cli[7]
-  origen  := cli[8]
-  tarPub  := cli[9]
+  cli    := StrSplit(cliLine, "|")
+  nombre := cli[2]
+  tel    := cli[3]
+  email  := cli[4]
+  ciudad := cli[5]
+  origen := cli[8]
+  tarPub := cli[9]
 
-  ; Confirmar antes de llenar
+  ; Confirmar
   habCount := roomLines.MaxIndex()
-  MsgBox, 36, ¿Llenar SisHotel?, Nombre  : %nombre%`nTeléfono: %tel%`nCiudad  : %ciudad%`nOrigen  : %origen%`nHabitac.: %habCount%`n`n¿Continuar?
+  MsgBox, 36, ¿Llenar SisHotel?, Nombre: %nombre%`nTel: %tel%`nCiudad: %ciudad%`nOrigen: %origen%`nHabitaciones: %habCount%`n`n¿Continuar?
   IfMsgBox No
     return
 
-  ; Activar ventana de SisHotel
+  ; Activar SisHotel
   WinActivate, %WIN_TITLE%
   WinWaitActive, %WIN_TITLE%,,4
   if ErrorLevel {
-    MsgBox, 48, Error, No se encontró la ventana de SisHotel abierta.
+    MsgBox, 48, Error, No se encontró SisHotel abierto.
     return
   }
   Sleep, 400
-
-  ; Obtener posición de la ventana del formulario de reserva
-  ; (puede ser diferente a la ventana principal en MDI)
   WinGetPos, wX, wY, wW, wH, %WIN_TITLE%
 
-  ; ══════════════════════════════════════
+  ; ════════════════════════════════
   ; TAB 1 — DATOS PERSONALES
-  ; ══════════════════════════════════════
-  ; Clic en la pestaña "Datos Personales" (ya debería estar activa)
-  ; Si necesitas ajustar: usa Ctrl+Shift+C para ver coordenadas
-  Click, % wX+215, % wY+322   ; ← AJUSTAR si es necesario
+  ; ════════════════════════════════
+  ; Clic en pestaña Datos Personales
+  cx := wX + 215 & cy := wY + 322
+  MouseClick, Left, %cx%, %cy%         ; ← AJUSTAR con Ctrl+Shift+C
   Sleep, 300
 
-  ; Campo NOMBRE — primer campo del form
-  Click, % wX+295, % wY+365   ; ← AJUSTAR
+  ; Campo Nombre
+  cx := wX + 295 & cy := wY + 365
+  MouseClick, Left, %cx%, %cy%         ; ← AJUSTAR
   Sleep, 150
   Send, {Ctrl Down}a{Ctrl Up}{Delete}
   Send, %nombre%
   Sleep, 100
 
-  ; Navegar con Tab hasta llegar a los campos que llenamos
-  ; Orden aprox en Datos Personales:
-  ; Nombre → Dirección → Colonia → País → Estado → Ciudad → C.P. → Teléfono → Email
-  Send, {Tab}                  ; → Dirección (skip)
-  Send, {Tab}                  ; → Colonia   (skip)
-  Send, {Tab}                  ; → País      (skip, default México)
-  Send, {Tab}                  ; → Estado    (skip)
-  Send, {Tab}                  ; → Ciudad
+  ; Tab: Nombre→Dirección→Colonia→País→Estado→Ciudad→C.P.→Teléfono→Email
+  Send, {Tab}    ; Dirección  (skip)
+  Send, {Tab}    ; Colonia    (skip)
+  Send, {Tab}    ; País       (skip — default México)
+  Send, {Tab}    ; Estado     (skip)
+  Send, {Tab}    ; Ciudad
   Sleep, 100
   Send, {Ctrl Down}a{Ctrl Up}{Delete}
   Send, %ciudad%
-  Send, {Tab}                  ; → C.P.      (skip)
-  Send, {Tab}                  ; → Teléfono
+  Send, {Tab}    ; C.P.       (skip)
+  Send, {Tab}    ; Teléfono
   Sleep, 100
   Send, {Ctrl Down}a{Ctrl Up}{Delete}
   Send, %tel%
-  Send, {Tab}                  ; → Email
+  Send, {Tab}    ; Email
   Sleep, 100
   Send, {Ctrl Down}a{Ctrl Up}{Delete}
   Send, %email%
   Sleep, 200
 
-  ; ══════════════════════════════════════
+  ; ════════════════════════════════
   ; TAB 2 — DATOS DE RESERV.
-  ; ══════════════════════════════════════
-  Click, % wX+357, % wY+322   ; ← AJUSTAR: tab "Datos de Reserv."
+  ; ════════════════════════════════
+  cx := wX + 357 & cy := wY + 322
+  MouseClick, Left, %cx%, %cy%         ; ← AJUSTAR: tab Datos de Reserv.
   Sleep, 400
 
   ; Comentario de la Reservación (TAR PUB)
-  Click, % wX+698, % wY+500   ; ← AJUSTAR: campo "Comentario de la Reservación"
+  cx := wX + 698 & cy := wY + 500
+  MouseClick, Left, %cx%, %cy%         ; ← AJUSTAR: campo Comentario
   Sleep, 150
   Send, {Ctrl Down}a{Ctrl Up}{Delete}
   Send, %tarPub%
   Sleep, 200
 
-  ; ══════════════════════════════════════
+  ; ════════════════════════════════
   ; TAB 3 — HABITACIONES
-  ; ══════════════════════════════════════
-  Click, % wX+440, % wY+322   ; ← AJUSTAR: tab "Habitaciones"
+  ; ════════════════════════════════
+  cx := wX + 440 & cy := wY + 322
+  MouseClick, Left, %cx%, %cy%         ; ← AJUSTAR: tab Habitaciones
   Sleep, 400
 
-  ; Loop por cada habitación
+  ; Loop por habitación
   Loop, % roomLines.MaxIndex()
   {
     roomLine := roomLines[A_Index]
     ; SHROOM|clase|llegada|salida|noches|adultos|n25|n612|n1317|extra|tarifa|importe
-    room     := StrSplit(roomLine, "|")
+    room    := StrSplit(roomLine, "|")
     r_clase  := room[2]
-    r_ll     := room[3]   ; DD/MM/YYYY
-    r_sal    := room[4]   ; DD/MM/YYYY
     r_noches := room[5]
     r_adult  := room[6]
     r_n25    := room[7]
@@ -160,21 +162,23 @@ return
     r_tarifa := room[11]
     r_imp    := room[12]
 
-    ; Clic en botón "Nuevo"
-    Click, % wX+253, % wY+400   ; ← AJUSTAR: botón Nuevo
+    ; Botón Nuevo
+    cx := wX + 253 & cy := wY + 400
+    MouseClick, Left, %cx%, %cy%       ; ← AJUSTAR: botón Nuevo
     Sleep, 900
 
     ; Esperar sub-diálogo
     WinWaitActive, %WIN_DIALOG%,,4
     if ErrorLevel {
-      MsgBox, 48, Error, No abrió "Nuevo Tipo de Habitación". Verifica que estés en la pestaña Habitaciones.
+      MsgBox, 48, Error, No abrió "Nuevo Tipo de Habitación".`nVerifica que estés en la pestaña Habitaciones.
       return
     }
     WinGetPos, dX, dY,,, %WIN_DIALOG%
     Sleep, 200
 
     ; CLASE (dropdown)
-    Click, % dX+180, % dY+65    ; ← AJUSTAR: dropdown Clase
+    cx := dX + 180 & cy := dY + 65
+    MouseClick, Left, %cx%, %cy%       ; ← AJUSTAR: dropdown Clase
     Sleep, 400
     Send, {Ctrl Down}a{Ctrl Up}
     Send, %r_clase%
@@ -182,44 +186,39 @@ return
     Send, {Enter}
     Sleep, 400
 
-    ; NOCHES (spinner — Tab desde Clase suele llegar aquí después de F.Llegada/F.Salida)
-    Click, % dX+260, % dY+98    ; ← AJUSTAR: spinner Noches
+    ; NOCHES (spinner)
+    cx := dX + 260 & cy := dY + 98
+    MouseClick, Left, %cx%, %cy%       ; ← AJUSTAR: spinner Noches
     Sleep, 150
     Send, {Ctrl Down}a{Ctrl Up}
     Send, %r_noches%
     Send, {Tab}
-    Sleep, 300   ; esperar recálculo de F.Salida
+    Sleep, 300
 
-    ; ADULTOS
-    Click, % dX+100, % dY+138   ; ← AJUSTAR: spinner Adultos
+    ; ADULTOS y NIÑOS (Tab navigation desde Adultos)
+    cx := dX + 100 & cy := dY + 138
+    MouseClick, Left, %cx%, %cy%       ; ← AJUSTAR: spinner Adultos
     Sleep, 150
     Send, {Ctrl Down}a{Ctrl Up}
     Send, %r_adult%
     Send, {Tab}
     Sleep, 100
-
-    ; NIÑOS 2-5
-    Send, {Ctrl Down}a{Ctrl Up}
+    Send, {Ctrl Down}a{Ctrl Up}        ; 2-5
     Send, %r_n25%
     Send, {Tab}
-
-    ; NIÑOS 6-12
-    Send, {Ctrl Down}a{Ctrl Up}
+    Send, {Ctrl Down}a{Ctrl Up}        ; 6-12
     Send, %r_n612%
     Send, {Tab}
-
-    ; 13-17
-    Send, {Ctrl Down}a{Ctrl Up}
+    Send, {Ctrl Down}a{Ctrl Up}        ; 13-17
     Send, %r_n1317%
     Send, {Tab}
-
-    ; EXTRA
-    Send, {Ctrl Down}a{Ctrl Up}
+    Send, {Ctrl Down}a{Ctrl Up}        ; Extra
     Send, %r_extra%
     Sleep, 100
 
     ; TARIFA (dropdown)
-    Click, % dX+180, % dY+200   ; ← AJUSTAR: dropdown Tarifa
+    cx := dX + 180 & cy := dY + 200
+    MouseClick, Left, %cx%, %cy%       ; ← AJUSTAR: dropdown Tarifa
     Sleep, 400
     Send, {Ctrl Down}a{Ctrl Up}
     Send, %r_tarifa%
@@ -228,7 +227,8 @@ return
     Sleep, 500
 
     ; IMPORTE
-    Click, % dX+180, % dY+230   ; ← AJUSTAR: campo Importe
+    cx := dX + 180 & cy := dY + 230
+    MouseClick, Left, %cx%, %cy%       ; ← AJUSTAR: campo Importe
     Sleep, 150
     Send, {Ctrl Down}a{Ctrl Up}
     Send, %r_imp%
@@ -236,24 +236,26 @@ return
     Sleep, 200
 
     ; Botón ACEPTAR
-    Click, % dX+120, % dY+510   ; ← AJUSTAR: botón Aceptar
+    cx := dX + 120 & cy := dY + 510
+    MouseClick, Left, %cx%, %cy%       ; ← AJUSTAR: botón Aceptar
     Sleep, 900
 
-    ; Regresar foco a ventana principal
     WinActivate, %WIN_TITLE%
     WinWaitActive, %WIN_TITLE%,,3
     Sleep, 400
   }
 
-  ; ══════════════════════════════════════
+  ; ════════════════════════════════
   ; TAB 6 — DATOS ADICIONALES
-  ; ══════════════════════════════════════
+  ; ════════════════════════════════
   WinGetPos, wX, wY,,, %WIN_TITLE%
-  Click, % wX+712, % wY+322    ; ← AJUSTAR: tab "Datos Adicionales"
+  cx := wX + 712 & cy := wY + 322
+  MouseClick, Left, %cx%, %cy%         ; ← AJUSTAR: tab Datos Adicionales
   Sleep, 400
 
   ; ORIGEN SEG. (dropdown)
-  Click, % wX+470, % wY+397    ; ← AJUSTAR: dropdown ORIGEN SEG.
+  cx := wX + 470 & cy := wY + 397
+  MouseClick, Left, %cx%, %cy%         ; ← AJUSTAR: dropdown ORIGEN SEG.
   Sleep, 400
   Send, {Ctrl Down}a{Ctrl Up}
   Send, %origen%
@@ -261,7 +263,6 @@ return
   Send, {Enter}
   Sleep, 200
 
-  ; ¡Listo!
-  MsgBox, 64, ✅ Listo, Datos cargados en SisHotel.`n`nRevisa y haz clic en "Guardar".
+  MsgBox, 64, Listo, Datos cargados en SisHotel.`nRevisa y haz clic en "Guardar".
 
 return
