@@ -24,7 +24,9 @@ WIN_DIALOG  := "Nuevo Tipo de Habitacion"
 ^+c::
   MouseGetPos, mx, my
   WinGetPos, wx, wy,,, A
-  MsgBox, 0, Coordenadas, Mouse en pantalla: X=%mx% Y=%my%`n`nVentana activa en: X=%wx% Y=%wy%`nOffset desde ventana: X=%mx-wx% Y=%my-wy%
+  offX := mx - wx
+  offY := my - wy
+  MsgBox, 0, Coordenadas, Mouse en pantalla: X=%mx% Y=%my%`n`nVentana activa en: X=%wx% Y=%wy%`nOffset desde ventana: X=%offX% Y=%offY%
 return
 
 ; ── HOTKEY PRINCIPAL ────────────────────────────────────────
