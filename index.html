@@ -861,7 +861,13 @@ body.dark .topbar-agente input:focus{border-color:rgba(77,212,255,.5);background
   </div>
 </div>
 <div class="card" id="sh-inline-card">
-  <div class="sec">🖥️ Datos para sistema</div>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+    <div class="sec" style="margin-bottom:0">🖥️ Datos para sistema</div>
+    <button id="btn-sh-export" onclick="exportarParaSisHotel()"
+      style="display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;border:2px solid #0077b6;background:#e0f4ff;color:#005f99;font-size:12px;font-weight:700;cursor:pointer;transition:.15s">
+      📤 Enviar a SisHotel
+    </button>
+  </div>
   <div id="sh-inline-content" style="font-size:13px;color:var(--texto-suave);padding:4px 0">Genera una cotización para ver los datos del sistema.</div>
 </div>
 </div>
@@ -4257,6 +4263,39 @@ function renderModalSishotel(){
     html+=`</div>`;
   }
   return html;
+}
+function exportarParaSisHotel(){
+  let c=window._cot;
+  if(!c){alert('Genera una cotización primero.');return;}
+  let habs=c.habitaciones||[];
+  if(!habs.length)return;
+  // Datos del cliente
+  let nombre=(document.getElementById('cli-nombre')?.value||'').trim().toUpperCase();
+  let tel=(document.getElementById('cli-tel')?.value||'').trim();
+  let email=(document.getElementById('cli-email')?.value||'').trim();
+  let ciudad=(document.getElementById('cli-ciudad')?.value||'').trim().toUpperCase();
+  let estado=(document.getElementById('cli-estado')?.value||'').trim().toUpperCase();
+  let pais=(document.getElementById('cli-pais')?.value||'MEXICO').trim().toUpperCase();
+  let origen=shOrigen(c.plan,c.promoActiva);
+  let tarifa=c.plan==='AI'?'2 TODO INCLUIDO PUBLICA':'12 PLAN EUROPEO PUBLICA';
+  let tarPubAll=habs.map((_,hi)=>shTarPub(hi)).filter(Boolean).join(' / ');
+  // Línea cliente
+  let lines=[['SHCLI',nombre,tel,email,ciudad,estado,pais,origen,tarPubAll].join('|')];
+  // Líneas por habitación
+  habs.forEach((h,hi)=>{
+    let clase=SISHOTEL_CLASE[h.tipo]||'';
+    let ninos=shNinos(h);
+    let imp=shImporte(hi);
+    let [fy,fm,fd]=(c.fi||'').split('-');
+    let llegada=fd?`${fd}/${fm}/${fy}`:'';
+    let [sy,sm,sd]=(c.fo||'').split('-');
+    let salida=sd?`${sd}/${sm}/${sy}`:'';
+    lines.push(['SHROOM',clase,llegada,salida,c.n,h.adultos||1,ninos.n25,ninos.n612,h.adolescentes||0,ninos.nextra,tarifa,imp].join('|'));
+  });
+  navigator.clipboard.writeText(lines.join('\n')).then(()=>{
+    let btn=document.getElementById('btn-sh-export');
+    if(btn){let o=btn.innerHTML;btn.innerHTML='✅ Copiado — abre SisHotel y presiona Ctrl+Shift+F';btn.style.background='#15803d';btn.style.color='#fff';setTimeout(()=>{btn.innerHTML=o;btn.style.background='';btn.style.color='';},3000);}
+  });
 }
 function renderSishotelInline(){
   let el=document.getElementById('sh-inline-content');
