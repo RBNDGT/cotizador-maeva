@@ -4823,9 +4823,10 @@ function guardarEnHistorial() {
 //            + cola en localStorage (se procesa cuando el tracker abre después)
 // Ambas apps comparten origin rbndgt.github.io → mismo localStorage.
 function emitirEventoTracker(modo, medio, canal) {
-  if (!medio) return; // sin medio seleccionado → no registrar
+  // Si no se seleccionó medio, usar 'otro' como fallback (no bloquear el registro)
+  const medioFinal = medio || 'otro';
   const tipo = modo === 'reservacion' ? 'res' : 'cot';
-  const ev = {type: tipo, medio, canal: canal||'', ts: Date.now()};
+  const ev = {type: tipo, medio: medioFinal, sinMedio: !medio, canal: canal||'', ts: Date.now()};
   // 1) BroadcastChannel — el tracker recibe en tiempo real si está abierto
   try {
     const bc = new BroadcastChannel('maeva_tracker');
@@ -4838,6 +4839,31 @@ function emitirEventoTracker(modo, medio, canal) {
     q.push(ev);
     localStorage.setItem('maeva_tracker_queue', JSON.stringify(q.slice(-100)));
   } catch(e) {}
+  // 3) Feedback visual en el cotizador
+  const tipoLabel = tipo === 'res' ? 'reservación' : 'cotización';
+  const medioLabel = {
+    ya_nos_conocia:'Ya nos conocía', facebook:'Facebook', instagram:'Instagram',
+    x:'X (Twitter)', tiktok:'TikTok', whatsapp:'WhatsApp', recomendacion:'Recomendación',
+    tv:'TV', radio:'Radio', prensa:'Prensa', otro:'Otro', agencia_viajes:'Agencia de Viajes',
+    google:'Google', eventos:'Eventos', membresias:'Membresías'
+  }[medioFinal] || medioFinal;
+  const aviso = !medio ? ` (sin medio → registrado en "Otro")` : '';
+  toastCot(`📊 Tracker: +1 ${tipoLabel} · ${medioLabel}${aviso}`);
+}
+
+// Toast ligero para el cotizador (usa el mismo sistema si existe, si no crea uno temporal)
+function toastCot(msg) {
+  let el = document.getElementById('toast-cot');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'toast-cot';
+    el.style.cssText = 'position:fixed;bottom:84px;left:50%;transform:translateX(-50%);background:#003A5C;color:#fff;padding:9px 18px;border-radius:10px;font-size:13px;font-weight:600;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,.25);pointer-events:none;transition:opacity .3s;white-space:nowrap';
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.style.opacity = '1';
+  clearTimeout(el._t);
+  el._t = setTimeout(() => { el.style.opacity = '0'; }, 3500);
 }
 
 // ── CAMBIAR TIPO ──────────────────────────────────────────────
