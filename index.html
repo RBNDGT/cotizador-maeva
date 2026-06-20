@@ -533,7 +533,8 @@ body.dark .topbar-agente input:focus{border-color:rgba(77,212,255,.5);background
   <div class="topbar-agente">
     <label>👤 Agente:</label>
     <input type="text" id="agente-global" placeholder="Tu nombre completo"
-      oninput="syncAgenteGlobal(this.value)">
+      list="agente-datalist" oninput="syncAgenteGlobal(this.value)">
+    <datalist id="agente-datalist"></datalist>
   </div>
   <button onclick="abrirGuia()" title="Guía rápida" style="background:rgba(255,255,255,.12);border:1.5px solid rgba(255,255,255,.2);color:#fff;border-radius:50%;width:34px;height:34px;font-size:15px;font-weight:700;cursor:pointer;margin:auto 14px auto 6px;flex-shrink:0;transition:all .18s;display:flex;align-items:center;justify-content:center" onmouseover="this.style.background='rgba(255,255,255,.22)'" onmouseout="this.style.background='rgba(255,255,255,.12)'">?</button>
 </div>
@@ -5884,9 +5885,49 @@ function initDarkMode() {
   updateDarkUI(isDark);
 }
 
+// ─── SYNC AGENTES DESDE TRACKER ─────────────────────────────────────────────
+// Lee la lista de agentes del Tracker (tracker_agentes_cache en localStorage,
+// que el Tracker llena desde Google Sheets) y la usa para:
+//  1. Poblar el datalist del campo agente-global → sugerencias al escribir
+//  2. Pre-seleccionar el agente si tracker_agente ya tiene un valor guardado
+// Escucha además cambios en tiempo real: si el Tracker cambia de agente
+// mientras cotizador está abierto, el campo se actualiza automáticamente.
+function cargarAgentesCotizador() {
+  function poblarDatalist(agentes) {
+    const dl = document.getElementById('agente-datalist');
+    if (!dl || !agentes || !agentes.length) return;
+    dl.innerHTML = agentes.map(n => `<option value="${n.replace(/"/g,'&quot;')}">`).join('');
+  }
+  function aplicarAgenteTracker() {
+    // Solo aplica si el campo está vacío (no sobreescribir lo que el usuario ya escribió)
+    const inp = document.getElementById('agente-global');
+    if (!inp || inp.value.trim()) return;
+    const nombre = localStorage.getItem('tracker_agente') || '';
+    if (nombre) { inp.value = nombre; syncAgenteGlobal(nombre); }
+  }
+  // Cargar lista del cache del Tracker
+  try {
+    const cache = localStorage.getItem('tracker_agentes_cache');
+    if (cache) poblarDatalist(JSON.parse(cache));
+  } catch(e) {}
+  // Pre-seleccionar agente del Tracker (si maeva_config no tiene uno guardado)
+  aplicarAgenteTracker();
+  // Escuchar cambios en tiempo real (el Tracker cambia tracker_agente en otra tab)
+  window.addEventListener('storage', e => {
+    if (e.key === 'tracker_agentes_cache' && e.newValue) {
+      try { poblarDatalist(JSON.parse(e.newValue)); } catch(ee) {}
+    }
+    if (e.key === 'tracker_agente' && e.newValue) {
+      const inp = document.getElementById('agente-global');
+      if (inp) { inp.value = e.newValue; syncAgenteGlobal(e.newValue); }
+    }
+  });
+}
+
 initTarifas();
 initMensajes();
 cargarConfig();
+cargarAgentesCotizador();
 renderHabs();
 calcular();
 initDarkMode();
