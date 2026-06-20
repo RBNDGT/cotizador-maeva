@@ -797,7 +797,7 @@ body.dark .topbar-agente input:focus{border-color:rgba(77,212,255,.5);background
       <div><label># de Reserva</label><input type="text" id="cli-num-reserva" placeholder="Número del sistema externo"></div>
     </div>
 
-    <div class="grid2" style="margin-bottom:12px">
+    <div class="grid3" style="margin-bottom:12px">
       <div><label>Correo electrónico</label><input type="email" id="cli-email" placeholder="correo@ejemplo.com"></div>
       <div><label>Canal de contacto</label>
         <select id="cli-canal">
@@ -805,6 +805,27 @@ body.dark .topbar-agente input:focus{border-color:rgba(77,212,255,.5);background
           <option>WhatsApp</option>
           <option>Correo electrónico</option>
           <option>Presencial</option>
+        </select>
+      </div>
+      <div>
+        <label>📊 Fuente / Medio <span style="font-size:10px;color:var(--azul);font-weight:700;text-transform:uppercase;letter-spacing:.04em">→ Tracker</span></label>
+        <select id="cli-medio">
+          <option value="">— Sin especificar —</option>
+          <option value="ya_nos_conocia">Ya nos conocía</option>
+          <option value="facebook">Facebook</option>
+          <option value="instagram">Instagram</option>
+          <option value="x">X (Twitter)</option>
+          <option value="tiktok">TikTok</option>
+          <option value="whatsapp">WhatsApp</option>
+          <option value="recomendacion">Recomendación</option>
+          <option value="tv">TV</option>
+          <option value="radio">Radio</option>
+          <option value="prensa">Prensa</option>
+          <option value="otro">Otro</option>
+          <option value="agencia_viajes">Agencia de Viajes</option>
+          <option value="google">Google</option>
+          <option value="eventos">Eventos</option>
+          <option value="membresias">Membresías</option>
         </select>
       </div>
     </div>
@@ -2978,6 +2999,8 @@ function syncAgenteGlobal(val){
     d['cfg-agente']=val;
     localStorage.setItem('maeva_config',JSON.stringify(d));
   }catch(e){}
+  // Sync con Tracker de Medios (mismo origin → mismo localStorage)
+  try{ if(val) localStorage.setItem('tracker_agente', val); }catch(e){}
 }
 
 function generarResumen(){
@@ -4636,6 +4659,8 @@ function guardarEnHistorial() {
   let tipo     = document.getElementById('hist-save-tipo').value;
   let nota     = document.getElementById('hist-save-nota').value || '';
   let peticiones = document.getElementById('cli-notas')?.value || '';
+  let medio    = document.getElementById('cli-medio')?.value || '';
+  let canal    = document.getElementById('cli-canal')?.value || '';
 
   // Huéspedes adicionales por habitación
   let huespedesHabs = [{nombre: cliente, tel, email, numReserva: numReservaBase}];
@@ -4678,6 +4703,7 @@ function guardarEnHistorial() {
       numReserva: numReservaBase,
       tel, email, huespedesHabs,
       factura, tipoOferta, pais, estado, ciudad, direccion,
+      medio, canal,
       fecha_guardado: new Date().toISOString(),
       fi: cot.fi, fo: cot.fo, n: cot.n, plan: cot.plan,
       totalFinal:      cot.totalFinal,
@@ -4735,6 +4761,7 @@ function guardarEnHistorial() {
         email:  hInfo.email || email,
         huespedesHabs: [hInfo],
         factura, tipoOferta, pais, estado, ciudad, direccion,
+        medio, canal,
         fecha_guardado: new Date().toISOString(),
         fi: cot.fi, fo: cot.fo, n: cot.n, plan: cot.plan,
         totalFinal:      subtotalHab,
@@ -4779,6 +4806,31 @@ function guardarEnHistorial() {
     : `✅ Guardado como ${tipo==='reservacion'?'reservación':'cotización'} para ${cliente}`;
   histMsg(msg);
   document.getElementById('hist-save-nota').value = '';
+  // ── Emitir evento al Tracker de Medios ──
+  emitirEventoTracker(tipo, medio, canal);
+}
+
+// ─── INTEGRACIÓN CON TRACKER DE MEDIOS ──────────────────────────────────────
+// Emite evento de cotización o reservación al Tracker Medios Maeva.
+// Mecanismo: BroadcastChannel (tiempo real, si el tracker está abierto)
+//            + cola en localStorage (se procesa cuando el tracker abre después)
+// Ambas apps comparten origin rbndgt.github.io → mismo localStorage.
+function emitirEventoTracker(modo, medio, canal) {
+  if (!medio) return; // sin medio seleccionado → no registrar
+  const tipo = modo === 'reservacion' ? 'res' : 'cot';
+  const ev = {type: tipo, medio, canal: canal||'', ts: Date.now()};
+  // 1) BroadcastChannel — el tracker recibe en tiempo real si está abierto
+  try {
+    const bc = new BroadcastChannel('maeva_tracker');
+    bc.postMessage(ev);
+    bc.close();
+  } catch(e) {}
+  // 2) Cola localStorage — el tracker procesa al abrir (si no estaba en pantalla)
+  try {
+    const q = JSON.parse(localStorage.getItem('maeva_tracker_queue') || '[]');
+    q.push(ev);
+    localStorage.setItem('maeva_tracker_queue', JSON.stringify(q.slice(-100)));
+  } catch(e) {}
 }
 
 // ── CAMBIAR TIPO ──────────────────────────────────────────────
@@ -4918,6 +4970,8 @@ function fabNuevaCotizacion() {
       if (factNo) factNo.checked = true;
       let canal = document.getElementById('cli-canal');
       if (canal) canal.selectedIndex = 0;
+      let medioEl = document.getElementById('cli-medio');
+      if (medioEl) medioEl.selectedIndex = 0;
       // Reset promo UI
       let promoChk = document.getElementById('cot-promo-chk');
       if (promoChk) { promoChk.checked = false; sincPromoDesde('cot'); }
@@ -5305,6 +5359,7 @@ function limpiarDatosCliente() {
       'cli-notas','cli-agente'];
     campos.forEach(id => { let el=document.getElementById(id); if(el) el.value=''; });
     let canal=document.getElementById('cli-canal'); if(canal) canal.selectedIndex=0;
+    let medio=document.getElementById('cli-medio'); if(medio) medio.selectedIndex=0;
     let factNo=document.getElementById('cli-factura-no'); if(factNo) factNo.checked=true;
     let fecha=document.getElementById('cli-fecha-contacto'); if(fecha) fecha.value='';
     // Limpiar también campos de habitaciones extra
