@@ -39,9 +39,10 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;font-size:14px;color
 .topbar-sub{color:rgba(255,255,255,.65);font-size:11px;margin-top:3px;letter-spacing:.02em}
 .topbar-agente{background:rgba(255,255,255,.10);padding:8px 18px;display:flex;align-items:center;gap:8px;margin-left:auto;border-left:1px solid rgba(255,255,255,.15);backdrop-filter:blur(8px)}
 .topbar-agente label{color:rgba(255,255,255,.75);font-size:11px;white-space:nowrap;font-weight:600;letter-spacing:.04em;text-transform:uppercase}
-.topbar-agente input{font-size:12px;padding:5px 11px;border:1.5px solid rgba(255,255,255,.25);border-radius:7px;background:rgba(255,255,255,.12);color:#fff;width:170px;outline:none;font-weight:600;font-family:inherit;transition:all .2s}
+.topbar-agente input,.topbar-agente select{font-size:12px;padding:5px 11px;border:1.5px solid rgba(255,255,255,.25);border-radius:7px;background:rgba(255,255,255,.12);color:#fff;width:170px;outline:none;font-weight:600;font-family:inherit;transition:all .2s;cursor:pointer}
 .topbar-agente input::placeholder{color:rgba(255,255,255,.4);font-weight:400}
-.topbar-agente input:focus{border-color:rgba(255,255,255,.6);background:rgba(255,255,255,.2)}
+.topbar-agente input:focus,.topbar-agente select:focus{border-color:rgba(255,255,255,.6);background:rgba(255,255,255,.2)}
+.topbar-agente select option{background:#003A5C;color:#fff;font-weight:500}
 .container{max-width:1100px;margin:0 auto;padding:1.25rem 1rem 2rem}
 /* ── BOTONES FLOTANTES ─────────────────────────────────────── */
 .fab-wrap{position:fixed;bottom:80px;z-index:800;display:flex;flex-direction:column;gap:10px}
@@ -213,7 +214,7 @@ textarea{resize:vertical;min-height:70px}
   .grid3{grid-template-columns:1fr 1fr}
   .grid4{grid-template-columns:1fr 1fr}
   .admin-rates-grid{grid-template-columns:1fr 1fr}
-  .topbar-agente input{width:130px}
+  .topbar-agente input,.topbar-agente select{width:130px}
   .container{padding:1rem .85rem 2rem}
 }
 
@@ -243,7 +244,7 @@ textarea{resize:vertical;min-height:70px}
   .topbar-title{font-size:13px}
   .topbar-sub{font-size:10px}
   .topbar-agente{width:100%;border-left:none;border-top:1px solid rgba(255,255,255,.12);justify-content:center;padding:7px 14px}
-  .topbar-agente input{width:100%;max-width:280px}
+  .topbar-agente input,.topbar-agente select{width:100%;max-width:280px}
   .grid4{grid-template-columns:1fr}
   .admin-rates-grid{grid-template-columns:1fr 1fr}
   .tab svg{display:none}
@@ -504,9 +505,10 @@ body.dark .topbar-info .topbar-title{color:#e8f4fb}
 body.dark .topbar-info .topbar-sub{color:rgba(180,220,240,.6)}
 body.dark .topbar-agente{background:rgba(255,255,255,.06);border-left:1px solid rgba(255,255,255,.1)}
 body.dark .topbar-agente label{color:rgba(180,220,240,.7);text-shadow:none}
-body.dark .topbar-agente input{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.15);color:#e8f4fb;text-shadow:none}
+body.dark .topbar-agente input,body.dark .topbar-agente select{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.15);color:#e8f4fb;text-shadow:none}
 body.dark .topbar-agente input::placeholder{color:rgba(180,220,240,.35)}
-body.dark .topbar-agente input:focus{border-color:rgba(77,212,255,.5);background:rgba(255,255,255,.12)}
+body.dark .topbar-agente input:focus,body.dark .topbar-agente select:focus{border-color:rgba(77,212,255,.5);background:rgba(255,255,255,.12)}
+body.dark .topbar-agente select option{background:#0d2535;color:#e8f4fb}
 /* Dark toggle button */
 .dark-toggle{display:flex;align-items:center;gap:10px}
 .dark-toggle-track{width:44px;height:24px;background:#ccc;border-radius:12px;position:relative;cursor:pointer;transition:background .2s;flex-shrink:0}
@@ -532,9 +534,9 @@ body.dark .topbar-agente input:focus{border-color:rgba(77,212,255,.5);background
   </div>
   <div class="topbar-agente">
     <label>👤 Agente:</label>
-    <input type="text" id="agente-global" placeholder="Tu nombre completo"
-      list="agente-datalist" oninput="syncAgenteGlobal(this.value)">
-    <datalist id="agente-datalist"></datalist>
+    <select id="agente-global" onchange="syncAgenteGlobal(this.value)">
+      <option value="">— Selecciona —</option>
+    </select>
   </div>
   <button onclick="abrirGuia()" title="Guía rápida" style="background:rgba(255,255,255,.12);border:1.5px solid rgba(255,255,255,.2);color:#fff;border-radius:50%;width:34px;height:34px;font-size:15px;font-weight:700;cursor:pointer;margin:auto 14px auto 6px;flex-shrink:0;transition:all .18s;display:flex;align-items:center;justify-content:center" onmouseover="this.style.background='rgba(255,255,255,.22)'" onmouseout="this.style.background='rgba(255,255,255,.12)'">?</button>
 </div>
@@ -879,7 +881,11 @@ body.dark .topbar-agente input:focus{border-color:rgba(77,212,255,.5);background
   <div class="sec">Registro de atención</div>
   <div class="grid2">
     <div><label>Fecha del contacto</label><input type="date" id="cli-fecha-contacto"></div>
-    <div><label>Agente que atiende</label><input type="text" id="cli-agente" placeholder="Nombre del agente"></div>
+    <div><label>Agente que atiende</label>
+      <select id="cli-agente">
+        <option value="">— Selecciona —</option>
+      </select>
+    </div>
   </div>
 </div>
 <div class="card" id="sh-inline-card">
@@ -5340,9 +5346,10 @@ window.toggleDescAuto = function(el) {
 };
 
 function mayusculasDatosCliente() {
+  // cli-agente es ahora un <select> — no se aplica mayúsculas
   const campos = ['cli-nombre','cli-tel','cli-num-reserva','cli-email',
     'cli-tipo-oferta','cli-direccion','cli-pais','cli-estado','cli-ciudad',
-    'cli-notas','cli-agente'];
+    'cli-notas'];
   campos.forEach(id => {
     let el = document.getElementById(id);
     if (el && el.value) el.value = el.value.toUpperCase();
@@ -5357,10 +5364,11 @@ function limpiarDatosCliente() {
   confirmarAccion('¿Limpiar todos los datos del cliente? Esto no afecta la cotización actual.', () => {
     const campos = ['cli-nombre','cli-tel','cli-num-reserva','cli-email',
       'cli-tipo-oferta','cli-direccion','cli-pais','cli-estado','cli-ciudad',
-      'cli-notas','cli-agente'];
+      'cli-notas'];
     campos.forEach(id => { let el=document.getElementById(id); if(el) el.value=''; });
     let canal=document.getElementById('cli-canal'); if(canal) canal.selectedIndex=0;
     let medio=document.getElementById('cli-medio'); if(medio) medio.selectedIndex=0;
+    let agenteEl=document.getElementById('cli-agente'); if(agenteEl) agenteEl.selectedIndex=0;
     let factNo=document.getElementById('cli-factura-no'); if(factNo) factNo.checked=true;
     let fecha=document.getElementById('cli-fecha-contacto'); if(fecha) fecha.value='';
     // Limpiar también campos de habitaciones extra
@@ -5886,40 +5894,61 @@ function initDarkMode() {
 }
 
 // ─── SYNC AGENTES DESDE TRACKER ─────────────────────────────────────────────
-// Lee la lista de agentes del Tracker (tracker_agentes_cache en localStorage,
-// que el Tracker llena desde Google Sheets) y la usa para:
-//  1. Poblar el datalist del campo agente-global → sugerencias al escribir
-//  2. Pre-seleccionar el agente si tracker_agente ya tiene un valor guardado
-// Escucha además cambios en tiempo real: si el Tracker cambia de agente
-// mientras cotizador está abierto, el campo se actualiza automáticamente.
+// La lista de agentes vive en Google Sheets → el Tracker la cachea en
+// tracker_agentes_cache (localStorage). Ambas apps comparten ese localStorage
+// porque están en el mismo origin (rbndgt.github.io).
+// Aquí poblamos los <select> del cotizador con esa lista y mantenemos
+// el agente seleccionado sincronizado con el Tracker en tiempo real.
 function cargarAgentesCotizador() {
-  function poblarDatalist(agentes) {
-    const dl = document.getElementById('agente-datalist');
-    if (!dl || !agentes || !agentes.length) return;
-    dl.innerHTML = agentes.map(n => `<option value="${n.replace(/"/g,'&quot;')}">`).join('');
+
+  // Puebla AMBOS selects (topbar y datos del cliente) con la lista de agentes
+  function poblarSelectsAgente(agentes) {
+    if (!agentes || !agentes.length) return;
+    const ordenados = agentes.slice().sort((a, b) => a.localeCompare(b, 'es'));
+    const opts = '<option value="">— Selecciona —</option>' +
+      ordenados.map(n => `<option value="${n.replace(/"/g,'&quot;')}">${n.replace(/</g,'&lt;')}</option>`).join('');
+    ['agente-global', 'cli-agente'].forEach(id => {
+      const sel = document.getElementById(id);
+      if (!sel) return;
+      const actual = sel.value; // conservar selección actual
+      sel.innerHTML = opts;
+      if (actual) sel.value = actual; // restaurar si existía
+    });
   }
-  function aplicarAgenteTracker() {
-    // Solo aplica si el campo está vacío (no sobreescribir lo que el usuario ya escribió)
-    const inp = document.getElementById('agente-global');
-    if (!inp || inp.value.trim()) return;
+
+  // Aplica el agente guardado en tracker_agente (sin sobreescribir si ya hay uno)
+  function aplicarAgenteGuardado() {
     const nombre = localStorage.getItem('tracker_agente') || '';
-    if (nombre) { inp.value = nombre; syncAgenteGlobal(nombre); }
+    if (!nombre) return;
+    const sel = document.getElementById('agente-global');
+    if (sel && !sel.value) {
+      sel.value = nombre;
+      syncAgenteGlobal(nombre);
+    }
   }
-  // Cargar lista del cache del Tracker
+
+  // Cargar lista desde cache del Tracker
   try {
     const cache = localStorage.getItem('tracker_agentes_cache');
-    if (cache) poblarDatalist(JSON.parse(cache));
+    if (cache) poblarSelectsAgente(JSON.parse(cache));
   } catch(e) {}
-  // Pre-seleccionar agente del Tracker (si maeva_config no tiene uno guardado)
-  aplicarAgenteTracker();
-  // Escuchar cambios en tiempo real (el Tracker cambia tracker_agente en otra tab)
+
+  // Pre-seleccionar agente guardado
+  aplicarAgenteGuardado();
+
+  // Escuchar cambios en tiempo real desde el Tracker
   window.addEventListener('storage', e => {
+    // Lista de agentes actualizada → repoblar selects
     if (e.key === 'tracker_agentes_cache' && e.newValue) {
-      try { poblarDatalist(JSON.parse(e.newValue)); } catch(ee) {}
+      try { poblarSelectsAgente(JSON.parse(e.newValue)); } catch(ee) {}
     }
+    // Agente cambiado en el Tracker → actualizar selects del cotizador
     if (e.key === 'tracker_agente' && e.newValue) {
-      const inp = document.getElementById('agente-global');
-      if (inp) { inp.value = e.newValue; syncAgenteGlobal(e.newValue); }
+      ['agente-global', 'cli-agente'].forEach(id => {
+        const sel = document.getElementById(id);
+        if (sel) sel.value = e.newValue;
+      });
+      syncAgenteGlobal(e.newValue);
     }
   });
 }

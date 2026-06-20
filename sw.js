@@ -1,4 +1,4 @@
-const CACHE = 'maeva-v26';
+const CACHE = 'maeva-v27';
 const ASSETS = [
   './',
   './index.html',
