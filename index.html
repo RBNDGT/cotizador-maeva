@@ -4814,7 +4814,7 @@ function guardarEnHistorial() {
   histMsg(msg);
   document.getElementById('hist-save-nota').value = '';
   // ── Emitir evento al Tracker de Medios ──
-  emitirEventoTracker(tipo, medio, canal);
+  emitirEventoTracker(tipo, medio, canal, registros.length);
 }
 
 // ─── INTEGRACIÓN CON TRACKER DE MEDIOS ──────────────────────────────────────
@@ -4822,11 +4822,11 @@ function guardarEnHistorial() {
 // Mecanismo: BroadcastChannel (tiempo real, si el tracker está abierto)
 //            + cola en localStorage (se procesa cuando el tracker abre después)
 // Ambas apps comparten origin rbndgt.github.io → mismo localStorage.
-function emitirEventoTracker(modo, medio, canal) {
+function emitirEventoTracker(modo, medio, canal, count) {
   // Si no se seleccionó medio, usar 'otro' como fallback (no bloquear el registro)
   const medioFinal = medio || 'otro';
   const tipo = modo === 'reservacion' ? 'res' : 'cot';
-  const ev = {type: tipo, medio: medioFinal, sinMedio: !medio, canal: canal||'', ts: Date.now()};
+  const ev = {type: tipo, medio: medioFinal, sinMedio: !medio, canal: canal||'', ts: Date.now(), count: Math.max(1, Number(count)||1)};
   // 1) BroadcastChannel — el tracker recibe en tiempo real si está abierto
   try {
     const bc = new BroadcastChannel('maeva_tracker');
