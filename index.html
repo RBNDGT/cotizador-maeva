@@ -1706,7 +1706,7 @@ function calcNocheDepto(fecha, plan, habAdultos, habAdoles, menoresEdades, descT
   }
 
   let ajusteAuto = 0;
-  if (plan === 'AI' && descAutoPct && descAutoPct > 0) ajusteAuto = -(base * (descAutoPct / 100));
+  if (descAutoPct && descAutoPct > 0) ajusteAuto = -(base * (descAutoPct / 100));
   let ajusteManual = 0;
   if (descTipo === 'pct_desc') ajusteManual = -(base * (descVal / 100));
   else if (descTipo === 'monto_desc') ajusteManual = -descVal;
@@ -1761,9 +1761,9 @@ function calcNoche(fecha,plan,adultos,adolescentes,menoresC,descTipo,descVal,des
     }
   }
 
-  // Aplicar descuento automático AI (solo plan AI)
+  // Descuento automático AI o promo eventual (aplica en cualquier plan)
   let ajusteAuto=0;
-  if(plan==='AI'&&descAutoPct&&descAutoPct>0){
+  if(descAutoPct&&descAutoPct>0){
     ajusteAuto=-(base*(descAutoPct/100));
   }
   // Aplicar ajuste manual
